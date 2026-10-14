@@ -65,7 +65,7 @@
           <div class="m-txt"><b>${esc(q.def.text)}</b>
             <small>Abre ${esc(q.def.name)}</small>
             <div class="bar"><i style="width:${pct}%"></i></div>
-            <small>${Math.min(q.prog, q.def.goal).toLocaleString('es')} / ${q.def.goal.toLocaleString('es')}</small></div>
+            <small>${G.U.num(Math.min(q.prog, q.def.goal))} / ${G.U.num(q.def.goal)}</small></div>
           <div class="m-rw">${G.Progress.rewardText(q.def.reward)}</div>`;
         const btn = document.createElement('button');
         if (q.done) {
@@ -90,7 +90,7 @@
           el.innerHTML = `
             <div class="m-txt"><b>${esc(G.Progress.text(m))}</b>
               <div class="bar"><i style="width:${pct}%"></i></div>
-              <small>${Math.min(m.prog, m.goal).toLocaleString('es')} / ${m.goal.toLocaleString('es')}</small></div>
+              <small>${G.U.num(Math.min(m.prog, m.goal))} / ${G.U.num(m.goal)}</small></div>
             <div class="m-rw">${G.Progress.rewardText(d.reward)}</div>`;
           const btn = document.createElement('button');
           if (m.claimed) { btn.className = 'btn small'; btn.disabled = true; btn.textContent = 'Recogido'; }
@@ -164,7 +164,7 @@
       el.innerHTML = `${G.Icons.html(ok ? 'medal' + a.tier : 'medalOff', 36)}
         <div class="a-txt"><b>${esc(a.name)}</b><small>${esc(a.desc)}</small>
           ${ok ? '' : `<div class="bar"><i style="width:${v / a.goal * 100}%"></i></div>`}
-          <div class="a-rw">${ok ? '¡Conseguido!' : v.toLocaleString('es') + ' / ' + a.goal.toLocaleString('es')} · ${G.Progress.rewardText(a.reward)}
+          <div class="a-rw">${ok ? '¡Conseguido!' : G.U.num(v) + ' / ' + G.U.num(a.goal)} · ${G.Progress.rewardText(a.reward)}
           ${a.title ? ` · <span class="gold">Título: ${esc(a.title)}</span>` : ''}</div></div>`;
       return el;
     }
@@ -281,9 +281,9 @@
           <div><span>Mejor tiempo</span><b>${fmt(b.solo || 0)}</b></div>
           <div><span>En grupo</span><b>${fmt(b.group || 0)}</b></div>
           <div><span>Nivel máximo</span><b>${b.level || 0}</b></div>
-          <div><span>Jefes</span><b>${(b.bosses || 0).toLocaleString('es')}</b></div>
+          <div><span>Jefes</span><b>${G.U.num(b.bosses || 0)}</b></div>
           <div><span>Legendarios</span><b>${b.legends || 0}</b></div>
-          <div><span>Derrotados</span><b>${(b.kills || 0).toLocaleString('es')}</b></div>
+          <div><span>Derrotados</span><b>${G.U.num(b.kills || 0)}</b></div>
         </div>
         <h3>Medallas <span class="sub">${b.medals || 0}</span></h3>
         <div class="prof-medals" id="prof-medals"></div>`;

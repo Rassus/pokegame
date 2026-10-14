@@ -1,4 +1,4 @@
-/* ============ coop.js — partida cooperativa (hasta 4 jugadores) ============
+/* ============ coop.js — partida cooperativa (hasta 8 jugadores) ============
  *
  * Quién manda en qué:
  *   ANFITRIÓN   enemigos (aparición, IA, vida, muerte), objetos del suelo,
@@ -17,7 +17,7 @@
  */
 G.Coop = (() => {
   const ANIMS = ['Idle', 'Walk', 'Attack', 'Shoot', 'Charge', 'Hurt', 'Faint'];
-  const COLORS = ['#ffcb3d', '#5fc8ff', '#7ee07a', '#ff8ad8'];
+  const COLORS = ['#ffcb3d', '#5fc8ff', '#7ee07a', '#ff8ad8', '#ff9a3c', '#c47bff', '#7fe0e0', '#ff6b6b'];
   // Mensajes por segundo: 15 directo, 4 por el TURN de Cloudflare (se paga por
   // GB: era 7 y se iban unos 110 GB al día, el 12-10-2026) y 3 por el relé de
   // la Realtime Database (1 $ el GB: sólo si todo lo demás falla).

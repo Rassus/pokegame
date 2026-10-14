@@ -107,10 +107,10 @@ G.RunUI = (() => {
     $('over-stats').innerHTML = `
       <div><span>Tiempo</span><b>${G.U.mmss(r.time)}</b></div>
       <div><span>Nivel</span><b>${r.level}</b></div>
-      <div><span>Derrotados</span><b>${r.kills}</b></div>
+      <div><span>Derrotados</span><b>${G.U.num(r.kills)}</b></div>
       <div><span>Jefes</span><b>${r.bosses}</b></div>
       <div style="grid-column:1/-1"><span>Pokémonedas ganadas</span>
-        <b class="gold"><span class="coin"></span> +${r.coins}</b>
+        <b class="gold"><span class="coin"></span> +${G.U.num(r.coins)}</b>
         <div style="font-size:12px;color:var(--muted)">${r.breakdown}</div></div>
       ${r.t1 || r.t10 || r.tb || r.tg ? `<div style="grid-column:1/-1"><span>Tickets del gacha</span><b>
         ${r.t1 ? G.Icons.html('ticket', 22) + ' +' + r.t1 + ' ' : ''}${r.t10 ? G.Icons.html('ticket10', 22) + ' +' + r.t10 + ' ' : ''}${r.tb ? G.Icons.html('ticketb', 22) + ' +' + r.tb + ' ' : ''}${r.tg ? G.Icons.html('ticketg', 22) + ' +' + r.tg : ''}</b></div>` : ''}

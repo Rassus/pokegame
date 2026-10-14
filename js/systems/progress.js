@@ -161,7 +161,7 @@ G.Progress = (() => {
     const p = [];
     if (r.t10) p.push(G.Icons.html('ticket10', 12) + ' ' + r.t10 + ' ×10');
     if (r.t1) p.push(G.Icons.html('ticket', 12) + ' ' + r.t1);
-    if (r.coins) p.push('<span class="coin"></span> ' + r.coins);
+    if (r.coins) p.push('<span class="coin"></span> ' + G.U.num(r.coins));
     return p.join(' &nbsp;');
   }
 

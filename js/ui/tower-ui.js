@@ -43,7 +43,7 @@ G.TowerUI = (() => {
     if (room && n >= 2 && !room.isHost) { G.UI.toast('Entra el anfitrión de la sala'); return; }
     const cost = duel ? 0 : G.Towers.share();
     if (!duel && (!G.DB.save || (G.DB.save.coins || 0) < cost)) {
-      G.UI.toast('No tienes Pokémonedas para la torre (' + cost + ')');
+      G.UI.toast('No tienes Pokémonedas para la torre (' + G.U.num(cost) + ')');
       return;
     }
     const cfg = G.Towers.prepare(id);

@@ -106,7 +106,7 @@ G.HUD = (() => {
     ctx.font = F(600, 10);
     ctx.fillStyle = '#8fa3c4';
     const towerLine = G.Towers.hud();
-    ctx.fillText(towerLine || (G.World.biomeName().toUpperCase() + '  ·  ' + pl.kills + ' DERROTADOS  ·  ' + pl.coins + ' MONEDAS'), w / 2, 58);
+    ctx.fillText(towerLine || (G.World.biomeName().toUpperCase() + '  ·  ' + G.U.num(pl.kills) + ' DERROTADOS  ·  ' + G.U.num(pl.coins) + ' MONEDAS'), w / 2, 58);
     if (pl.silence > 0 || pl.amnesiaT > 0) {
       ctx.font = F(800, 13);
       ctx.fillStyle = pl.silence > 0 ? '#efe8ff' : '#d2b6ff';

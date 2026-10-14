@@ -35,7 +35,7 @@ G.UI = (() => {
 
   function refreshCoins() {
     const s = G.DB.save;
-    $('coins').textContent = s ? s.coins.toLocaleString('es') : '0';
+    $('coins').textContent = s ? G.U.num(s.coins) : '0';
     const t = (s && s.tickets) || { t1: 0, t10: 0, tb: 0, tg: 0 };
     $('tickets-pill').innerHTML =
       `${G.Icons.html('ticket', 18)} ${t.t1}${ticketPlus('t1')} &nbsp;` +

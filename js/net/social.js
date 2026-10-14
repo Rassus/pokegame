@@ -23,7 +23,7 @@
  */
 G.Social = (() => {
   const VALID = /^[A-Za-z0-9_ñÑáéíóúÁÉÍÓÚ]{3,16}$/;
-  const MAX_PLAYERS = 4;
+  const MAX_PLAYERS = 8;
   const INVITE_TTL = 3 * 60 * 1000;
   const BEAT = 15 * 60 * 1000;          // latido de presencia (era 10 min: menos escrituras)
   const ONLINE = 22 * 60 * 1000;        // "en línea" si el último latido es más reciente

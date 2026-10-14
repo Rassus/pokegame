@@ -10,7 +10,7 @@ G.GachaUI = (() => {
     $('pull-1').onclick = () => pull(1, 't1');
     $('pull-10').onclick = () => pull(10, 't1');
     $('pull-10b').onclick = () => pull(10, 't10');
-    $('pull-10c').onclick = () => pull(5, 'tb');
+    $('pull-10c').onclick = () => pull(10, 'tb');
     $('pull-g').onclick = () => pull(1, 'tg');
     $('pull-close').onclick = close;
 
@@ -91,7 +91,7 @@ G.GachaUI = (() => {
     $('pull-1').disabled = !openRegion || !G.Gacha.costOf(s, 1, 't1');
     $('pull-10').disabled = !openRegion || !G.Gacha.costOf(s, 10, 't1');
     $('pull-10b').disabled = !openRegion || !G.Gacha.costOf(s, 10, 't10');
-    $('pull-10c').disabled = !openRegion || !G.Gacha.costOf(s, 5, 'tb');
+    $('pull-10c').disabled = !openRegion || !G.Gacha.costOf(s, 10, 'tb');
     $('pull-g').disabled = !openRegion || !G.Gacha.costOf(s, 1, 'tg');
     G.UI.refreshCoins();
   }
@@ -134,7 +134,7 @@ G.GachaUI = (() => {
       if (r.fragGain) bits.push(`${G.Icons.html('frag', 18)} +${r.fragGain}`);
       if (r.unlocked) bits.push('<span class="new">¡Capturado!</span>');
       else if (r.shiny && r.isNew) bits.push('<span class="new">¡Shiny!</span>');
-      const tag = bits.join(' ') || `Repetido · <span class="coin"></span> +${r.refund}`;
+      const tag = bits.join(' ') || `Repetido · <span class="coin"></span> +${G.U.num(r.refund)}`;
       c.insertAdjacentHTML('beforeend', `<b>${r.shiny ? G.Icons.html('shiny', 12) + ' ' : ''}${mon.name}</b><div class="tag">${tag}</div>`);
       out.appendChild(c);
       G.Audio.sfx('reveal', { rarity: r.rarity });

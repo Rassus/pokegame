@@ -50,6 +50,12 @@ G.CHANGELOG = [
     ['Torres: 100 oleadas dentro de una grieta, la primera al entrar y luego una cada 10 segundos aunque queden Pokémon vivos. La Sala de Kanto es una montaña: al entrar sale Articuno, Zapdos o Moltres, de los que ya hayas vencido, y esa torre trae más Pokémon de su tipo. Mew y Mewtwo tienen la suya. La entrada son 3000 Pokémonedas, a partes iguales si vais en grupo. Al ganar, si no lo tienes hay un 25% de atraparlo; si ya lo tienes, da de 25 a 50 fragmentos. El jefe puede salir shiny (1/1024). Las mejoras suben la dificultad. El jefe sale en las oleadas 25, 50, 75 y 100. Cada vez que lo derrotas, fusionas un movimiento. Lleva un escudo.',
      'Towers: 100 waves inside a rift, the first as you enter and then one every 10 seconds even if Pokémon are still alive. Kanto Hall is a mountain: on entry it is Articuno, Zapdos or Moltres, among those you have already beaten, and that tower brings more Pokémon of its type. Mew and Mewtwo have their own. Entry is 3000 PokéCoins, split evenly if you go as a group. On a clear, if you do not own it there is a 25% chance to catch it; if you do, it gives 25 to 50 fragments. The boss can be shiny (1/1024). Upgrades raise the difficulty. The boss appears on waves 25, 50, 75 and 100. Each time you defeat it, you fuse a move. It has a shield.']
   ], chg: [
+    ['Cooperativo: las salas admiten hasta 8 jugadores.',
+     'Co-op: rooms allow up to 8 players.'],
+    ['El ticket azul tira ×10, como el morado, y las pokébolas de la tragaperras salen del mismo tamaño.',
+     'The blue ticket pulls ×10, like the purple one, and the slot-machine Poké Balls come out the same size.'],
+    ['Las cantidades grandes se acortan: hasta 99.999 se ven enteras, de 100.000 a 9.999.999 como 100k–9.999k, de 10.000.000 a 9.999.999.999 como 10m–9.999m, y a partir de 10.000.000.000 como 10b.',
+     'Big amounts are shortened: up to 99,999 in full, 100,000 to 9,999,999 as 100k–9,999k, 10,000,000 to 9,999,999,999 as 10m–9,999m, and from 10,000,000,000 as 10b.'],
     ['Desbloquear cuesta menos fragmentos: Común 3, Poco común 5, Rara 10 y Épica 15. La legendaria pasa a 20.',
      'Unlocking costs fewer fragments: Common 3, Uncommon 5, Rare 10 and Epic 15. Legendary goes to 20.'],
     ['En el resultado de una tirada, cada Pokémon muestra los fragmentos que dio en esa tirada. Sólo entra en la pokédex, con la palabra Capturado, cuando la línea junta los fragmentos de su rareza.',

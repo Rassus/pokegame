@@ -38,6 +38,21 @@ G.U = {
     return (h >>> 0) / 4294967296;
   },
 
+  /**
+   * Cantidades: hasta 99.999 tal cual; 100.000–9.999.999 como 100k–9.999k;
+   * 10.000.000–9.999.999.999 como 10m–9.999m; de ahí en adelante, 10b…
+   */
+  num(n) {
+    n = Math.floor(Number(n) || 0);
+    const sign = n < 0 ? '-' : '';
+    n = Math.abs(n);
+    const grp = v => v.toLocaleString('es');
+    if (n < 100000) return sign + grp(n);
+    if (n < 10000000) return sign + grp(Math.floor(n / 1000)) + 'k';
+    if (n < 10000000000) return sign + grp(Math.floor(n / 1000000)) + 'm';
+    return sign + grp(Math.floor(n / 1000000000)) + 'b';
+  },
+
   /** "3:07" a partir de segundos. */
   mmss(s) {
     const m = Math.floor(s / 60);

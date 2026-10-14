@@ -88,7 +88,7 @@ G.Game = (() => {
   function startRun(coop = null) {
     const towerCfg = (coop && coop.tower) || G.Towers.peek();
     if (towerCfg && !G.Towers.charge(towerCfg)) {
-      G.UI.toast('No tienes Pokémonedas para la torre (' + towerCfg.share + ')');
+      G.UI.toast('No tienes Pokémonedas para la torre (' + G.U.num(towerCfg.share) + ')');
       if (coop && G.Social.room) G.LobbyUI.open();
       return;
     }
@@ -346,7 +346,7 @@ G.Game = (() => {
     G.RunUI.showOver({
       dead, time, level: pl.level, kills: pl.kills, bosses: pl.bosses, coins, record, t1: pl.t1, t10: pl.t10, tb: pl.tb, tg: pl.tg,
       moves: pl.moves, caught, title,
-      breakdown: Object.entries(parts).filter(([, v]) => v).map(([k, v]) => `${k} ${v}`).join(' · ') +
+      breakdown: Object.entries(parts).filter(([, v]) => v).map(([k, v]) => `${k} ${G.U.num(v)}`).join(' · ') +
                  (mul > 1 ? ` · ×${mul.toFixed(2)} Fortuna` : '') +
                  (caughtName ? ' · ' + caughtName + ' atrapado' : '') + towerExtra
     }, () => { pl = null; G.Flow.afterRun(); });

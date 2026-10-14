@@ -34,16 +34,16 @@ G.MenuUI = (() => {
     b.id = 'dev-coins';
     b.className = 'btn small gold hidden';
     b.title = 'Herramienta de prueba';
-    b.textContent = '+50.000';
+    b.textContent = '+' + G.U.num(100000000);
     b.dataset.sfx = 'buy';
     $('coins').closest('.pill').after(b);
     b.onclick = () => {
       const sv = G.DB.save;
       if (!sv || !G.UI.helpersOn()) return;
-      sv.coins += 50000;
+      sv.coins += 100000000;
       G.DB.commit(true);
       G.UI.refreshCoins();
-      G.UI.toast(G.DB.guest ? '+50.000 monedas (invitado: no se guarda)' : '+50.000 monedas');
+      G.UI.toast((G.DB.guest ? '+' + G.U.num(100000000) + ' monedas (invitado: no se guarda)' : '+' + G.U.num(100000000) + ' monedas'));
     };
     G.Settings.on(k => { if (k === 'helpers') syncHelpers(); });
     syncHelpers();
@@ -91,7 +91,7 @@ G.MenuUI = (() => {
     const st = s.stats;
     $('menu-stats').innerHTML =
       `Runs <b style="color:#fff">${st.runs}</b> · Mejor tiempo <b style="color:#fff">${G.U.mmss(st.bestTime)}</b><br>` +
-      `Mejor nivel <b style="color:#fff">${st.bestLevel}</b> · Derrotados <b style="color:#fff">${st.totalKills.toLocaleString('es')}</b>` +
+      `Mejor nivel <b style="color:#fff">${st.bestLevel}</b> · Derrotados <b style="color:#fff">${G.U.num(st.totalKills)}</b>` +
       (G.DB.guest ? '<br><span style="color:#ffb0b8">Modo invitado: no se guarda</span>' : '');
 
     socialLine();
@@ -121,7 +121,7 @@ G.MenuUI = (() => {
     const parts = [];
     if (on) parts.push(on + ' en línea');
     if (req) parts.push(req + (req === 1 ? ' solicitud' : ' solicitudes'));
-    $('menu-friends-sub').textContent = parts.length ? parts.join(' · ') : 'Juega en grupo, hasta 4';
+    $('menu-friends-sub').textContent = parts.length ? parts.join(' · ') : 'Juega en grupo, hasta 8';
     $('menu-friends-sub').classList.toggle('gold', req > 0);
   }
 
@@ -425,7 +425,7 @@ G.MenuUI = (() => {
         <div class="upg-btns">
           ${u.id === 'ban' && lvl > 0 ? `<button class="btn small" data-ban>Elegir (${banList().length}/${lvl})</button>` : ''}
           <button class="btn small ${maxed ? '' : 'gold'}" data-buy data-sfx="none" ${maxed || s.coins < cost ? 'disabled' : ''}>
-          ${maxed ? 'Máx.' : `<span class="coin"></span> ${cost}`}</button></div>`;
+          ${maxed ? 'Máx.' : `<span class="coin"></span> ${G.U.num(cost)}`}</button></div>`;
       if (u.id === 'ban' && lvl > 0) el.querySelector('[data-ban]').onclick = () => { banOpen = !banOpen; renderUpgrades(); };
       el.querySelector('[data-buy]').onclick = () => {
         // Se vuelve a leer todo al pulsar (la partida puede haber cambiado desde que se dibujó).

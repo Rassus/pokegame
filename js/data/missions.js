@@ -38,7 +38,7 @@ G.MissionDefs = (() => {
 
   const weekly = [
     { id: 'wkill', ev: 'kill', goals: [4000, 6000], reward: { t10: 1, coins: 800 },
-      text: n => `Derrota a ${n.toLocaleString('es')} Pokémon` },
+      text: n => `Derrota a ${G.U.num(n)} Pokémon` },
     { id: 'wrift', ev: 'rift', goals: [1, 2], reward: { t10: 1, coins: 1000 },
       text: n => (n === 1 ? 'Gana una pelea en una grieta' : `Gana ${n} peleas en grietas`) },
     { id: 'wboss', ev: 'kill', match: d => d.boss, goals: [4, 6], reward: { t10: 1, coins: 900 },

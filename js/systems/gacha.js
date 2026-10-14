@@ -11,8 +11,7 @@
  *
  * Se tira con tickets que se consiguen jugando:
  *   ×1   1 gris
- *   ×10  10 grises o 1 morado
- *   ×5   1 azul
+ *   ×10  10 grises, 1 morado o 1 azul
  *   ×1   1 dorado (shiny)
  */
 G.Gacha = (() => {
@@ -22,7 +21,7 @@ G.Gacha = (() => {
     const t = Object.assign({}, EMPTY, save.tickets);
     if (n === 1 && use === 'tg') return t.tg >= 1 ? Object.assign({}, EMPTY, { tg: 1 }) : null;
     if (n === 10 && use === 't10') return t.t10 >= 1 ? Object.assign({}, EMPTY, { t10: 1 }) : null;
-    if (n === 5 && use === 'tb') return t.tb >= 1 ? Object.assign({}, EMPTY, { tb: 1 }) : null;
+    if (n === 10 && use === 'tb') return t.tb >= 1 ? Object.assign({}, EMPTY, { tb: 1 }) : null;
     return t.t1 >= n ? Object.assign({}, EMPTY, { t1: n }) : null;
   }
   // Porcentajes por ticket: común, poco común, rara, épica, legendaria.
