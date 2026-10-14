@@ -1,0 +1,198 @@
+/* ============ changelog.js — novedades del juego ============
+ * Lo que ve la gente en el botón "Novedades" de la barra de arriba: cambios
+ * de juego y fallos arreglados (nada de servidores ni bases de datos).
+ * La fecha más nueva, arriba. En cada fecha, por apartados:
+ *   new  lo nuevo · chg  cambios y ajustes · fix  fallos arreglados
+ * Cada línea en español y en inglés.
+ */
+G.CHANGELOG = [
+  { d: '2026-10-13', title: ['Todas las partidas cuentan', 'Every run counts'], new: [
+    ['Regiones: solo Kanto empieza abierta. En Misiones hay una misión fija para abrir cada región siguiente (Johto, Hoenn… hasta Paldea). El gacha de una región cerrada se puede mirar, pero no tirar. Si ya tenías Pokémon de otras regiones, esas siguen abiertas.',
+     'Regions: only Kanto starts open. Missions has a fixed quest to open each next region (Johto, Hoenn… through Paldea). You can look at a locked region\'s banner, but not pull on it. If you already had Pokémon from other regions, those stay open.'],
+    ['Gacha: cada tirada da 1 fragmento de ese Pokémon. Se desbloquea al juntar los de su rareza: Común 3, Poco común 5, Rara 10, Épica 15 y Legendaria 20. Un shiny lo desbloquea en esa tirada.',
+     'Gacha: each pull gives 1 fragment of that Pokémon. You unlock it by collecting its rarity\'s worth: Common 3, Uncommon 5, Rare 10, Epic 15 and Legendary 20. A shiny unlocks it on that pull.'],
+    ['Si ya tienes un Pokémon y aún puede subir, la tirada sigue dando fragmentos de su línea. Al tope de vida, ataque y velocidad, da Pokémonedas. El gacha no da tickets: esos se consiguen jugando.',
+     'Once you own a Pokémon and it can still grow, the pull keeps giving fragments of its line. At the HP, attack and speed cap, it gives PokéCoins. The gacha does not give tickets: those are earned by playing.'],
+    ['Subir vida, ataque o velocidad gasta fragmentos de la línea. Cuesta 10 al empezar y sube de 10 en 10 según lo cerca que estés del máximo: a mitad de camino 60, y 100 en el último tramo. En la ficha se ven con una pieza de puzle. Ya no se cambian por tickets.',
+     'Raising HP, attack or speed spends line fragments. It costs 10 at the start and goes up by 10 the closer you are to the cap: 60 at the halfway point, and 100 on the last stretch. The page shows them as a puzzle piece. They can no longer be converted into tickets.'],
+    ['Oleadas por etapas: al empezar salen básicos, desde el minuto 3 las segundas evoluciones y desde el minuto 8 las formas finales.',
+     'Waves by stage: basics at the start, second evolutions from minute 3 and final forms from minute 8.'],
+    ['Piedra Evolución: sale al 0,01% en cofres y jefes, y ocupa un hueco aparte del objeto. Un básico puede evolucionar desde el nivel 65 y una segunda etapa desde el 135. Si hay varias formas, como Eevee, la carta solo dice Evolucionar y la forma sale al azar.',
+     'Evolution Stone: a 0.01% drop from chests and bosses, in its own slot besides your item. A basic can evolve from level 65 and a second stage from level 135. If there are several forms, like Eevee, the card only says Evolve and the form is random.'],
+    ['Los fragmentos son de la línea evolutiva, como en Pokémon GO. Un básico da ×1, la segunda evolución ×2 y la tercera ×3. Se comparten entre todas las formas de esa línea.',
+     'Fragments belong to the evolution line, as in Pokémon GO. A basic gives ×1, the second evolution ×2 and the third ×3. Every form in that line shares them.'],
+    ['Al minuto 25 de una partida se abre una grieta con Articuno.',
+     'At minute 25 of a run, a rift opens with Articuno.'],
+    ['El ticket azul hace una tirada ×10, como el morado, y se ve del mismo tamaño.',
+     'The blue ticket does a ×10 pull, like the purple one, and shows at the same size.'],
+    ['Oleadas y jefes: en una partida sólo salen Pokémon de las regiones que tengas abiertas. Los legendarios de las grietas, también.',
+     'Waves and bosses: a run only spawns Pokémon from the regions you have open. Rift legendaries do too.'],
+    ['En la ficha de un Pokémon, al tocar un movimiento se ven sus datos (daño, recarga y el resto) y qué hace, justo encima del botón de compañero.',
+     'On a Pokémon\'s page, tapping a move shows its stats (damage, cooldown and the rest) and what it does, right above the partner button.'],
+    ['Los jefes pegan más fuerte según avanza la partida. Al minuto 3 su vida y su daño van por ×1,8, al minuto 9 por ×3,5 y al minuto 15 por ×5,1. En una grieta, el legendario también crece más deprisa con el reloj.',
+     'Bosses hit harder as the run goes on. At minute 3 their HP and damage are about ×1.8, at minute 9 ×3.5 and at minute 15 ×5.1. In a rift, the legendary also grows faster with the clock.'],
+    ['Al empezar eliges a tu compañero entre Bulbasaur, Squirtle y Charmander. Ya no hay test de personalidad.',
+     'When you start, you pick your partner from Bulbasaur, Squirtle and Charmander. There is no personality test.'],
+    ['Si evolucionas en una partida, esa forma entra en la pokédex. Si ibas shiny, también entra su versión shiny.',
+     'If you evolve during a run, that form joins your Pokédex. If you were shiny, its shiny form joins too.'],
+    ['En el menú, entre Gacha y Misiones, hay Objetos: qué hace cada uno y el porcentaje de que caiga en un cofre pequeño, un cofre grande o un jefe.',
+     'In the menu, between Gacha and Missions, there is Items: what each one does and its chance to drop from a small chest, a big chest or a boss.'],
+    ['Fortuna de tickets: hasta 10 niveles. Cada uno suma 2% al ticket gris, 0,1% al morado, 0,05% al azul y 0,001% al dorado, en cofres y jefes. No cambia lo que suelta cada Pokémon derrotado.',
+     'Ticket fortune: up to 10 levels. Each adds 2% to grey tickets, 0.1% to purple, 0.05% to blue and 0.001% to gold, from chests and bosses. It does not change what each defeated Pokémon drops.'],
+    ['Cascabel Concha: ya no cura con el daño. Da un escudo de hasta el 25% de tu vida, que se recarga un 1% por segundo. La barra va encima de la de vida y el escudo absorbe el golpe antes.',
+     'Shell Bell: it no longer heals from damage. It gives a shield of up to 25% of your HP, which refills 1% per second. The bar sits above the HP bar, and the shield takes the hit first.'],
+    ['Garra Sangrienta: recuperas 3 de vida por cada golpe, hasta 12 por segundo.',
+     'Bloody Claw: you recover 3 HP per hit, up to 12 per second.'],
+    ['Amuleto Suerte: al recoger un ticket, un 1% de que cuente por dos del mismo color.',
+     'Lucky Charm: when you pick up a ticket, a 1% chance it counts as two of the same color.'],
+    ['Rapidez para abrir cofres: 5 niveles. El cofre con candado tarda 3,5 s y cada nivel lo recorta 1, 1,25, 1,75, 2,25 o 3,25 s.',
+     'Chest opening speed: 5 levels. A locked chest takes 3.5 s, and each level cuts that by 1, 1.25, 1.75, 2.25 or 3.25 s.'],
+    ['Torres: 100 oleadas dentro de una grieta, la primera al entrar y luego una cada 10 segundos aunque queden Pokémon vivos. La Sala de Kanto es una montaña: al entrar sale Articuno, Zapdos o Moltres, de los que ya hayas vencido, y esa torre trae más Pokémon de su tipo. Mew y Mewtwo tienen la suya. La entrada son 3000 Pokémonedas, a partes iguales si vais en grupo. Al ganar, si no lo tienes hay un 25% de atraparlo; si ya lo tienes, da de 25 a 50 fragmentos. El jefe puede salir shiny (1/1024). Las mejoras suben la dificultad. El jefe sale en las oleadas 25, 50, 75 y 100. Cada vez que lo derrotas, fusionas un movimiento. Lleva un escudo.',
+     'Towers: 100 waves inside a rift, the first as you enter and then one every 10 seconds even if Pokémon are still alive. Kanto Hall is a mountain: on entry it is Articuno, Zapdos or Moltres, among those you have already beaten, and that tower brings more Pokémon of its type. Mew and Mewtwo have their own. Entry is 3000 PokéCoins, split evenly if you go as a group. On a clear, if you do not own it there is a 25% chance to catch it; if you do, it gives 25 to 50 fragments. The boss can be shiny (1/1024). Upgrades raise the difficulty. The boss appears on waves 25, 50, 75 and 100. Each time you defeat it, you fuse a move. It has a shield.']
+  ], chg: [
+    ['Desbloquear cuesta menos fragmentos: Común 3, Poco común 5, Rara 10 y Épica 15. La legendaria pasa a 20.',
+     'Unlocking costs fewer fragments: Common 3, Uncommon 5, Rare 10 and Epic 15. Legendary goes to 20.'],
+    ['En el resultado de una tirada, cada Pokémon muestra los fragmentos que dio en esa tirada. Sólo entra en la pokédex, con la palabra Capturado, cuando la línea junta los fragmentos de su rareza.',
+     'On a pull result, each Pokémon shows the fragments it gave on that pull. It joins the Pokédex, marked Caught, only when the line has that rarity\'s fragments.'],
+    ['Mejoras: nuevos máximos (Vitalidad y Fuerza 40, Coraza 40, Sabiduría 40, Golpe crítico 40, Fortuna 20, Imán 12, Síntesis 10, Zancada y Reflejos 8, Cambio de cartas 6, Veto 3, Repertorio 1). Imán da 8% por nivel, Sabiduría 2%, Fortuna 5% y Golpe crítico 1,5%.',
+     'Upgrades: new caps (Vitality and Strength 40, Armor 40, Wisdom 40, Critical Hit 40, Fortune 20, Magnet 12, Synthesis 10, Stride and Reflexes 8, Reroll 6, Ban 3, Repertoire 1). Magnet gives 8% per level, Wisdom 2%, Fortune 5% and Critical Hit 1.5%.'],
+    ['Tickets del gacha: gris, morado, azul y dorado, cada uno con sus probabilidades. El azul tira ×5 y el dorado ×1, y siempre es shiny. En la partida caen de los Pokémon, los cofres y los jefes.',
+     'Gacha tickets: grey, purple, blue and gold, each with its own odds. Blue pulls ×5 and gold pulls ×1, and is always shiny. In a run they drop from Pokémon, chests and bosses.'],
+    ['Los tickets caen menos: el cofre pequeño da menos morados y azules, y cada Pokémon derrotado casi no suelta tickets. Los jefes de la run y de la grieta siguen igual.',
+     'Tickets drop less often: small chests give fewer purple and blue ones, and each defeated Pokémon almost never drops a ticket. Run bosses and rift bosses stay the same.'],
+    ['Ya no hay comprobaciones contra trampas: todas las partidas cuentan para el ranking y los récords, y no se pierde nada de lo ganado.',
+     'No more anti-cheat checks: every run counts for the leaderboard and your records, and nothing you earn is taken away.']
+  ] },
+  { d: '2026-10-12', title: ['Tiempo extra y grietas con menos azar', 'Overtime and less random rifts'], new: [
+    ['Tiempo extra: desde el minuto 60 los Pokémon salvajes se vuelven cada vez más fuertes (más vida y más daño), y cada vez más deprisa. Antes, con las mejoras al máximo, algunas partidas no acababan nunca; ahora las mejores rondarán la hora y media.',
+     'Overtime: from minute 60 on, wild Pokémon keep getting stronger (more HP and more damage), faster and faster. Before, with maxed upgrades, some runs never ended; now the best ones will last about an hour and a half.'],
+    ['El juego se actualiza solo cuando sale una versión nueva: si estás en el menú, a los 5 segundos; si estás jugando, al acabar la partida (sin perder nada).',
+     'The game now updates itself when a new version is out: within 5 seconds if you are in the menu, or after your run if you are playing (without losing anything).'],
+    ['Botón de Novedades (esta ventana) con todos los cambios del juego.',
+     'A "What\'s new" button (this window) with every change to the game.'],
+    ['Números más fáciles de leer: el 2, el 5 y el 8 ya no se confunden.',
+     'Easier to read numbers: 2, 5 and 8 no longer look alike.'],
+    ['Elige la versión normal o shiny de tu compañero desde el menú principal, debajo de él.',
+     'Pick the normal or shiny version of your partner right from the main menu, under it.'],
+    ['Mejoras nuevas para cada Pokémon: Golpe Crítico (+3 % de críticos por nivel, que hacen x1,5 de daño), Cambio de cartas (+1 cambio de las cartas de nivel por run) y Veto (bloquea movimientos para que no te salgan en las cartas; se eligen en Mejoras).',
+     'New upgrades for each Pokémon: Critical Hit (+3% critical chance per level, crits deal x1.5 damage), Card reroll (+1 level-up card reroll per run) and Ban (block moves so they never show up in your cards; pick them in Upgrades).'],
+    ['Atajos de movimientos (en Mejoras, para cada Pokémon): elige qué movimiento va siempre en cada hueco, por ejemplo Confusión siempre en el 1, para la memoria muscular.',
+     'Move shortcuts (in Upgrades, for each Pokémon): choose which move always goes in each slot, for example Confusion always on 1, for muscle memory.'],
+    ['Durante la partida, a la izquierda, se ve cuántas veces has cogido cada carta de mejora (Potencia, Aprendizaje y el resto).',
+     'During a run, the left side shows how many times you have picked each upgrade card (Power, Learning and the rest).']
+  ], chg: [
+    ['Las mejoras permanentes tienen el doble de niveles (Vitalidad pasa de 10 a 20, y el resto igual). Cada nivel nuevo da lo mismo que los de antes y cuesta según la misma curva.',
+     'Permanent upgrades have twice as many levels (Vitality goes from 10 to 20, and the rest the same way). Each new level gives the same bonus as before and costs along the same curve.'],
+    ['Avalancha hace menos daño (21 en vez de 26): derrotaba casi el doble que la media de los movimientos.',
+     'Rock Slide deals less damage (21 instead of 26): it defeated almost twice as many as the average move.'],
+    ['Los cambios de cartas de nivel ya no se ganan venciendo jefes: tienes 1 gratis por run y el resto se compra en Mejoras.',
+     'Level-up card rerolls are no longer earned by defeating bosses: you get 1 free per run and can buy more in Upgrades.'],
+    ['Los legendarios de grieta ya no dan siempre tickets x10: dan uno la mitad de las veces (antes daban 2 siempre y salían demasiados).',
+     'Rift legendaries no longer always drop x10 tickets: they drop one half of the time (they used to always drop 2, which was too many).'],
+    ['Cooperativo: si vuestras redes no consiguen conectar entre sí, la sala lo avisa y lo reintenta sola, en vez de jugar a tirones por un servidor lento.',
+     'Co-op: if your networks cannot connect to each other, the room says so and keeps retrying, instead of playing laggy through a slow server.'],
+    ['Hemos cambiado de servidores para que el juego siga siendo gratis: puede que tengas que volver a iniciar sesión (con la misma cuenta y contraseña, o con Google). Tu partida y tus Pokémon siguen igual.',
+     'We moved to new servers so the game can stay free: you may need to sign in again (with the same account and password, or with Google). Your save and your Pokémon are unchanged.'],
+    ['Gacha: los shiny ya no salen repetidos. Si te toca uno que ya tienes, sale otro de la misma rareza que te falte.',
+     'Gacha: shinies no longer come out as duplicates. If you roll one you already have, you get another of the same rarity that you are missing.'],
+    ['Grietas con menos azar: cada vez que no sale una, la siguiente es más probable (como mucho 2,5 minutos sin grieta).',
+     'Less random rifts: every time one does not show up, the next one is more likely (at most 2.5 minutes without a rift).'],
+    ['Los legendarios que aún no has vencido salen 4 veces más en las grietas.',
+     'Legendaries you have not beaten yet show up 4 times as often in rifts.'],
+    ['Los curanderos curan más cuanto más fuerte pegas, pero cada vez menos y con un tope (como mucho el 2,5x).',
+     'Healers heal more the harder you hit, but with diminishing returns and a cap (2.5x at most).'],
+    ['Ataques cuerpo a cuerpo más fuertes: mientras llevas uno activo recibes un 25 % menos de daño, llegan un 25 % más lejos y hacen un 20 % más de daño.',
+     'Stronger melee attacks: while one is active you take 25% less damage, and they reach 25% further and deal 20% more damage.'],
+    ['Cooperativo: al elegir con qué objeto quedarte, la partida se para para todos (antes seguía y te pegaban mientras elegías).',
+     'Co-op: choosing which held item to keep now pauses the run for everyone (it used to keep going and you got hit while choosing).'],
+    ['Cooperativo: mientras alguien elige una fusión, la partida se para para todos.',
+     'Co-op: while someone is choosing a fusion, the run pauses for everyone.'],
+    ['Cooperativo: si el anfitrión cambia de pestaña o se le para el juego, la partida se pausa para todos hasta que vuelva.',
+     'Co-op: if the host switches tabs or their game stalls, the run pauses for everyone until they are back.'],
+    ['Las runs de menos de 1 minuto ya no cuentan para el ranking.',
+     'Runs shorter than 1 minute no longer count for the leaderboard.']
+  ], fix: [
+    ['Quitadas del ranking las marcas rotas por el fallo del minuto 84 (el reloj seguía corriendo con el juego parado) y alguna imposible. Si tenías una, tu próxima partida vuelve a contar.',
+     'Removed broken records from the leaderboard caused by the minute 84 bug (the clock kept running while the game was frozen) and a few impossible ones. If you had one, your next run counts again.'],
+    ['iPhone (Safari y Chrome): a veces no se podía cambiar de movimiento tocando los iconos, sobre todo con el otro dedo en el joystick. Además los botones quedan por encima de la barra de inicio.',
+     'iPhone (Safari and Chrome): sometimes you could not switch moves by tapping the icons, especially with your other finger on the joystick. Buttons also sit above the home bar now.'],
+    ['En las partidas de más de 84 minutos la pantalla se quedaba en negro, el juego se paraba o empezabas a subir de nivel sin fin. Ya puedes jugar todo lo que aguantes.',
+     'In runs longer than 84 minutes the screen went black, the game froze or you kept levelling up forever. Now you can play for as long as you survive.'],
+    ['Si el juego fallara, la partida se cierra sola y se guarda (tiempo, derrotados, récords y ranking) en vez de perderse.',
+     'If the game ever crashes, the run ends by itself and is saved (time, defeated, records and leaderboard) instead of being lost.'],
+    ['Las partidas muy largas a veces se tomaban por trampas y no contaban para el ranking.',
+     'Very long runs were sometimes flagged as cheating and did not count for the leaderboard.'],
+    ['Cooperativo: si el anfitrión cambiaba de pestaña, los enemigos se quedaban quietos y los demás jugaban con ventaja.',
+     'Co-op: if the host switched tabs, enemies stood still and everyone else got a free advantage.'],
+    ['iPhone: mantener el dedo en el joystick sacaba "Copiar / Seleccionar todo".',
+     'iPhone: holding your finger on the joystick brought up "Copy / Select all".'],
+    ['iPhone: a veces no salía la pantalla completa. Ahora el botón explica cómo tenerla (Compartir y "Añadir a pantalla de inicio").',
+     'iPhone: fullscreen sometimes did not show up. Now the button explains how to get it (Share and "Add to Home Screen").']
+  ] },
+  { d: '2026-10-11', title: ['Vínculos', 'Bonds'], new: [
+    ['Vínculos: al vencer a un legendario fusionas movimientos que se lanzan a la vez desde un solo hueco (hasta 4).',
+     'Bonds: defeating a legendary lets you fuse moves that fire at the same time from a single slot (up to 4).'],
+    ['Botón para cambiar las cartas de subir de nivel.',
+     'A button to reroll the level-up cards.']
+  ], chg: [
+    ['Más grietas.', 'More rifts.'],
+    ['Movimientos psíquicos y curanderos más flojos.', 'Weaker psychic moves and healers.'],
+    ['Las mejoras de las cartas de nivel (velocidad, recarga, experiencia, imán, coraza y potencia) tienen un tope de veces.',
+     'Level-up card upgrades (speed, cooldown, experience, magnet, armor and power) can only be taken a limited number of times.'],
+    ['En el móvil, la ficha del Pokémon sale al lado; entrar es más rápido y el gacha x10 se puede cerrar.',
+     'On mobile, the Pokémon details show alongside; logging in is faster and the x10 gacha can be closed.']
+  ], fix: [
+    ['Pantalla negra en partidas de más de una hora por llenarse la memoria de imágenes.',
+     'Black screen in runs longer than an hour because image memory filled up.'],
+    ['Los tickets se perdían si se cerraba la pestaña antes de acabar la partida: ahora se guardan al cogerlos.',
+     'Tickets were lost if the tab closed before the run ended: now they are saved as soon as you pick them up.'],
+    ['Una mejora comprada justo después de guardar se cobraba y no se apuntaba.',
+     'An upgrade bought right after saving was charged but not applied.'],
+    ['El juego se quedaba congelado para siempre si algo fallaba a mitad de partida.',
+     'The game froze forever if something went wrong mid-run.']
+  ] },
+  { d: '2026-10-10', title: ['Más reto', 'More challenge'], new: [
+    ['Jefes y legendarios con 4 ataques avisados que se enfurecen a media vida.',
+     'Bosses and legendaries with 4 telegraphed attacks that get enraged at half health.'],
+    ['12 movimientos nuevos y 8 formas de atacar nuevas: bumerán, cadena, minas, meteoros, torreta, embestida, rastro y abanico.',
+     '12 new moves and 8 new ways to attack: boomerang, chain, mines, meteors, turret, dash, trail and spray.'],
+    ['Eventos a mitad de partida (hordas de un tipo, hora dorada, Pokémon perdidos) y Meowth y Gholdengo que huyen cargados de monedas.',
+     'Mid-run events (single-type hordes, golden hour, lost Pokémon) and Meowth and Gholdengo running away loaded with coins.'],
+    ['Estatuas para los Pokémon grandes.', 'Statues for big Pokémon.']
+  ], chg: [
+    ['Más difícil: menos enemigos pero más duros.', 'Harder: fewer but tougher enemies.'],
+    ['Subir de nivel es más lento, los tickets son más raros y los jefes dan ticket x10 una de cada tres veces.',
+     'Levelling up is slower, tickets are rarer and bosses drop a x10 ticket one time in three.'],
+    ['Carga más rápida.', 'Faster loading.']
+  ], fix: [
+    ['Los enemigos rezagados desaparecían delante de ti: ahora sólo fuera de la vista.',
+     'Straggling enemies vanished in front of you: now only off-screen.'],
+    ['Los menús y pantallas se montaban encima de la barra de arriba.',
+     'Menus and screens overlapped the top bar.']
+  ] },
+  { d: '2026-10-09', title: ['Móvil e inglés', 'Mobile and English'], new: [
+    ['Se puede jugar en móvil y tablet con joystick táctil, e instalar como app.',
+     'Play on phones and tablets with a touch joystick, and install it as an app.'],
+    ['El juego, en español y en inglés.', 'The game in English and Spanish.'],
+    ['Pantalla de ajustes con calidad gráfica automática.', 'Settings screen with automatic graphics quality.']
+  ], chg: [
+    ['Menos enemigos en pantalla pero más fuertes.', 'Fewer but stronger enemies on screen.'],
+    ['Gigadrenado pasa a ser Hierba Lazo (ya no cura).', 'Giga Drain becomes Grass Knot (no more healing).']
+  ] },
+  { d: '2026-10-08', title: ['Misiones, grietas y cooperativo', 'Missions, rifts and co-op'], new: [
+    ['Misiones diarias y semanales, logros con medallas y títulos, y perfil público.',
+     'Daily and weekly missions, achievements with medals and titles, and a public profile.'],
+    ['Objetos equipables, evoluciones de movimientos y enemigos que curan, protegen, invocan o explotan.',
+     'Held items, move evolutions and enemies that heal, shield, summon or explode.'],
+    ['Grietas que llevan a 18 arenas legendarias, una por tipo, y clima que cambia la batalla.',
+     'Rifts leading to 18 legendary arenas, one per type, and weather that changes the fight.'],
+    ['Cooperativo con tu lista de amigos y ranking.', 'Co-op with your friends list and leaderboards.'],
+    ['Mejoras para cada Pokémon, gacha tragaperras con tickets y tabla de tipos.',
+     'Upgrades for each Pokémon, a slot-machine ticket gacha and a type chart.']
+  ], chg: [
+    ['Cámara más lejos y enemigos que rodean los obstáculos.', 'Camera further out and enemies that walk around obstacles.']
+  ] },
+  { d: '2026-10-07', title: ['Primera versión', 'First version'], new: [
+    ['Primera versión pública de PokéSurvivor.', 'First public version of PokéSurvivor.']
+  ] }
+];
