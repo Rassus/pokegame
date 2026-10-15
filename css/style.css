@@ -625,6 +625,12 @@ select.field { font-family: var(--font); }
   background: rgba(0,0,0,.22); border: 2px solid rgba(244,248,255,.14);
 }
 .mission.ready { border-color: var(--gold); background: rgba(255,210,63,.1); }
+.mission.region-m { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.mission.region-m .btn { align-self: flex-end; }
+.req-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.req-list li { display: grid; grid-template-columns: 1fr auto; gap: 0 10px; align-items: baseline; font-size: 13px; }
+.req-list li.ok { color: var(--gold); }
+.req-list .bar { grid-column: 1 / -1; margin: 2px 0 0; }
 .mission.claimed { opacity: .55; }
 .mission small, .ach small { color: var(--muted); font-size: 12px; }
 .mission .bar, .ach .bar { height: 7px; background: rgba(0,0,0,.4); border-radius: 6px; overflow: hidden; margin: 4px 0 2px; }

@@ -10,6 +10,8 @@ G.CHANGELOG = [
     ['Objetos nuevos: Medallón de Meowth (las monedas caen un 30% más), Boleto Ganador (el oro recogido vale ×1,5 al momento), Ganzúa (los cofres se abren 1 s antes), Llave Maestra (abre un cofre al tocarlo y se gasta), Botines de Hielo (en el agua no frenan y dan +30% de velocidad) y Toalla de Sauna (la lava no hace daño y cura 4 de vida por segundo).',
      'New items: Meowth Medal (coins drop 30% more often), Winning Ticket (picked-up gold is worth ×1.5 right away), Lockpick (chests open 1 s faster), Master Key (opens one chest on touch, then it is gone), Ice Boots (in water they do not slow you and grant +30% speed) and Sauna Towel (lava deals no damage and heals 4 HP per second).']
   ], chg: [
+    ['Abrir una región es una lista: Pokémon de las regiones anteriores, bajas, minutos, jefes y torres. Desde Teselia también se paga oro y tickets, y se gastan al abrirla.',
+     'Opening a region is a checklist: Pokémon from earlier regions, defeats, minutes, bosses and towers. From Unova on you also pay gold and tickets, and they are spent when you open it.'],
     ['Garra Sangrienta: 3 de vida por enemigo en cada ataque, hasta 12 por ataque. Entre todos, no más del 2% de tu vida máxima por segundo.',
      'Bloody Claw: 3 HP per enemy on each attack, up to 12 per attack. Altogether, no more than 2% of your max HP per second.'],
     ['Moneda Amuleto: +100% de Pokémonedas al acabar la run, y solo si la sigues llevando. Si la cambias antes, no cuenta.',
@@ -35,6 +37,8 @@ G.CHANGELOG = [
     ['Al evolucionar en una run, las mejoras de vida, ataque y velocidad pasan a la evolución si son más altas que las que ya tenía. No se suman y no pasan del máximo.',
      'Evolving in a run carries HP, attack and speed upgrades to the new form when they are higher than the ones it already had. They are not added together and they cannot go past the cap.']
   ], fix: [
+    ['Cambiar opciones [R] no hacía nada en solitario: el juego creía que estabas en una votación de cartas.',
+     'Reroll [R] did nothing in solo: the game thought you were in a card vote.'],
     ['«Me gusta el dinero» cuenta solo el oro de las runs. El de las misiones no suma.',
      '“I like money” counts only gold from runs. Mission gold does not count.'],
     ['A veces un Pokémon salvaje se quedaba invisible si el navegador soltaba su dibujo.',

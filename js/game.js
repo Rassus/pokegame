@@ -373,6 +373,14 @@ G.Game = (() => {
     };
     const coins = Math.round((parts.tiempo + parts.derrotados + parts.jefes + parts.recogidas) * mul);
     const tower = G.Towers.take();
+    if (tower && !tower.duel) {
+      const wave = tower.cleared ? 100 : (tower.wave || 0);
+      save.stats.towerBest = Math.max(save.stats.towerBest || 0, wave);
+      if (tower.cleared && tower.id) {
+        save.tower100 = save.tower100 || {};
+        save.tower100[tower.id] = (save.tower100[tower.id] || 0) + 1;
+      }
+    }
     let caughtName = '';
     let towerExtra = '';
     if (tower && tower.cleared && !dead && tower.reward) {

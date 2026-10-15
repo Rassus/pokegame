@@ -82,11 +82,12 @@ G.DB = (() => {
       achRank: {},            // id -> escalones ya cobrados (logros con varios pasos)
       missions: {},           // misiones del día / semana (systems/progress.js)
       region: 1,              // última generación abierta (1 = Kanto … 9 = Paldea)
-      regionProg: 0,          // avance de la misión que abre la siguiente
+      regionProg: 0,          // (antiguo) la lista nueva se lee de la cuenta
+      tower100: {},           // id de torre -> veces que llegaste a la oleada 100
       profile: { favs: [], title: '' },   // perfil público: 3 favoritos y título
       stats: { runs: 0, bestTime: 0, bestLevel: 0, totalKills: 0, pulls: 0, coinsEarned: 0, shinies: 0,
                bossesTotal: 0, riftWins: 0, evolutions: 0, missionsDone: 0, groupRuns: 0, bestGroupTime: 0,
-               shinyKills: 0, shinyBosses: 0, goldPulls: 0, ticketsGot: 0, bestKills: 0, bestBosses: 0, towerClears: 0 }
+               shinyKills: 0, shinyBosses: 0, goldPulls: 0, ticketsGot: 0, bestKills: 0, bestBosses: 0, towerClears: 0, towerBest: 0 }
     };
   }
 
@@ -119,6 +120,9 @@ G.DB = (() => {
     }
     const ticketsGotMissing = s.stats.ticketsGot == null;
     for (const k in base.stats) if (s.stats[k] == null) s.stats[k] = base.stats[k];
+    // Quien ya superó una torre llegó a la oleada 100, aunque no se guardara el piso.
+    if ((s.stats.towerClears || 0) > 0) s.stats.towerBest = Math.max(s.stats.towerBest || 0, 100);
+    if (!s.tower100 || typeof s.tower100 !== 'object') s.tower100 = {};
     if (!s.achRank) s.achRank = {};
     // v1 -> v2: había un único banner (Kanto) con el pity como número.
     if (typeof s.pity === 'number') s.pity = { 1: s.pity };
@@ -149,6 +153,16 @@ G.DB = (() => {
     const n = v => (Number.isFinite(+v) && +v > 0 ? Math.floor(+v) : 0);
     s.region = Math.max(1, Math.min(9, n(s.region) || 1));
     s.regionProg = n(s.regionProg);
+    s.stats.towerBest = Math.min(100, n(s.stats.towerBest));
+    if (s.tower100 && typeof s.tower100 === 'object') {
+      const clean = {};
+      for (const id of Object.keys(s.tower100)) {
+        if (!/^[a-z0-9]+$/i.test(id)) continue;
+        const c = n(s.tower100[id]);
+        if (c) clean[id] = c;
+      }
+      s.tower100 = clean;
+    } else s.tower100 = {};
     s.coins = n(s.coins);
     s.tickets.t1 = n(s.tickets.t1);
     s.tickets.t10 = n(s.tickets.t10);
@@ -262,6 +276,8 @@ G.DB = (() => {
       });
     }
     for (const k in older.stats || {}) r.stats[k] = Math.max(r.stats[k] || 0, older.stats[k] || 0);
+    r.tower100 = r.tower100 || {};
+    for (const id in older.tower100 || {}) r.tower100[id] = Math.max(r.tower100[id] || 0, older.tower100[id] || 0);
     const nr = r.region || 1, orr = older.region || 1;
     if (orr > nr) { r.region = orr; r.regionProg = older.regionProg || 0; r.regionTold = older.regionTold; }
     else if (orr === nr) r.regionProg = Math.max(r.regionProg || 0, older.regionProg || 0);

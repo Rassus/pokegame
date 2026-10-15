@@ -17,14 +17,14 @@
 <meta property="og:locale" content="es_ES">
 <meta property="og:url" content="https://pokesurvivor.com/">
 <meta property="og:title" content="PokéSurvivor – Sobrevive a las hordas Pokémon">
-<meta property="og:description" content="Fan game gratis para navegador y móvil: 966 Pokémon, shinies, legendarios y cooperativo hasta 4 amigos. Sin descargas ni anuncios.">
+<meta property="og:description" content="Fan game gratis para navegador y móvil: 966 Pokémon, shinies, legendarios y cooperativo hasta 8 amigos. Sin descargas ni anuncios.">
 <meta property="og:image" content="https://pokesurvivor.com/assets/og-image.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="PokéSurvivor: un Pokémon rodeado de hordas en un mapa pixel art">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="PokéSurvivor – Sobrevive a las hordas Pokémon">
-<meta name="twitter:description" content="Fan game gratis para navegador y móvil, con cooperativo hasta 4. Sin descargas ni anuncios.">
+<meta name="twitter:description" content="Fan game gratis para navegador y móvil, con cooperativo hasta 8. Sin descargas ni anuncios.">
 <meta name="twitter:image" content="https://pokesurvivor.com/assets/og-image.jpg">
 <script>window.PS_PAGES = true;</script>
 
@@ -60,7 +60,7 @@
       "@id": "https://pokesurvivor.com/#juego",
       "name": "PokéSurvivor",
       "url": "https://pokesurvivor.com/",
-      "description": "Fan game gratuito de supervivencia (bullet heaven, estilo Survivor.io) con Pokémon: elige compañero, sobrevive a hordas, sube de nivel, evoluciona tus ataques, enfréntate a legendarios en grietas y juega en cooperativo con hasta 4 amigos.",
+      "description": "Fan game gratuito de supervivencia (bullet heaven, estilo Survivor.io) con Pokémon: elige compañero, sobrevive a hordas, sube de nivel, evoluciona tus ataques, enfréntate a legendarios en grietas y juega en cooperativo con hasta 8 amigos.",
       "image": "https://pokesurvivor.com/assets/og-image.jpg",
       "inLanguage": "es",
       "genre": ["Roguelike", "Bullet heaven", "Acción", "Supervivencia"],
@@ -68,7 +68,7 @@
       "applicationCategory": "GameApplication",
       "operatingSystem": "Cualquiera con navegador web moderno",
       "playMode": ["SinglePlayer", "CoOp", "MultiPlayer"],
-      "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 4 },
+      "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 8 },
       "isAccessibleForFree": true,
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR", "availability": "https://schema.org/InStock" },
       "isPartOf": { "@id": "https://pokesurvivor.com/#web" }
@@ -148,9 +148,9 @@
 <section id="scr-starters" class="scr dim hidden">
   <div class="box wide">
     <h2>Elige a tu compañero</h2>
-    <p class="sub">Los iniciales de todas las regiones, y dos amigos más.</p>
+    <p class="sub">Bulbasaur, Squirtle o Charmander.</p>
     <div class="grid" id="starter-grid"></div>
-    <div class="row between" style="margin-top:14px">
+    <div class="row between hidden" style="margin-top:14px">
       <button id="starter-back" class="btn ghost">Volver</button>
       <span id="starter-info" class="grow" style="color:var(--muted)"></span>
       <button id="starter-ok" class="btn gold" disabled>Elegir</button>
@@ -179,8 +179,10 @@
         <button class="menu-item" data-go="dex">Pokémon<small id="menu-dex-count">Tu colección</small></button>
         <button class="menu-item" data-go="upgrades">Mejoras<small>Haz más fuerte cada run</small></button>
         <button class="menu-item" data-go="gacha">Gacha<small>9 regiones · Pokémon y shinies</small></button>
+        <button class="menu-item" data-go="items">Objetos<small>Qué hace cada uno y cuándo cae</small></button>
+        <button class="menu-item" data-go="towers">Torres<small>100 oleadas en una grieta</small></button>
         <button class="menu-item" data-go="goals">Misiones<small id="menu-goals-sub">Misiones, logros y perfil</small></button>
-        <button class="menu-item" data-go="friends">Amigos<small id="menu-friends-sub">Juega en grupo, hasta 4</small></button>
+        <button class="menu-item" data-go="friends">Amigos<small id="menu-friends-sub">Juega en grupo, hasta 8</small></button>
         <button class="menu-item" data-go="rank">Ranking<small>Quién aguanta más</small></button>
         <button class="menu-item" data-go="settings">Ajustes<small>Sonido, gráficos, controles y cuenta</small></button>
       </div>
@@ -196,7 +198,6 @@
   <div class="pill" id="tickets-pill" title="Tickets del gacha"></div>
   <div class="pill" id="user-pill"></div>
   <button id="btn-news" class="btn small ghost news-btn" title="Novedades"></button>
-  <button id="btn-support" class="btn small gold hidden" title="Apoyar el proyecto"></button>
   <button id="btn-sound" class="btn small ghost" title="Sonido"></button>
   <button id="btn-full" class="btn small ghost hidden" title="Pantalla completa"></button>
   <button id="btn-settings" class="btn small ghost" title="Ajustes"></button>
@@ -210,14 +211,6 @@
   <div class="box news-box">
     <div class="row between"><h2>Novedades</h2><button class="btn small ghost" id="news-close">Cerrar</button></div>
     <div id="news-body" class="news-body"></div>
-  </div>
-</section>
-
-<!-- ====== Apoyar el proyecto (donaciones) ====== -->
-<section id="scr-support" class="scr dim hidden">
-  <div class="box support">
-    <div class="row between"><h2>Apoyar el proyecto</h2><button class="btn small ghost" id="sup-close">Cerrar</button></div>
-    <div id="sup-body"></div>
   </div>
 </section>
 
@@ -309,7 +302,7 @@
     <div class="boot-in">
       <h1>PokéSurvivor</h1>
       <p>PokéSurvivor necesita JavaScript para funcionar. Actívalo para jugar.</p>
-      <p>Fan game gratuito de supervivencia con 966 Pokémon de las 9 regiones: elige tu compañero, sobrevive a las hordas, evoluciona tus ataques, enfréntate a legendarios y juega en cooperativo con hasta 4 amigos.</p>
+      <p>Fan game gratuito de supervivencia con 966 Pokémon de las 9 regiones: elige tu compañero, sobrevive a las hordas, evoluciona tus ataques, enfréntate a legendarios y juega en cooperativo con hasta 8 amigos.</p>
       <p><a href="guia/">Guía del juego</a> · <a href="pokedex/">Pokédex: todos los Pokémon jugables</a></p>
     </div>
   </div>
@@ -454,10 +447,12 @@
           <p class="sub" id="gacha-owned" style="margin:0"></p>
           <div class="feat" id="gacha-feat"></div>
         </div>
-        <div class="row" style="margin-top:14px">
-          <button id="pull-1" class="btn grow" data-sfx="none">Tirar ×1 · <span id="cost-1"></span></button>
-          <button id="pull-10" class="btn gold grow" data-sfx="none">Tirar ×10 · <span id="cost-10"></span></button>
-          <button id="pull-10b" class="btn gold grow" data-sfx="none">Tirar ×10 · <span id="cost-10b"></span></button>
+        <div class="pulls">
+          <button id="pull-1" class="btn" data-sfx="none">Tirar ×1 · <span id="cost-1"></span></button>
+          <button id="pull-10" class="btn gold" data-sfx="none">Tirar ×10 · <span id="cost-10"></span></button>
+          <button id="pull-10b" class="btn gold" data-sfx="none">Tirar ×10 · <span id="cost-10b"></span></button>
+          <button id="pull-10c" class="btn gold" data-sfx="none">Tirar ×10 · <span id="cost-10c"></span></button>
+          <button id="pull-g" class="btn gold" data-sfx="none">Tirar ×1 · <span id="cost-g"></span></button>
         </div>
         <p class="note tickets-line" id="gacha-tickets"></p>
         <p class="note" id="gacha-pity"></p>
@@ -467,10 +462,29 @@
   </div>
 </section>
 
+<!-- ====== Torres ====== -->
+<section id="scr-towers" class="scr dim hidden">
+  <div class="box wide">
+    <div class="row between"><h2>Torres</h2><button class="btn small ghost" data-back>Volver</button></div>
+    <div id="tower-list"></div>
+  </div>
+</section>
+
+<!-- ====== Objetos ====== -->
+<section id="scr-items" class="scr dim hidden">
+  <div class="box wide">
+    <div class="row between"><h2>Objetos</h2><button class="btn small ghost" data-back>Volver</button></div>
+    <div class="panel item-cat" id="items-list"></div>
+  </div>
+</section>
+
 <div id="pull-fx" class="hidden">
   <canvas id="slot" width="176" height="170" title="Clic para acelerar"></canvas>
   <div class="pull-results" id="pull-results"></div>
-  <button id="pull-close" class="btn gold hidden">Continuar</button>
+  <div class="pull-actions hidden" id="pull-actions">
+    <button id="pull-again" class="btn" type="button">Tirar ×10</button>
+    <button id="pull-close" class="btn gold" type="button">Continuar</button>
+  </div>
 </div>
 
 <!-- ====== Durante la run ====== -->
@@ -514,6 +528,30 @@
       <button id="btn-pause-settings" class="btn">Ajustes</button>
       <button id="btn-quit" class="btn">Abandonar run</button>
     </div>
+    <button id="btn-kick" class="btn hidden" type="button">Votar sacar a un jugador</button>
+    <div id="pause-kick" class="hidden">
+      <p class="sub">Elige a quién sacar. El anfitrión no se puede echar: la partida va en su ordenador.</p>
+      <div id="pause-kick-list" class="kick-list"></div>
+    </div>
+  </div>
+</section>
+
+<section id="scr-wheel" class="scr dim hidden">
+  <div class="box center" style="width:min(520px,100%)">
+    <h2>Ticket dorado</h2>
+    <p class="sub" id="wheel-sub">Girando…</p>
+    <canvas id="wheel-cv" width="420" height="420"></canvas>
+    <p id="wheel-win" class="gold"></p>
+  </div>
+</section>
+
+<section id="scr-vote" class="scr dim hidden">
+  <div class="box center" style="width:min(640px,100%)">
+    <h2 id="vote-title">Votación</h2>
+    <p class="sub" id="vote-sub"></p>
+    <div id="vote-cards" class="cards"></div>
+    <div id="vote-yn" class="row hidden" style="justify-content:center"></div>
+    <p id="vote-wait" class="note"></p>
   </div>
 </section>
 
@@ -526,6 +564,6 @@
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=dc3ae9bbfb"></script>
+<script defer src="js/app.min.js?v=64584a4ee2"></script>
 </body>
 </html>

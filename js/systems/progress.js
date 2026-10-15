@@ -63,42 +63,100 @@ G.Progress = (() => {
     s.achRank = s.achRank || {};
   }
 
+  /** Cuánto llevas de un requisito de región (se lee de la cuenta). */
+  function reqValue(s, req) {
+    const st = s.stats || {};
+    switch (req.kind) {
+      case 'own': return G.DEX.filter(p => p.gen === req.gen && s.owned && s.owned[p.dex]).length;
+      case 'kills': return st.totalKills || 0;
+      case 'minutes': return Math.floor((st.bestTime || 0) / 60);
+      case 'rift': return st.riftWins || 0;
+      case 'bosses': return st.bossesTotal || 0;
+      case 'towers':
+        return (G.Towers ? G.Towers.LIST : []).filter(t => t.dexes.some(d => s.legends && s.legends[d])).length;
+      case 'floor': return st.towerBest || 0;
+      case 'clear': return st.towerClears || 0;
+      case 'clears': return Object.keys(s.tower100 || {}).filter(id => s.tower100[id] > 0).length;
+      case 'shiny': return Object.keys(s.shiny || {}).length;
+      case 'pay':
+        if (req.coins) return s.coins || 0;
+        if (req.t1) return (s.tickets && s.tickets.t1) || 0;
+        if (req.t10) return (s.tickets && s.tickets.t10) || 0;
+        if (req.tb) return (s.tickets && s.tickets.tb) || 0;
+        if (req.tg) return (s.tickets && s.tickets.tg) || 0;
+        return 0;
+      default: return 0;
+    }
+  }
+
+  function regionState(s) {
+    const def = (G.RegionMissions || []).find(m => m.gen === (s.region || 1) + 1);
+    if (!def) return null;
+    const rows = (def.reqs || []).map(req => {
+      const v = reqValue(s, req);
+      return { req, v, met: v >= req.goal };
+    });
+    return { def, rows, done: rows.length > 0 && rows.every(r => r.met) };
+  }
+
+  /** Avisa una vez cuando la lista de la región siguiente está completa. */
+  function noteRegion(s) {
+    const q = regionState(s);
+    if (!q) return;
+    if (!q.done) {
+      if (s.regionTold) { s.regionTold = false; G.DB.commit(); }
+      return;
+    }
+    if (s.regionTold) return;
+    s.regionTold = true;
+    notify('Misión completada: ' + q.def.name, 'Ábrela en Misiones');
+    G.DB.commit();
+  }
+
   /** Misión que abre la región siguiente, o null si ya están las 9. */
   function regionMission() {
     const s = G.DB.save;
     if (!s) return null;
     ensure(s);
-    const def = (G.RegionMissions || []).find(m => m.gen === (s.region || 1) + 1);
-    if (!def) return null;
-    const prog = s.regionProg || 0;
-    return { def, prog, done: prog >= def.goal };
+    noteRegion(s);
+    return regionState(s);
   }
 
-  function advanceRegion(s, kind, d) {
-    const def = (G.RegionMissions || []).find(m => m.gen === (s.region || 1) + 1);
-    if (!def || def.ev !== kind) return;
-    if (def.match && !def.match(d)) return;
-    const prev = s.regionProg || 0;
-    if (prev >= def.goal) return;
-    const v = def.value ? def.value(d) : 1;
-    s.regionProg = def.mode === 'max' ? Math.max(prev, v) : prev + v;
-    if (s.regionProg >= def.goal && !s.regionTold) {
-      s.regionTold = true;
-      notify('Misión completada: ' + def.text, 'Recoge el premio en Misiones para abrir ' + def.name);
-    }
+  function payOk(s, req) {
+    if (req.kind !== 'pay') return true;
+    const t = s.tickets || {};
+    if (req.coins) return (s.coins || 0) >= req.coins;
+    if (req.t1) return (t.t1 || 0) >= req.t1;
+    if (req.t10) return (t.t10 || 0) >= req.t10;
+    if (req.tb) return (t.tb || 0) >= req.tb;
+    if (req.tg) return (t.tg || 0) >= req.tg;
+    return true;
   }
 
-  /** Recoge la misión de región y abre la siguiente. */
+  /** Cobra lo que pide la ficha y abre la región. */
   function claimRegion() {
     const s = G.DB.save;
-    const q = regionMission();
-    if (!s || !q || !q.done) return null;
+    if (!s) return null;
+    const q = regionState(s);
+    if (!q || !q.done) return null;
+    if (q.rows.some(r => !payOk(s, r.req))) return null;
+    s.tickets = Object.assign({ t1: 0, t10: 0, tb: 0, tg: 0 }, s.tickets);
+    for (const r of q.rows) {
+      const req = r.req;
+      if (req.kind !== 'pay') continue;
+      if (req.coins) s.coins -= req.coins;
+      if (req.t1) s.tickets.t1 -= req.t1;
+      if (req.t10) s.tickets.t10 -= req.t10;
+      if (req.tb) s.tickets.tb -= req.tb;
+      if (req.tg) s.tickets.tg -= req.tg;
+    }
     s.region = q.def.gen;
     s.regionProg = 0;
     s.regionTold = false;
-    grant(q.def.reward);
     s.stats.missionsDone = (s.stats.missionsDone || 0) + 1;
     G.DB.commit();
+    if (G.UI && G.UI.refreshCoins && !document.getElementById('topbar').classList.contains('hidden')) G.UI.refreshCoins();
+    noteRegion(s);
     return q.def;
   }
 
@@ -206,7 +264,7 @@ G.Progress = (() => {
     }
     advance(s.missions.daily, kind, d);
     advance(s.missions.weekly, kind, d);
-    advanceRegion(s, kind, d);
+    noteRegion(s);
     // Los logros se miran como mucho una vez por segundo (hay cientos de bajas).
     if (kind !== 'kill' || d.boss || d.legend || d.shiny) checkAch();
     else if (performance.now() - achT > 1000) checkAch();

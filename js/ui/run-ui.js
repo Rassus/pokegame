@@ -27,7 +27,8 @@ G.RunUI = (() => {
 
   function reroll() {
     if (!offers || rerollsLeft() <= 0) return;
-    if (G.Coop.voteTarget && G.Coop.voteTarget() === (G.Net && G.Net.uid)) return;
+    const vote = G.Coop.voteTarget && G.Coop.voteTarget();
+    if (vote && vote === (G.Net && G.Net.uid)) return;
     const p = G.Game.player;
     p.rerolls = (p.rerolls || 0) + 1;
     G.Audio.sfx('select');

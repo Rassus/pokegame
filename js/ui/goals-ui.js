@@ -58,21 +58,26 @@
         <span class="sub">${G.Progress.region()} / 9 abiertas</span></div>`);
       if (!q) box.insertAdjacentHTML('beforeend', '<p class="sub">Las 9 regiones están abiertas.</p>');
       else {
-        const pct = Math.min(100, q.prog / q.def.goal * 100);
+        const ready = q.rows.filter(r => r.met).length;
         const el = document.createElement('div');
-        el.className = 'mission' + (q.done ? ' ready' : '');
+        el.className = 'mission region-m' + (q.done ? ' ready' : '');
+        const list = q.rows.map(r => {
+          const pct = Math.min(100, r.v / (r.req.goal || 1) * 100);
+          return `<li class="${r.met ? 'ok' : ''}"><span>${esc(r.req.text)}</span><b>${G.U.num(Math.min(r.v, r.req.goal))} / ${G.U.num(r.req.goal)}</b>${r.met ? '' : `<div class="bar"><i style="width:${pct}%"></i></div>`}</li>`;
+        }).join('');
         el.innerHTML = `
-          <div class="m-txt"><b>${esc(q.def.text)}</b>
+          <div class="m-txt"><div class="row between"><b>${esc(q.def.name)}</b><small>${ready} / ${q.rows.length}</small></div>
             <small>Abre ${esc(q.def.name)}</small>
-            <div class="bar"><i style="width:${pct}%"></i></div>
-            <small>${G.U.num(Math.min(q.prog, q.def.goal))} / ${G.U.num(q.def.goal)}</small></div>
-          <div class="m-rw">${G.Progress.rewardText(q.def.reward)}</div>`;
+            <ul class="req-list">${list}</ul></div>`;
         const btn = document.createElement('button');
         if (q.done) {
+          const pays = q.rows.some(r => r.req.kind === 'pay');
           btn.className = 'btn small gold'; btn.textContent = 'Abrir ' + q.def.name; btn.dataset.sfx = 'none';
           btn.onclick = () => {
+            if (pays && !confirm('¿Pagar y abrir ' + q.def.name + '?')) return;
             const def = G.Progress.claimRegion();
             if (def) { G.Audio.sfx('buy'); G.UI.toast(def.name + ' está abierta'); render(); }
+            else { G.Audio.sfx('error'); G.UI.toast('Aún te falta algo para abrirla.'); render(); }
           };
         } else { btn.className = 'btn small ghost'; btn.disabled = true; btn.textContent = 'En curso'; }
         el.appendChild(btn);

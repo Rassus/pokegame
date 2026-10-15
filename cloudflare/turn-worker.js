@@ -34,17 +34,20 @@
  * puede crear. Protegido con la clave MAU_SECRET (secreto del Worker y de la
  * función), así nadie más puede tocar el contador.
  */
-// Proyectos de Firebase cuyas cuentas valen. El 12-10-2026 el juego se mudó a
-// pokesurvivor-free (sin Identity Platform: cuentas gratis); el viejo se acepta
-// unos días por las pestañas que sigan abiertas.
-const PROJECTS = ['pokesurvivor-free', 'pokesurvivor-jpter'];
+// Proyecto de Firebase cuyas cuentas valen. Solo se dan claves TURN a quien
+// entra con una cuenta de este proyecto.
+const PROJECTS = ['pokegame-5ce5c'];
 // Tope del TURN: 1.000 GB gratis al mes. Pasados TURN_CAP_GB este mes se dejan de
 // dar servidores TURN (sólo STUN): esas partidas usan el relé de Firebase. Así
 // Cloudflare nunca pasa de los 5 $ del plan. Necesita el secreto CF_ANALYTICS_TOKEN
 // (token de API con permiso "Account Analytics: Read") y la variable ACCOUNT_ID;
 // sin ellos no hay tope (como antes).
 const TURN_CAP_GB = 900;
-const ORIGINS = ['https://pokesurvivor.com', 'https://www.pokesurvivor.com', 'http://127.0.0.1:8765', 'http://localhost:8765'];
+const ORIGINS = [
+  'https://pokesurvivor.com', 'https://www.pokesurvivor.com',
+  'https://pokegame-gxcl.onrender.com',   // el mismo juego, publicado en Render
+  'http://127.0.0.1:8765', 'http://localhost:8765'
+];
 const TTL = 4 * 3600;                         // segundos que valen las credenciales
 const JWKS = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
 
