@@ -425,7 +425,7 @@ G.DB = (() => {
     fs = firebase.firestore();
     // Chrome corta Firestore por QUIC (ERR_QUIC_PROTOCOL_ERROR / QUIC_TOO_MANY_RTOS)
     // cuando hay varios escuchas a la vez. El sondeo largo no usa ese protocolo.
-    try { fs.settings({ experimentalForceLongPolling: true }); } catch (e) { /* ya había peticiones */ }
+    try { fs.settings({ experimentalForceLongPolling: true, merge: true }); } catch (e) { /* ya había peticiones */ }
     rtdb = cfg.databaseURL ? firebase.database() : null;
     // Sólo para pruebas: { ..., emulator: true } usa el emulador local de Firebase.
     if (cfg.emulator) {

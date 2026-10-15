@@ -134,6 +134,9 @@ G.Rift = (() => {
 
   /** En cada ordenador: viaje a la arena. */
   function begin(cfg) {
+    // Si llega dos veces, la segunda guardaría la posición de la arena como
+    // "vuelta" y al salir seguirías dentro, con los Pokémon atascados.
+    if (arena) return;
     const pl = G.Game.player;
     const ts = TS();
     arena = Object.assign({}, cfg, {
@@ -238,16 +241,27 @@ G.Rift = (() => {
   function finish() {
     const pl = G.Game.player;
     const a = arena;
+    if (!a || !pl) return;
     arena = null;
     G.World.setBiome(a.biome, true);
+    G.World.setArena(null);
     G.Weather.clear();
-    if (authority()) G.EnemyMgr.restore(); else G.EnemyMgr.clearRemote();
+    if (G.Path) G.Path.clear();
+    if (authority()) G.EnemyMgr.restore();
+    else {
+      // El anfitrión ya devolvió los del mapa. Se piden otra vez: si se
+      // borran aquí las copias que acaba de mandar, se quedan las viejas,
+      // quietas, y la vida no les baja de 1.
+      G.EnemyMgr.clearRemote();
+      if (G.Coop.active) G.Coop.toHost(['rere']);
+    }
     G.Projectiles.clear();
     G.Combat.clearFields();
     G.Hazards.clear();
-    for (const p of G.Game.everyone()) { p.x = a.back.x; p.y = a.back.y; }
+    // Cada uno vuelve a SU sitio. Los compañeros los coloca su propio mensaje.
     pl.x = a.back.x; pl.y = a.back.y;
     if (pl.dead) pl.revive(0.3);
+    G.EnemyMgr.scatterFrom(pl.x, pl.y, pl.r);
     G.Camera.x = pl.x; G.Camera.y = pl.y;
     G.Game.flash('#c9a6ff', 0.8);
     if (pl.bonds > 0) G.Game.offerBond();

@@ -237,6 +237,8 @@
       if (seen || this.dead) this.anim.update(dt);
       if (this.flash > 0) this.flash -= dt;
       if (this.dead) { this.fade -= dt; return; }
+      // Por si algo dejó la vida a cero sin tumbarlo (al volver de una grieta).
+      if (this.hp <= 0) { this.die(); return; }
       if (this.shiny && seen) {
         this.sparkT -= dt;
         if (this.sparkT <= 0) {
@@ -390,10 +392,12 @@
 
       // --- animación ---
       const moving = Math.abs(vx) + Math.abs(vy) > 2;
-      const faceA = this.phase === 'dash' ? Math.atan2(this.dy, this.dx)
+      const posed = animBase === 'Charge' || animBase === 'Shoot' || animBase === 'Attack';
+      const faceA = this.look != null ? this.look
+                  : this.phase === 'dash' ? Math.atan2(this.dy, this.dx)
                   : moving ? Math.atan2(vy, vx) : Math.atan2(pl.y - this.y, pl.x - this.x);
       this.anim.dir = G.Sprites.dirFromAngle(faceA);
-      this.anim.loop(moving ? animBase : 'Idle', moving ? Math.max(0.6, spd / 70) : 1);
+      this.anim.loop(posed || moving ? animBase : 'Idle', moving ? Math.max(0.6, spd / 70) : 1);
     }
 
     // ---------------- jefes ----------------
@@ -783,19 +787,53 @@
     // --- arena de la grieta ---
     let stashed = null;
 
-    /** Guarda los enemigos del mapa mientras dura la arena. */
+    /** Guarda los enemigos del mapa mientras dura la arena. Una sola vez. */
     function stash() {
+      if (stashed) return;
       stashed = list.filter(e => !e.dead);
-      for (const e of stashed) byId.delete(e.id);
+      byId.clear();
       list = []; corpses = [];
     }
 
     /** Al volver: quita los de la arena y devuelve los del mapa (avisando a los demás). */
     function restore() {
-      for (const e of list) { byId.delete(e.id); if (G.Coop.isHost) G.Coop.enemyGone(e, false); }
+      for (const e of list) if (G.Coop.isHost) G.Coop.enemyGone(e, false);
+      byId.clear();
       list = []; corpses = [];
-      for (const e of stashed || []) add(e);
+      for (const e of stashed || []) {
+        if (e.dead || e.hp <= 0) continue;
+        e.phase = 'walk'; e.pt = 0; e.jump = null; e.jumpLift = 0;
+        e.stuckT = 0; e.sideT = 0; e.kx = e.ky = 0;
+        add(e);
+      }
       stashed = null;
+    }
+
+    /**
+     * Tras salir de la grieta el jugador vuelve al sitio donde estaban
+     * todos amontonados. Los separa para que no se queden pegados a él
+     * (ahí los disparos no les remataban).
+     */
+    function scatterFrom(x, y, r) {
+      let i = 0;
+      for (const e of list) {
+        if (e.dead) continue;
+        e.phase = 'walk'; e.pt = 0; e.jump = null; e.jumpLift = 0;
+        e.stuckT = 0; e.sideT = 0;
+        if (!e.remote) {
+          e.kx = e.ky = 0;
+          const dx = e.x - x, dy = e.y - y, d = Math.hypot(dx, dy);
+          const min = (r || 14) + e.r + 12;
+          if (d < min) {
+            const a = d > 4 ? Math.atan2(dy, dx) : i * 2.399963;
+            e.x = x + Math.cos(a) * min;
+            e.y = y + Math.sin(a) * min;
+            if (!e.flying) G.World.collide(e);
+          }
+          if (e.hp <= 0) e.die();
+        }
+        i++;
+      }
     }
 
     /** Invitado: borra las copias (llegarán otra vez del anfitrión). */
@@ -916,7 +954,18 @@
       if (!G.Coop.active || G.Coop.isHost) separate(dt);
       for (let i = list.length - 1; i >= 0; i--) {
         const e = list[i];
-        if (e.remote) continue;
+        if (e.remote) {
+          // Copia que el anfitrión ya no manda: se queda quieta y la vida
+          // no baja de 1, así que no cae nunca. Si se ve y lleva un rato
+          // sin noticias, se quita.
+          if (!e.dead && e.net && e.net.age > 2 && e.hp < e.maxHp && e.hp <= 1 && G.Camera.sees(e.x, e.y, 80)) {
+            byId.delete(e.id);
+            e.die();
+            list.splice(i, 1);
+            corpses.push(e);
+          }
+          continue;
+        }
         if (e.dead) {
           pl.kills++;
           if (e.boss) pl.bosses++;
@@ -970,7 +1019,7 @@
     function bossAlive() { return list.some(e => e.boss && !e.dead); }
     function shinies() { return list.filter(e => e.shiny && !e.dead); }
 
-    return { clear, all, add, get, addRemote, removeRemote, stash, restore, clearRemote, update, drawables, queryCircle, rebuildGrid, bossAlive, shinies, nearestPlayer,
+    return { clear, all, add, get, addRemote, removeRemote, stash, restore, scatterFrom, clearRemote, update, drawables, queryCircle, rebuildGrid, bossAlive, shinies, nearestPlayer,
              get count() { return list.length; } };
   })();
 })();

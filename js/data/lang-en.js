@@ -654,6 +654,7 @@ G.I18n.add({
   '¡Amnesia selectiva!': 'Selective amnesia!', '¡Amnesia! Durante 15 s olvidas parte de tus movimientos': 'Amnesia! For 15 s you forget some of your moves',
   '¡Silencio mortal!': 'Deadly silence!', 'No puedes usar movimientos': 'You cannot use moves',
   'Meditación': 'Meditation', '¡Aura de terror!': 'Aura of terror!',
+  '¡Rayquaza concentra la luz!': 'Rayquaza gathers the light!', '¡Rayo!': 'Beam!', 'El suelo arde': 'The ground is burning',
   'Silencio {x} s': 'Silence {x} s', 'Amnesia {x} s': 'Amnesia {x} s', 'Amnesia': 'Amnesia',
   'Atrapa a {x}': 'Catch {x}', 'Torre · {x} oleadas': 'Tower · {x} waves', 'Oleada {x}/{x}': 'Wave {x}/{x}',
   'Oleada {x} de {x}': 'Wave {x} of {x}', '¡Atrapa a {x}!': 'Catch {x}!', '¡Jefe: {x}!': 'Boss: {x}!',

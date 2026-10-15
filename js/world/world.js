@@ -115,6 +115,18 @@ G.World = (() => {
 
   const arena_outer = () => (arena ? arena.r + 7 : 0);
 
+  /** Borra la caché de terreno de una arena para que vuelva a generarse. */
+  function forgetArena(zone) {
+    if (!zone) return;
+    const R = (zone.r || 11) + 9;
+    for (const k of [...data.keys(), ...images.keys()]) {
+      const [cx, cy] = k.split(',').map(Number);
+      if (Math.abs(cx * N + N / 2 - zone.tx) < R + N && Math.abs(cy * N + N / 2 - zone.ty) < R + N) {
+        data.delete(k); images.delete(k);
+      }
+    }
+  }
+
   function placeProps(c) {
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       if (c.terr[j * N + i] !== FLOOR) continue;
@@ -590,17 +602,19 @@ G.World = (() => {
     kindAt, isWall, isLiquid, isFree, collide, projectileBlock, propsInCircle, nearestBreakable,
     damageProp, breakAt, specialsNear, update,
     breakProp(p) { if (!broken.has(p.tx + ',' + p.ty)) destroyProp(p); },
-    /** Arena de la grieta: { tx, ty, r } (en tiles) o null. */
+    /**
+     * Arena de la grieta: { tx, ty, r } (en tiles), o null al salir.
+     * Al quitarla se olvidan esos chunks: si no, el círculo de paredes
+     * se quedaba en el mapa y los Pokémon se atascaban dentro.
+     */
     setArena(a) {
-      arena = a;
-      if (!a) return;
-      a.th = G.Tiles.ARENA_THEMES[a.type] || G.Tiles.ARENA_THEMES.normal;
-      // Olvida los chunks de esa zona (si se hubieran generado antes).
-      const R = a.r + 9;
-      for (const k of [...data.keys(), ...images.keys()]) {
-        const [cx, cy] = k.split(',').map(Number);
-        if (Math.abs(cx * N + N / 2 - a.tx) < R + N && Math.abs(cy * N + N / 2 - a.ty) < R + N) { data.delete(k); images.delete(k); }
+      const prev = arena;
+      arena = a || null;
+      if (arena) {
+        arena.th = G.Tiles.ARENA_THEMES[arena.type] || G.Tiles.ARENA_THEMES.normal;
+        forgetArena(arena);
       }
+      if (prev && prev !== arena) forgetArena(prev);
     },
     get arena() { return arena; }, drawGround, drawLiquid, visibleProps, drawProp, drawVignette,
     get biome() { return biome; }

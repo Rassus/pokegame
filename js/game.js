@@ -69,11 +69,14 @@ G.Game = (() => {
 
   /** Pausa/continúa (tecla Esc o P, o el botón de pausa del móvil). */
   let holdBy = [];                   // grupo: quién está eligiendo fusión (todo parado)
+  let openItem = null;               // { cur, next, take } elección de objeto sin terminar
+  const laterItems = [];             // objetos recogidos con las cartas de nivel abiertas
 
   function togglePause() {
     // En grupo la pausa no para el juego (los demás siguen jugando).
+    // También durante las cartas: así se puede sacar a quien no elige.
     if (G.Coop.active) {
-      if (state !== 'playing') return;
+      if (state !== 'playing' && state !== 'levelup' && state !== 'held') return;
       if (G.UI.isOpen('scr-pause')) G.UI.hide('scr-pause');
       else { G.RunUI.showPause(true); G.Audio.sfx('pause'); }
       return;
@@ -96,6 +99,7 @@ G.Game = (() => {
       return;
     }
     holdBy = []; awayBy = null;
+    openItem = null; laterItems.length = 0;
     G.Towers.reset();
     G.Towers.claim();
     const save = G.DB.save;
@@ -251,6 +255,8 @@ G.Game = (() => {
       // Los tickets no se copian: cada uno se queda los que recoge.
     },
     levelStart(level) {
+      // Si tenías abierta la elección de objeto, vuelve al terminar: afterLevelUp.
+      if (state === 'choice' && openItem && G.Coop.active) G.Coop.holdEnd();
       state = 'levelup';
       G.UI.hide('scr-pause');
       G.Audio.sfx('levelup');
@@ -261,7 +267,19 @@ G.Game = (() => {
       }, true);
     },
     waiting(names) { G.RunUI.setWaiting(names); },
-    resume() { G.RunUI.closeLevelUp(); if (state === 'levelup') state = 'playing'; },
+    resume() {
+      G.RunUI.closeLevelUp();
+      G.RunUI.closeVote();
+      // También desde la votación de expulsar: si no, al sacar al ausente la
+      // partida se queda parada con las cartas o en kickvote.
+      if (state === 'levelup' || state === 'kickvote') {
+        state = holdBy.length ? 'held' : 'playing';
+        afterLevelUp();
+      }
+    },
+    /** ¿Estás eligiendo algo que para la partida (objeto o vínculo)? */
+    choosing() { return state === 'choice'; },
+    inLevelUp() { return state === 'levelup'; },
     shiny(dex) { G.onShinyCaught({ dex, name: (G.DEX_BY[dex] || {}).name || '' }); },
     over(d) {
       if (d) Object.assign(pl, { kills: d.ki, bosses: d.bo, coins: d.co, level: Math.max(pl.level, d.lv || 1) });
@@ -286,17 +304,27 @@ G.Game = (() => {
     },
     forceCard(index) { G.RunUI.forcePick(index); },
     pauseForVote(on) {
-      if (on) { if (state === 'playing' || state === 'paused') state = 'kickvote'; G.UI.hide('scr-pause'); }
-      else if (state === 'kickvote') state = 'playing';
+      if (on) {
+        if (state === 'playing' || state === 'paused' || state === 'levelup' || state === 'held') state = 'kickvote';
+        G.UI.hide('scr-pause');
+      } else if (state === 'kickvote') {
+        state = holdBy.length ? 'held' : (G.UI.isOpen('scr-levelup') ? 'levelup' : 'playing');
+      }
     },
     kickVote(uid, name) {
-      if (state === 'playing' || state === 'paused') state = 'kickvote';
+      if (state === 'playing' || state === 'paused' || state === 'levelup' || state === 'held') state = 'kickvote';
       G.UI.hide('scr-pause');
       G.RunUI.showKickVote(name, G.Net && uid === G.Net.uid, yes => G.Coop.voteKick(yes));
     },
     kickDone(pass, name) {
       G.RunUI.closeVote();
-      if (state === 'kickvote') state = 'playing';
+      G.UI.hide('scr-pause');
+      if (state === 'kickvote') {
+        if (holdBy.length) state = 'held';
+        else if (G.UI.isOpen('scr-levelup')) state = 'levelup';
+        else state = 'playing';
+      }
+      if (state === 'held' && !holdBy.length) state = 'playing';
       if (name) G.Spawner.say(pass ? name + ' sale de la partida' : name + ' se queda', 2.8, true);
     },
     kicked() {
@@ -313,6 +341,7 @@ G.Game = (() => {
         if (pl && pl.bonds > 0) offerBond(true);      // si tú también tienes vínculo, eliges a la vez
         const others = holdBy.filter(n => n !== (G.Social.me && G.Social.me.name) && n !== 'Tú');
         if (!mine && others.length) G.Spawner.say('Pausa: ' + others.join(', ') + ' ' + (others.length > 1 ? 'están eligiendo…' : 'está eligiendo…'), 999, true);
+        else if (!others.length) G.Spawner.say(awayBy ? awayText() : '', awayBy ? 999 : 0, true);
       } else {
         if (state === 'held' && !awayBy) state = 'playing';
         G.Spawner.say(awayBy ? awayText() : '', awayBy ? 999 : 0, true);
@@ -518,19 +547,40 @@ G.Game = (() => {
     G.FX.ring(pl.x, pl.y, 8, 70, '#c47bff', 0.55, 4);
   }
 
+  /*
+   * Cooperativo: la elección de objeto y las cartas de nivel no pueden taparse.
+   * Si llega un objeto con las cartas abiertas, espera a que elijas carta; y si
+   * las cartas llegan con la elección de objeto abierta, ésta vuelve a salir al
+   * terminar. (Antes una cerraba la otra, nadie podía terminar de elegir y la
+   * partida se quedaba parada para todos.)
+   */
+  function afterLevelUp() {
+    if (state !== 'playing' && state !== 'held') return;
+    if (openItem && !G.UI.isOpen('scr-item')) {
+      const o = openItem;
+      if (o.mine) { state = 'choice'; if (G.Coop.active) G.Coop.holdStart(); }
+      G.RunUI.showItemChoice(o.cur, o.next, o.take);
+      return;
+    }
+    if (laterItems.length) offerItem(laterItems.shift());
+  }
+
   /** Has cogido un objeto: si no llevas ninguno te lo pones; si no, eliges. */
   function offerItem(id) {
     if (!pl || !G.Items.BY[id]) return;
+    if (state === 'levelup' || G.UI.isOpen('scr-levelup')) { laterItems.push(id); return; }
     let mine = false;            // esta elección es la que ha parado el juego
     const take = got => {
+      openItem = null;
       if (got !== pl.item) {
         pl.equip(got);
         G.Spawner.say('¡Llevas ' + G.Items.BY[got].name + '!', 2.6, true);
         G.Progress.event('item', { id: got });
       }
-      if (!mine) return;
+      if (!mine) { afterLevelUp(); return; }
       if (state === 'choice') state = holdBy.length ? 'held' : 'playing';
       if (G.Coop.active) G.Coop.holdEnd();
+      afterLevelUp();
     };
     if (!pl.item) { take(id); return; }
     if (pl.item === id) { G.Spawner.say('Ya llevas ' + G.Items.BY[id].name, 2, true); return; }
@@ -541,6 +591,7 @@ G.Game = (() => {
       state = 'choice';
       if (G.Coop.active) G.Coop.holdStart();
     }
+    openItem = { cur: pl.item, next: id, take, get mine() { return mine; } };
     G.RunUI.showItemChoice(pl.item, id, take);
   }
 
@@ -617,6 +668,7 @@ G.Game = (() => {
   function handleKeys() {
     if (G.SettingsUI.isOpen) { if (G.Input.tap('escape')) G.SettingsUI.close(); return; }
     if (state === 'levelup') {
+      if (G.Coop.active && (G.Input.tap('escape') || G.Input.tap('keyp'))) { togglePause(); return; }
       for (let i = 0; i < 3; i++) {
         if (G.Input.tap('digit' + (i + 1)) || G.Input.tap('numpad' + (i + 1))) G.RunUI.pick(i);
       }

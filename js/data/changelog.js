@@ -12,6 +12,8 @@ G.CHANGELOG = [
     ['Cada jefe tiene su torre. Kanto cuesta 3.000 Pokémonedas, Johto 10.000 y, desde Hoenn, 50.000 más 10 tickets grises por jugador. Rayquaza es una torre de 150 oleadas: la entrada son 100.000 y aparece seis veces antes del jefe final.',
      'Each boss has a tower. Kanto costs 3,000 PokéCoins, Johto 10,000 and, from Hoenn on, 50,000 plus 10 grey tickets per player. Rayquaza is a 150-wave tower: entry is 100,000 and it appears six times before the final boss.']
   ], chg: [
+    ['Rayquaza, en su torre, cierra una luz sobre sí cinco veces, cada vez más rápido, y suelta un rayo del grosor de su sprite. Dura 4 segundos, la pantalla tiembla y el suelo por donde pasó quema durante 15 segundos. Vuelve a usarlo a los 30.',
+     'In his tower, Rayquaza closes a light on himself five times, faster each time, then fires a beam as thick as his sprite. It lasts 4 seconds, the screen shakes, and the ground it crossed burns for 15 seconds. He uses it again after 30.'],
     ['Al terminar la run, la pestaña Daño muestra cuánto hizo cada movimiento. Los que suben el ataque, como Danza Espada, indican cuánto daño añadieron.',
      'At the end of a run, the Damage tab shows how much each move dealt. Moves that raise attack, like Swords Dance, show how much damage they added.'],
     ['Al superar una torre: 1 ticket dorado, oro por 4 veces el costo y un 60% de 45 a 100 fragmentos de ese jefe. Si no lo tienes, sigue habiendo un 25% de atraparlo.',
@@ -45,6 +47,14 @@ G.CHANGELOG = [
     ['Al evolucionar en una run, las mejoras de vida, ataque y velocidad pasan a la evolución si son más altas que las que ya tenía. No se suman y no pasan del máximo.',
      'Evolving in a run carries HP, attack and speed upgrades to the new form when they are higher than the ones it already had. They are not added together and they cannot go past the cap.']
   ], fix: [
+    ['Si alguien no elige carta, el voto del resto ya cuenta. Al votar todos, se le aplica la carta más elegida y la partida sigue.',
+     'If someone does not pick a card, the others\' votes now count. Once everyone has voted, they get the top choice and the run continues.'],
+    ['Al sacar a un jugador ausente, la partida ya no se queda parada: se cierran las cartas o la votación y el resto sigue.',
+     'After removing an idle player, the run no longer freezes: cards or the vote close and the others keep going.'],
+    ['Cooperativo: la partida ya no se queda parada con cada uno esperando a que el otro elija. Un objeto y las cartas de nivel ya no se tapan, y si la conexión pierde un aviso se arregla solo.',
+     'Co-op: runs no longer freeze with each player stuck waiting for the other to make a choice. Held-item and level-up cards no longer overlap each other, and lost connection messages now recover on their own.'],
+    ['Al salir de una grieta, los Pokémon salvajes se quedaban pegados y no caían aunque les quitaras toda la vida.',
+     'After leaving a rift, wild Pokémon got stuck and would not faint even with no HP left.'],
     ['Cambiar opciones [R] no hacía nada en solitario: el juego creía que estabas en una votación de cartas.',
      'Reroll [R] did nothing in solo: the game thought you were in a card vote.'],
     ['«Me gusta el dinero» cuenta solo el oro de las runs. El de las misiones no suma.',

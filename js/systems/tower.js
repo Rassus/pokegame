@@ -16,6 +16,12 @@
 G.Towers = (() => {
   const EVERY = 10;
   const CHANSEY = 113;
+  const RAYQUAZA = 384;
+  // Cinco luces: la primera tarda 1,5 s y cada una va más rápida. Luego el rayo.
+  const RAY_PULSE = [1.5, 1.08, 0.78, 0.56, 0.4];
+  const RAY_BEAM = 4;
+  const RAY_SCORCH = 15;
+  const RAY_CD = 30;
   const CHANSEY_N = { 10: 1, 30: 3, 50: 5, 70: 7, 90: 7 };
   const PLAN = [25, 50, 75, 100];
   const REGIONS = ['', 'Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Teselia', 'Kalos', 'Alola', 'Galar', 'Paldea'];
@@ -296,7 +302,7 @@ G.Towers = (() => {
     e.towerPhase = phase;
     e.maxShield = Math.round(e.maxHp * 0.25);
     e.shield = e.maxShield;
-    e.tower = { meds: 0, med: 0, auraR: 340, cd: 5, cast: null, rad: 0 };
+    e.tower = { meds: 0, med: 0, auraR: 340, cd: 5, cast: null, rad: 0, rayCd: mon.dex === RAYQUAZA ? 20 : 0 };
     if (run.shiny) e.makeShiny();
     G.EnemyMgr.add(e);
     run.bosses.push({ id: e.id, phase });
@@ -346,6 +352,107 @@ G.Towers = (() => {
       if (p) p.silence = Math.max(p.silence || 0, 10);
       run.fx = null;
     } else if (ev[1] === 'aura') run.aura = 30;
+    else if (ev[1] === 'ray' && ev[2] === 'off') {
+      if (run.ray && run.ray.phase === 'ring') run.ray = null;
+    } else if (ev[1] === 'ray' && ev[2] === 'go') {
+      run.ray = { phase: 'ring', n: 0, t: 0, dur: RAY_PULSE[0], tick: 0 };
+      G.Audio.sfx('boss');
+    } else if (ev[1] === 'ray' && ev[2] === 'beam') {
+      run.ray = {
+        phase: 'beam', t: 0, tick: 0.2,
+        x: ev[3], y: ev[4], ang: ev[5] / 1000, len: ev[6], w: ev[7], dmg: ev[8], burn: ev[9]
+      };
+      G.Camera.kick(0.85);
+      G.Audio.sfx('shot', { kind: 'beam', type: 'dragon' });
+    }
+  }
+
+  /** Ancho con el que se dibuja el sprite (el rayo sale de ese grosor). */
+  function spriteW(dex) {
+    const m = G.Sprites.animMeta(dex, 'Idle');
+    return (m ? m.w : 40) * G.Sprites.PX;
+  }
+
+  function inRay(r, x, y, rad) {
+    const ca = Math.cos(r.ang), sa = Math.sin(r.ang);
+    const px = x - r.x, py = y - r.y;
+    const along = px * ca + py * sa;
+    if (along < -rad || along > r.len + rad) return false;
+    return Math.abs(-px * sa + py * ca) <= r.w / 2 + rad * 0.45;
+  }
+
+  function startRay() {
+    run.ray = { phase: 'ring', n: 0, t: 0, dur: RAY_PULSE[0], tick: 0 };
+    net(['tw', 'ray', 'go']);
+    G.Spawner.say('¡Rayquaza concentra la luz!', 2.2);
+    G.Audio.sfx('boss');
+  }
+
+  function fireRay(e) {
+    const mates = G.Game.everyone().filter(p => p && !p.dead);
+    let tx = e.x + 1, ty = e.y, best = Infinity;
+    for (const p of mates) {
+      const d = G.U.dist2(e.x, e.y, p.x, p.y);
+      if (d < best) { best = d; tx = p.x; ty = p.y; }
+    }
+    const ang = Math.atan2(ty - e.y, tx - e.x);
+    const w = Math.round(spriteW(e.dex));
+    const len = Math.round((run.ar || 11) * ts() * 2.8);
+    const dmg = Math.max(8, Math.round(e.shotDmg()));
+    const burn = Math.max(5, Math.round(dmg * 0.45));
+    run.ray = { phase: 'beam', t: 0, tick: 0.2, x: e.x, y: e.y, ang, len, w, dmg, burn };
+    e.look = ang;
+    net(['tw', 'ray', 'beam', Math.round(e.x), Math.round(e.y), Math.round(ang * 1000), len, w, dmg, burn]);
+    G.Camera.kick(0.85);
+    G.Audio.sfx('shot', { kind: 'beam', type: 'dragon' });
+    G.Spawner.say('¡Rayo!', 1.8);
+  }
+
+  function rayHurt(r, dt, amount, type) {
+    const pl = G.Game.player;
+    if (!pl || pl.dead) return;
+    r.tick -= dt;
+    if (r.tick > 0) return;
+    r.tick = 0.5;
+    if (inRay(r, pl.x, pl.y, pl.r)) pl.hurt(amount, type);
+  }
+
+  /** Luz, rayo y suelo ardiente de Rayquaza. Lo corren todos: cada uno se quema el suyo. */
+  function tickRay(dt) {
+    const r = run && run.ray;
+    if (!r) return;
+    if (r.phase === 'ring') {
+      const e = bossOf();
+      if (authority() && !e) { run.ray = null; return; }
+      r.t += dt;
+      if (r.t < r.dur) return;
+      if (r.n >= RAY_PULSE.length - 1) {
+        if (authority() && e) fireRay(e);
+        else r.t = r.dur;
+        return;
+      }
+      if (e) G.FX.ring(e.x, e.y - e.bodyH * 0.42, spriteW(e.dex) / 2, spriteW(e.dex), '#e8ff9a', 0.4, 3);
+      r.n++;
+      r.t = 0;
+      r.dur = RAY_PULSE[r.n];
+      return;
+    }
+    if (r.phase === 'beam') {
+      r.t += dt;
+      G.Camera.kick(0.1);
+      rayHurt(r, dt, r.dmg, 'dragon');
+      if (r.t < RAY_BEAM) return;
+      r.phase = 'scorch';
+      r.t = 0;
+      r.tick = 0.35;
+      const e = bossOf();
+      if (e && e.tower) { e.tower.rayCd = RAY_CD; e.look = null; }
+      if (authority()) G.Spawner.say('El suelo arde', 2);
+      return;
+    }
+    r.t += dt;
+    rayHurt(r, dt, r.burn, 'fire');
+    if (r.t >= RAY_SCORCH) run.ray = null;
   }
 
   function startCast(e, pl, id) {
@@ -387,6 +494,8 @@ G.Towers = (() => {
   function hold(e, dt, pl) {
     const t = e.tower;
     if (!t || !run) return null;
+    const rayOn = run.ray && (run.ray.phase === 'ring' || run.ray.phase === 'beam');
+    if (e.dex === RAYQUAZA && !rayOn && t.rayCd > 0) t.rayCd -= dt;
     if (t.med > 0) {
       t.med -= dt;
       e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.25 * dt / 4);
@@ -416,6 +525,17 @@ G.Towers = (() => {
         run.fx = null;
         t.cd = 8;
       }
+      return [0, 0, 'Charge'];
+    }
+    if (rayOn) {
+      if (e.ai) e.ai.cast = null;
+      e.guard = 0;
+      e.look = run.ray.phase === 'beam' ? run.ray.ang : null;
+      return [0, 0, run.ray.phase === 'beam' ? 'Shoot' : 'Charge'];
+    }
+    e.look = null;
+    if (e.dex === RAYQUAZA && t.rayCd <= 0) {
+      startRay();
       return [0, 0, 'Charge'];
     }
     e.guard = 0;
@@ -460,6 +580,7 @@ G.Towers = (() => {
       b.down = true;
       run.aura = 0;
       run.fx = null;
+      if (run.ray && run.ray.phase === 'ring') { run.ray = null; net(['tw', 'ray', 'off']); }
       grantBond(true);
       if (b.phase < run.phases) G.Spawner.say('Se retira… volverá más adelante', 2.4);
       else run.finalDown = true;
@@ -498,6 +619,7 @@ G.Towers = (() => {
 
   function update(dt, pl) {
     if (!run || run.done) return;
+    tickRay(dt);
     const me = pl || G.Game.player;
     if (!me) return;
     if (me.dead && !G.Coop.active) return;
@@ -571,6 +693,44 @@ G.Towers = (() => {
       ctx.stroke();
       ctx.restore();
     }
+    drawRay(ctx);
+  }
+
+  function drawRay(ctx) {
+    const r = run.ray;
+    if (!r) return;
+    if (r.phase === 'ring') {
+      const e = bossOf();
+      if (!e) return;
+      const endR = spriteW(e.dex) / 2;
+      const startR = Math.max(260, endR * 3.4);
+      const u = Math.min(1, r.t / Math.max(0.05, r.dur));
+      const rad = startR + (endR - startR) * u;
+      const cy = e.y - e.bodyH * 0.42;
+      ctx.save();
+      ctx.globalAlpha = 0.14 + 0.2 * u;
+      ctx.fillStyle = '#d8ff6a';
+      ctx.beginPath(); ctx.arc(e.x, cy, rad, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 0.5 + 0.45 * u;
+      ctx.strokeStyle = '#f6ffd0';
+      ctx.lineWidth = 3 + 8 * (1 - u);
+      ctx.beginPath(); ctx.arc(e.x, cy, rad, 0, 6.2832); ctx.stroke();
+      ctx.restore();
+      return;
+    }
+    const hot = r.phase === 'scorch';
+    const fade = hot ? Math.min(1, Math.max(0, (RAY_SCORCH - r.t) / 2)) : 1;
+    const flick = hot ? 0.22 + Math.sin(performance.now() / 90) * 0.07 : 0.75 + Math.sin(performance.now() / 45) * 0.2;
+    ctx.save();
+    ctx.translate(r.x, r.y);
+    ctx.rotate(r.ang);
+    ctx.globalAlpha = (hot ? flick : 0.4 * flick) * fade;
+    ctx.fillStyle = hot ? '#ff6a2a' : '#c6ff55';
+    ctx.fillRect(0, -r.w / 2, r.len, r.w);
+    ctx.globalAlpha = (hot ? Math.min(0.5, flick + 0.12) : 0.92) * fade;
+    ctx.fillStyle = hot ? '#ffd08a' : '#f7ffe6';
+    ctx.fillRect(0, -r.w * (hot ? 0.14 : 0.18), r.len, r.w * (hot ? 0.28 : 0.36));
+    ctx.restore();
   }
 
   function drawScreen(ctx, w, h, pl) {
