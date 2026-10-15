@@ -328,12 +328,20 @@ label { display: block; font-size: 14px; color: var(--muted); margin: 8px 0 4px;
 .banner .feat canvas { flex: 0 0 auto; }
 .rates { font-size: 14px; }
 .rates div { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed rgba(244,248,255,.15); }
-.item-cat { margin-top: 14px; }
+/* La lista crece con cada objeto. Sin min-height: 0 la caja no se encoge
+   y los de abajo quedan fuera de la pantalla, sin barra para bajar. */
+#scr-items .box { min-height: 0; max-height: 100%; display: flex; flex-direction: column; }
+#scr-items .row { flex: 0 0 auto; }
+.item-cat { margin-top: 14px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .item-cat .sub { margin: 0 0 8px; }
 .item-row { display: grid; grid-template-columns: 40px 1fr; gap: 2px 12px; align-items: center; padding: 8px 0; border-bottom: 1px dashed rgba(244,248,255,.15); }
 .item-row .ic { grid-row: span 2; display: flex; justify-content: center; }
 .item-row .ds { color: var(--muted); font-size: 13px; font-weight: 400; }
 .item-row .ir { font-size: 13px; color: var(--gold); }
+#wheel-cv { image-rendering: auto; width: min(420px, 86vw); height: auto; display: block; margin: 0 auto; }
+#scr-wheel #wheel-win { min-height: 1.4em; font-size: 22px; margin: 8px 0 0; }
+.kick-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+#btn-kick { margin: 12px auto 0; }
 .tower-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px dashed rgba(244,248,255,.15); }
 .tower-row .ds { color: var(--muted); font-size: 13px; font-weight: 400; }
 .tower-go { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -349,7 +357,8 @@ label { display: block; font-size: 14px; color: var(--muted); margin: 8px 0 4px;
 }
 /* Centrado vertical que no corta por arriba cuando no cabe. */
 #pull-fx::before, #pull-fx::after { content: ''; margin: auto; }
-#pull-close { position: sticky; bottom: 8px; z-index: 2; flex-shrink: 0; box-shadow: 0 4px 18px rgba(0,0,0,.6); }
+.pull-actions { position: sticky; bottom: 8px; z-index: 2; display: flex; gap: 10px; flex-shrink: 0; }
+.pull-actions .btn { box-shadow: 0 4px 18px rgba(0,0,0,.6); }
 @media (max-height: 520px) {
   #pull-fx { gap: 10px; }
   .pull-results { gap: 6px; }

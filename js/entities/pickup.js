@@ -40,18 +40,46 @@ G.Pickups = (() => {
     return Math.max(1, G.Coop.players().length);
   }
 
+  const TICK_KEY = { ticket: 't1', ticket10: 't10', ticketb: 'tb', ticketg: 'tg' };
+  /** Los de un jefe caen juntos: en grupo se reparten, no se dejan en el suelo. */
+  function shareBossTickets(kind, n) {
+    const people = (G.Coop.roster && G.Coop.roster()) || [];
+    const key = TICK_KEY[kind];
+    if (people.length < 2 || !key || !G.Coop.giveTicket) return false;
+    const order = people.slice();
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = order[i]; order[i] = order[j]; order[j] = t;
+    }
+    const base = Math.floor(n / order.length);
+    let extra = n % order.length;
+    for (const p of order) {
+      const got = base + (extra > 0 ? 1 : 0);
+      if (extra > 0) extra--;
+      if (got) G.Coop.giveTicket(p.uid, key, got);
+    }
+    return true;
+  }
+
   function dropTickets(source, x, y) {
     const d = DROPS[source];
     if (!d) return;
+    // En grupo sólo el anfitrión crea el botín (si no, cada cliente lo tiraría).
+    if (G.Coop.active && !G.Coop.isHost) return;
     // Fortuna de tickets suma en cofres y jefes, no en cada Pokémon derrotado.
     const add = source === 'kill' ? [0, 0, 0, 0] : ((G.Game && G.Game.player && G.Game.player.ticketAdd) || [0, 0, 0, 0]);
-    // El botín del jefe es del grupo: en cooperativo cada uno se queda con la
-    // misma copia, así que la cantidad se parte entre los que estáis.
-    const share = source === 'boss' || source === 'rift' ? partySize() : 1;
     TICKET_KINDS.forEach((kind, i) => {
       if (Math.random() * 100 >= Math.min(100, d.p[i] + (add[i] || 0))) return;
       const [a, b] = d.n[i];
-      const n = Math.floor(G.U.randInt(a, b) / share);
+      const n = G.U.randInt(a, b);
+      if ((source === 'boss' || source === 'rift') && partySize() > 1) {
+        // El dorado se sortea. El resto se reparte: si no, se lo queda quien esté encima.
+        if (kind === 'ticketg') {
+          for (let k = 0; k < n; k++) G.Game.queueGoldWheel();
+          return;
+        }
+        if (shareBossTickets(kind, n)) return;
+      }
       for (let k = 0; k < n; k++) push(orb(kind, x + G.U.rand(-18, 18), y + G.U.rand(-12, 12), 1));
     });
   }

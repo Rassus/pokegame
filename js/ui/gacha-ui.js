@@ -13,6 +13,7 @@ G.GachaUI = (() => {
     $('pull-10c').onclick = () => pull(10, 'tb');
     $('pull-g').onclick = () => pull(1, 'tg');
     $('pull-close').onclick = close;
+    $('pull-again').onclick = again;
 
     const tabs = $('gacha-gens');
     G.Gacha.BANNERS.forEach(b => {
@@ -75,6 +76,7 @@ G.GachaUI = (() => {
       `<p class="note">· El ticket dorado siempre sale shiny. Los otros no.<br>
        · Los fragmentos son de la línea evolutiva. Un básico da ×1, la segunda ×2 y la tercera ×3. Entra en la pokédex al juntar: Común 3, Poco común 5, Rara 10, Épica 15 y Legendaria 20.<br>
        · Si ya lo tienes y aún puede subir, la tirada sigue dando fragmentos. Al tope, da Pokémonedas.<br>
+       · Un shiny repetido da fragmentos de ese Pokémon y vuelve a tirar un shiny.<br>
        · Los tickets se consiguen jugando: al derrotar Pokémon, en cofres y al vencer jefes.</p>`;
 
     const t = s.tickets;
@@ -97,6 +99,20 @@ G.GachaUI = (() => {
   }
 
   const wait = ms => new Promise(r => setTimeout(r, ms));
+  let lastUse = 't1';
+
+  function again() {
+    const use = lastUse === 't10' || lastUse === 'tb' ? lastUse : 't1';
+    pull(10, use);
+  }
+
+  function showAgain() {
+    const use = lastUse === 't10' || lastUse === 'tb' ? lastUse : 't1';
+    const icon = use === 't10' ? 'ticket10' : use === 'tb' ? 'ticketb' : 'ticket';
+    const cost = use === 't1' ? '10' : '1';
+    $('pull-again').innerHTML = 'Tirar ×10 · ' + G.Icons.html(icon, 16) + ' ' + cost;
+    $('pull-again').disabled = !G.Gacha.costOf(G.DB.save, 10, use);
+  }
 
   async function pull(n, use = 't1') {
     if (busy) return;
@@ -105,6 +121,7 @@ G.GachaUI = (() => {
       G.UI.toast('Esta región está cerrada. Ábrela en Misiones.');
       return;
     }
+    lastUse = use;
     const res = G.Gacha.pull(G.DB.save, n, gen, use);
     if (!res) { G.Audio.sfx('error'); G.UI.toast('No tienes tickets suficientes: consíguelos jugando'); return; }
     G.Progress.checkAch();
@@ -114,7 +131,7 @@ G.GachaUI = (() => {
     const best = Math.max(...res.map(r => r.rarity));
     const fx = $('pull-fx'), slot = $('slot'), out = $('pull-results');
     out.innerHTML = '';
-    $('pull-close').classList.add('hidden');
+    $('pull-actions').classList.add('hidden');
     slot.style.display = '';
     fx.classList.remove('hidden');
 
@@ -134,13 +151,15 @@ G.GachaUI = (() => {
       if (r.fragGain) bits.push(`${G.Icons.html('frag', 18)} +${r.fragGain}`);
       if (r.unlocked) bits.push('<span class="new">¡Capturado!</span>');
       else if (r.shiny && r.isNew) bits.push('<span class="new">¡Shiny!</span>');
+      else if (r.shiny) bits.push('Repetido');
       const tag = bits.join(' ') || `Repetido · <span class="coin"></span> +${G.U.num(r.refund)}`;
       c.insertAdjacentHTML('beforeend', `<b>${r.shiny ? G.Icons.html('shiny', 12) + ' ' : ''}${mon.name}</b><div class="tag">${tag}</div>`);
       out.appendChild(c);
       G.Audio.sfx('reveal', { rarity: r.rarity });
       await wait(n === 10 ? 150 : 0);
     }
-    $('pull-close').classList.remove('hidden');
+    showAgain();
+    $('pull-actions').classList.remove('hidden');
     busy = false;
   }
 

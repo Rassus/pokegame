@@ -196,6 +196,46 @@ G.Game = (() => {
     if (save_) G.DB.commit();
   }
 
+  const TICK_FX = { t1: ['ticket', '#c9cedb'], t10: ['morado', '#c47bff'], tb: ['azul', '#4fb4ff'], tg: ['dorado', '#ffd23f'] };
+
+  /** Suma tickets a TU partida y los guarda. `quiet` = el aviso ya se pintó. */
+  function addTickets(key, n, quiet) {
+    if (!pl || !n) return;
+    pl[key] = (pl[key] || 0) + n;
+    bankTickets();
+    if (quiet) return;
+    const [word, col] = TICK_FX[key] || ['ticket', '#fff'];
+    G.FX.dmgText(pl.x, pl.y - pl.bodyH - 8, '+' + n + ' ' + word, col, true);
+    G.Audio.sfx(key === 'tg' ? 'shinyGet' : 'shiny');
+  }
+
+  let goldQ = 0;
+  /** El anfitrión sortea un ticket dorado de jefe entre el grupo. */
+  function queueGoldWheel() {
+    if (!G.Coop.active || !G.Coop.isHost) return;
+    goldQ++;
+    if (state !== 'wheel') spinGold();
+  }
+  function spinGold() {
+    if (!goldQ || !G.Coop.active) { goldQ = 0; return; }
+    const people = G.Coop.roster();
+    if (people.length < 2) { goldQ = 0; addTickets('tg', 1); return; }
+    goldQ--;
+    const win = Math.floor(Math.random() * people.length);
+    const dur = Math.round((2 + Math.random() * 3) * 100) / 100;
+    const names = people.map(p => p.name);
+    const uids = people.map(p => p.uid);
+    state = 'wheel';
+    G.UI.hide('scr-pause');
+    G.Coop.broadcast(['gw', dur, win, names, uids]);
+    G.RunUI.showWheel(names, win, dur, () => {
+      G.Coop.giveTicket(uids[win], 'tg', 1);
+      G.Spawner.say('¡' + names[win] + ' se lleva el ticket dorado!', 3.2);
+      if (goldQ > 0) spinGold();
+      else if (state === 'wheel') state = 'playing';
+    });
+  }
+
   const coopApi = {
     team: teamState,
     summary,
@@ -205,9 +245,7 @@ G.Game = (() => {
       if (t.level > pl.level) G.Audio.sfx('xp');
       pl.level = t.level; pl.xp = t.xp; pl.xpNext = t.xpNext;
       pl.kills = t.kills; pl.bosses = t.bosses; pl.coins = t.coins;
-      if ((t.t1 || 0) > pl.t1 || (t.t10 || 0) > pl.t10 || (t.tb || 0) > pl.tb || (t.tg || 0) > pl.tg) G.Audio.sfx('shiny');
-      pl.t1 = t.t1 || 0; pl.t10 = t.t10 || 0; pl.tb = t.tb || 0; pl.tg = t.tg || 0;
-      bankTickets();
+      // Los tickets no se copian: cada uno se queda los que recoge.
     },
     levelStart(level) {
       state = 'levelup';
@@ -223,7 +261,7 @@ G.Game = (() => {
     resume() { G.RunUI.closeLevelUp(); if (state === 'levelup') state = 'playing'; },
     shiny(dex) { G.onShinyCaught({ dex, name: (G.DEX_BY[dex] || {}).name || '' }); },
     over(d) {
-      if (d) Object.assign(pl, { kills: d.ki, bosses: d.bo, coins: d.co, level: Math.max(pl.level, d.lv || 1), t1: d.t1 || pl.t1, t10: d.t10 || pl.t10, tb: d.tb || pl.tb, tg: d.tg || pl.tg });
+      if (d) Object.assign(pl, { kills: d.ki, bosses: d.bo, coins: d.co, level: Math.max(pl.level, d.lv || 1) });
       if (d && d.t) time = d.t;
       if (d && d.towerClear) G.Towers.markClear();
       if (d && d.why === 'host') G.UI.toast('El anfitrión ha terminado la partida', 3200);
@@ -233,6 +271,36 @@ G.Game = (() => {
     item(id) { offerItem(id); },
     stone() { equipStone(); },
     mateLeft() {},
+    grantTicket(key, n) { addTickets(key, n); },
+    wheel(dur, win, names) {
+      state = 'wheel';
+      G.UI.hide('scr-pause');
+      G.RunUI.showWheel(names, win, dur, () => { if (state === 'wheel') state = 'playing'; });
+    },
+    cardVote(uid, name, cards) {
+      if (!G.Net || uid === G.Net.uid) return;
+      G.RunUI.showCardVote(name, cards, i => G.Coop.voteCard(i));
+    },
+    forceCard(index) { G.RunUI.forcePick(index); },
+    pauseForVote(on) {
+      if (on) { if (state === 'playing' || state === 'paused') state = 'kickvote'; G.UI.hide('scr-pause'); }
+      else if (state === 'kickvote') state = 'playing';
+    },
+    kickVote(uid, name) {
+      if (state === 'playing' || state === 'paused') state = 'kickvote';
+      G.UI.hide('scr-pause');
+      G.RunUI.showKickVote(name, G.Net && uid === G.Net.uid, yes => G.Coop.voteKick(yes));
+    },
+    kickDone(pass, name) {
+      G.RunUI.closeVote();
+      if (state === 'kickvote') state = 'playing';
+      if (name) G.Spawner.say(pass ? name + ' sale de la partida' : name + ' se queda', 2.8, true);
+    },
+    kicked() {
+      G.UI.toast('Te han sacado de la partida. Lo que habías recogido se queda guardado.', 4200);
+      if (G.Coop.active) G.Coop.end();
+      endRun(false);
+    },
     /** Grupo: quién está eligiendo fusión. Mientras haya alguien, todo parado. */
     hold(names) {
       holdBy = names || [];
@@ -466,8 +534,16 @@ G.Game = (() => {
       return;
     }
     if (p.kind === 'coin') {
-      pl.coins += p.value;
-      G.FX.dmgText(who.x, who.y - who.bodyH - 6, '+' + p.value, '#ffd23f');
+      let gain = p.value;
+      // Boleto Ganador: ×1,5 en el momento de recogerlo, no al acabar la run.
+      if (who && who.item === 'winticket') {
+        who._coinBonus = (who._coinBonus || 0) + p.value * 0.5;
+        const extra = Math.floor(who._coinBonus);
+        who._coinBonus -= extra;
+        gain += extra;
+      }
+      pl.coins += gain;
+      G.FX.dmgText(who.x, who.y - who.bodyH - 6, '+' + gain, '#ffd23f');
       return;
     }
     if (p.kind === 'item') {
@@ -481,11 +557,13 @@ G.Game = (() => {
     const TICK = { ticket: ['t1', '+1 ticket', '#c9cedb'], ticket10: ['t10', '+1 morado', '#c47bff'], ticketb: ['tb', '+1 azul', '#4fb4ff'], ticketg: ['tg', '+1 dorado', '#ffd23f'] };
     if (TICK[p.kind]) {
       const [key, label, col] = TICK[p.kind];
-      const doble = ((who && who.item === 'luckcharm') || pl.item === 'luckcharm') && Math.random() < 0.01;
-      pl[key] += doble ? 2 : 1;
-      bankTickets();
-      G.FX.dmgText(who.x, who.y - who.bodyH - 8, doble ? label.replace('+1', '+2') : label, col, true);
+      const doble = who && who.item === 'luckcharm' && Math.random() < 0.01;
+      const n = doble ? 2 : 1;
+      const text = doble ? label.replace('+1', '+' + n) : label;
+      G.FX.dmgText(who.x, who.y - who.bodyH - 8, text, col, true);
       G.FX.ring(who.x, who.y, 6, 50, col, 0.4, 3);
+    if (!who || who === pl || !who.uid || who.uid === pl.uid) addTickets(key, n, true);
+      else G.Coop.giveTicket(who.uid, key, n);
       return;
     }
     if (p.kind === 'heal') {
@@ -538,6 +616,7 @@ G.Game = (() => {
           && document.getElementById('pull-fx').classList.contains('hidden')) G.MenuUI.open();
       return;
     }
+    if (state === 'wheel' || state === 'kickvote') return;
     if (G.Input.tap('escape') || G.Input.tap('keyp')) { togglePause(); return; }
     if (state !== 'playing' || !pl) return;
     for (let i = 0; i < 4; i++) {
@@ -586,6 +665,7 @@ G.Game = (() => {
     frameDt = state === 'playing' ? dt : 0;
 
     handleKeys();
+    G.RunUI.tick(Math.min(0.05, real));
 
     if (state === 'playing') update(dt);
     else if (pl && state !== 'ui') { G.FX.update(dt * 0.25); pl.anim.update(dt * 0.25); }
@@ -863,7 +943,7 @@ G.Game = (() => {
     /** Para grabar vídeos: abre las cartas de subir de nivel. */
     debugLevelUp() { pl.level++; pendingLevels++; },
     toUI() { state = 'ui'; Backdrop.restore(); },
-    get state() { return state; }, get player() { return pl; }, st
+    get state() { return state; }, get player() { return pl; }, queueGoldWheel, st
   };
 })();
 

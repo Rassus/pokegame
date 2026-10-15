@@ -21,12 +21,12 @@ G.Items = (() => {
       on: () => {}, off: () => {} },
     { id: 'shellbell', name: 'Cascabel Concha', desc: 'Un escudo de hasta el 25% de tu vida. Se recarga un 1% por segundo.',
       on: () => {}, off: p => { p.shield = 0; } },
-    { id: 'bloodclaw', name: 'Garra Sangrienta', desc: 'Recuperas 3 de vida por cada golpe, hasta 12 por segundo.',
+    { id: 'bloodclaw', name: 'Garra Sangrienta', desc: '3 de vida por enemigo en cada ataque, hasta 12 por ataque. En total, no más del 2% de tu vida máxima por segundo.',
       on: () => {}, off: () => {} },
     { id: 'luckcharm', name: 'Amuleto Suerte', desc: 'Al recoger un ticket, un 1% de que cuente por dos.',
       on: () => {}, off: () => {} },
-    { id: 'amuletcoin', name: 'Moneda Amuleto', desc: '+50% de Pokémonedas al acabar la run.',
-      on: p => { p.coinMul *= 1.5; }, off: p => { p.coinMul /= 1.5; } },
+    { id: 'amuletcoin', name: 'Moneda Amuleto', desc: '+100% de Pokémonedas al acabar la run. Si lo cambias antes de terminar, no se aplica.',
+      on: p => { p.coinMul *= 2; }, off: p => { p.coinMul /= 2; } },
     { id: 'luckyegg', name: 'Huevo Suerte', desc: '+30% de experiencia.',
       on: p => { p.xpMul *= 1.3; }, off: p => { p.xpMul /= 1.3; } },
     { id: 'lifeorb', name: 'Vidasfera', desc: '+30% de daño, pero cada ataque te quita un poco de vida.',
@@ -36,7 +36,19 @@ G.Items = (() => {
     { id: 'rockyhelmet', name: 'Casco Dentado', desc: 'Los que te golpean cuerpo a cuerpo reciben daño.',
       on: () => {}, off: () => {} },
     { id: 'assaultvest', name: 'Chaleco Asalto', desc: '+20% de reducción de daño recibido.',
-      on: p => { p.dmgReduce += 0.2; }, off: p => { p.dmgReduce -= 0.2; } }
+      on: p => { p.dmgReduce += 0.2; }, off: p => { p.dmgReduce -= 0.2; } },
+    { id: 'meowthmedal', name: 'Medallón de Meowth', desc: 'Las monedas caen un 30% más a menudo.',
+      on: () => {}, off: () => {} },
+    { id: 'winticket', name: 'Boleto Ganador', desc: 'El oro que recoges vale ×1,5 al momento.',
+      on: () => {}, off: () => {} },
+    { id: 'lockpick', name: 'Ganzúa', desc: 'Los cofres se abren 1 segundo más rápido.',
+      on: p => { p.chestCut += 1; }, off: p => { p.chestCut -= 1; } },
+    { id: 'masterkey', name: 'Llave Maestra (1)', desc: 'Abre un cofre al tocarlo. Luego se gasta.',
+      on: () => {}, off: () => {} },
+    { id: 'iceboots', name: 'Botines de Hielo', desc: 'En el agua no te frenas y vas un 30% más rápido.',
+      on: () => {}, off: () => {} },
+    { id: 'saunatowel', name: 'Toalla de Sauna', desc: 'La lava no te hace daño y recuperas 4 de vida por segundo.',
+      on: () => {}, off: () => {} }
   ];
   // Hueco propio (no entra en el sorteo del objeto normal). 0,01% en cofres y jefes.
   const STONE = { id: 'evostone', name: 'Piedra Evolución', desc: 'Hueco aparte. Un básico evoluciona desde el nivel 65 y una segunda etapa desde el 135.',
@@ -56,5 +68,30 @@ G.Items = (() => {
     return G.U.pick(pool).id;
   }
 
-  return { LIST, BY, roll, STONE, DROP, each };
+  /** Cuántos llevan este objeto ahora (en grupo, cada uno el suyo). */
+  function holders(id) {
+    if (G.Coop && G.Coop.active) {
+      let n = 0;
+      for (const p of G.Coop.players()) if (p && p.item === id) n++;
+      return n;
+    }
+    const pl = G.Game && G.Game.player;
+    return pl && pl.item === id ? 1 : 0;
+  }
+
+  /** Medallón de Meowth: las monedas caen un 30% más por cada uno que lo lleve. */
+  function coinFreq() { return 1 + 0.3 * holders('meowthmedal'); }
+
+  /** Probabilidad de que caiga una moneda, ya con el medallón. */
+  function coinChance(p) { return Math.min(1, p * coinFreq()); }
+
+  /** Cuántas monedas suelta un montón fijo (10 pasan a 13, etc.). */
+  function coinRolls(n) {
+    const x = n * coinFreq();
+    if (x === n) return n;
+    const base = Math.floor(x);
+    return base + (Math.random() < x - base ? 1 : 0);
+  }
+
+  return { LIST, BY, roll, STONE, DROP, each, holders, coinFreq, coinChance, coinRolls };
 })();

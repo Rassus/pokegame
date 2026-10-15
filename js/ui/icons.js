@@ -180,6 +180,24 @@ G.Icons = (() => {
     assaultvest: { pal: { g: '#4f8a3a', d: '#2f5a22', y: '#ffd23f' }, rows: [
       '............', '.kkk....kkk.', 'kggk....kggk', 'kgggkkkkgggk', 'kgggyggygggk', 'kgggggggggdk',
       'kggyggggygdk', 'kgggggggggdk', 'kgggggggggdk', 'kddddddddddk', 'kkkkkkkkkkkk', '............'] },
+    meowthmedal: { pal: { y: '#ffd23f', o: '#c08a10', w: '#fff3b0', p: '#ff8ad8' }, rows: [
+      '....kk.kk...', '...kyk.kyk..', '..kyyykyyyk.', '.kyyywyyyok.', '.kyypppyyok.', '.kyyywyyyok.',
+      '..kyyyyyyok.', '...kyyyyok..', '....kooook..', '.....kkkk...', '............', '............'] },
+    winticket: { pal: { y: '#ffd23f', o: '#c08a10', w: '#fff8d0', r: '#ff5f6d' }, rows: [
+      '.kkkkkkkkkk.', 'kyyyyyyyyyyk', 'kywkywkywyok', 'kyyyyyyyyyyk', 'kyyyrryyyyok', 'kyyyyyyyyyyk',
+      'kywkywkywyok', 'kyyyyyyyyyok', '.kkkkkkkkkk.', '............', '............', '............'] },
+    lockpick: { pal: { s: '#d7dde8', d: '#6a7384' }, rows: [
+      '...........k', '..........ks', '.........ksk', '........ksk.', '.......ksk..', '......ksk...',
+      '.....ksk....', '....ksk.....', '...ksk......', '..ksk.......', '.kdk........', 'kkk.........'] },
+    masterkey: { pal: { y: '#ffd23f', o: '#c08a10' }, rows: [
+      '....kkkk....', '...kyyyyk...', '...kykkyk...', '...kyyyyk...', '....kyyk....', '....kyyk....',
+      '....kyyk....', '...kyyyyk...', '..kyyyyyok..', '...kkkkkk...', '............', '............'] },
+    iceboots: { pal: { c: '#9fd8ff', w: '#f4fbff', d: '#2a6fb0' }, rows: [
+      '............', '.kk....kk...', '.kck..kck...', '.kck..kck...', '.kckk.kckk..', '.kwwwkkwwwk.',
+      '.kccccwcccck', '.kdddddddddk', '.kkkkkkkkkk.', '............', '............', '............'] },
+    saunatowel: { pal: { r: '#ff5f6d', w: '#fff4f4', o: '#ff9a3d' }, rows: [
+      '............', '.kkkkkkkkkk.', 'kwrwrwrwrwrk', 'kwrwrwrwrwrk', 'kwwwwwwwwwrk', 'kwrwrwrwrwrk',
+      'kwrwrwrwrwrk', 'kwwwwwwwwwok', '.kkkkkkkkkk.', '............', '............', '............'] },
     // ---------- medallas de logros (bronce, plata, oro) ----------
     medal1: { pal: { r: '#ff5f6d', q: '#b8283a', m: '#d08a4a', n: '#8a5226', w: '#ffd0a0', s: '#ffe8c8' }, rows: MEDAL },
     medal2: { pal: { r: '#4fb4ff', q: '#2a6fb0', m: '#c9d2de', n: '#7d8899', w: '#ffffff', s: '#ffffff' }, rows: MEDAL },

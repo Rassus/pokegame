@@ -482,7 +482,10 @@
 <div id="pull-fx" class="hidden">
   <canvas id="slot" width="176" height="170" title="Clic para acelerar"></canvas>
   <div class="pull-results" id="pull-results"></div>
-  <button id="pull-close" class="btn gold hidden">Continuar</button>
+  <div class="pull-actions hidden" id="pull-actions">
+    <button id="pull-again" class="btn" type="button">Tirar ×10</button>
+    <button id="pull-close" class="btn gold" type="button">Continuar</button>
+  </div>
 </div>
 
 <!-- ====== Durante la run ====== -->
@@ -526,6 +529,30 @@
       <button id="btn-pause-settings" class="btn">Ajustes</button>
       <button id="btn-quit" class="btn">Abandonar run</button>
     </div>
+    <button id="btn-kick" class="btn hidden" type="button">Votar sacar a un jugador</button>
+    <div id="pause-kick" class="hidden">
+      <p class="sub">Elige a quién sacar. El anfitrión no se puede echar: la partida va en su ordenador.</p>
+      <div id="pause-kick-list" class="kick-list"></div>
+    </div>
+  </div>
+</section>
+
+<section id="scr-wheel" class="scr dim hidden">
+  <div class="box center" style="width:min(520px,100%)">
+    <h2>Ticket dorado</h2>
+    <p class="sub" id="wheel-sub">Girando…</p>
+    <canvas id="wheel-cv" width="420" height="420"></canvas>
+    <p id="wheel-win" class="gold"></p>
+  </div>
+</section>
+
+<section id="scr-vote" class="scr dim hidden">
+  <div class="box center" style="width:min(640px,100%)">
+    <h2 id="vote-title">Votación</h2>
+    <p class="sub" id="vote-sub"></p>
+    <div id="vote-cards" class="cards"></div>
+    <div id="vote-yn" class="row hidden" style="justify-content:center"></div>
+    <p id="vote-wait" class="note"></p>
   </div>
 </section>
 

@@ -6,18 +6,37 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
-  { d: '2026-10-15', title: ['La meta de ahora', 'The current goal'], chg: [
+  { d: '2026-10-15', title: ['La meta de ahora', 'The current goal'], new: [
+    ['Objetos nuevos: Medallón de Meowth (las monedas caen un 30% más), Boleto Ganador (el oro recogido vale ×1,5 al momento), Ganzúa (los cofres se abren 1 s antes), Llave Maestra (abre un cofre al tocarlo y se gasta), Botines de Hielo (en el agua no frenan y dan +30% de velocidad) y Toalla de Sauna (la lava no hace daño y cura 4 de vida por segundo).',
+     'New items: Meowth Medal (coins drop 30% more often), Winning Ticket (picked-up gold is worth ×1.5 right away), Lockpick (chests open 1 s faster), Master Key (opens one chest on touch, then it is gone), Ice Boots (in water they do not slow you and grant +30% speed) and Sauna Towel (lava deals no damage and heals 4 HP per second).']
+  ], chg: [
+    ['Garra Sangrienta: 3 de vida por enemigo en cada ataque, hasta 12 por ataque. Entre todos, no más del 2% de tu vida máxima por segundo.',
+     'Bloody Claw: 3 HP per enemy on each attack, up to 12 per attack. Altogether, no more than 2% of your max HP per second.'],
+    ['Moneda Amuleto: +100% de Pokémonedas al acabar la run, y solo si la sigues llevando. Si la cambias antes, no cuenta.',
+     'Amulet Coin: +100% PokéCoins at the end of the run, and only if you are still holding it. If you swap it earlier, it does not count.'],
     ['Los logros por escalones muestran solo la meta actual. Al cumplirla, el texto pasa a la siguiente: 1 torre, luego 2, luego 4…',
      'Step achievements show only the current goal. Once you reach it, the text moves on: 1 tower, then 2, then 4…'],
     ['Esas cartas ya no dicen «Paso 1/8»: se ve la meta y el avance.',
      'Those cards no longer say “Step 1/8”: they show the goal and the progress.'],
     ['Los potenciadores y las mejoras de la run se ven a la derecha.',
      'Buffs and run upgrades are shown on the right.'],
-    ['Los tickets de un jefe se reparten entre los jugadores del grupo.',
-     'A boss\'s tickets are split among the players in the group.'],
+    ['Los tickets que recoges son solo tuyos. Los de un jefe se reparten entre el grupo, porque caen juntos. El dorado se sortea con una rueda: el juego se para, gira y se lo lleva quien salga.',
+     'Tickets you pick up are yours alone. A boss\'s tickets are split among the group, because they drop together. The gold one is raffled on a wheel: the game pauses, it spins, and the winner keeps it.'],
+    ['Si alguien tarda más de 30 segundos en elegir carta, el resto puede votar cuál se queda. Cuando todos han votado, se aplica la más elegida y la partida sigue.',
+     'If someone takes more than 30 seconds to pick a card, the others can vote which one they get. Once everyone has voted, the top choice is applied and the run continues.'],
+    ['En la pausa, en grupo, se puede votar sacar a un jugador. Si sale que sí, esa persona deja la partida y los demás siguen con lo ganado.',
+     'While paused, in a group, you can vote to remove a player. If the vote passes, that person leaves and the others keep going with what they earned.'],
     ['La vida de un jefe, ya con su escala normal, se multiplica por el número de jugadores.',
-     'A boss\'s HP, after its normal scaling, is multiplied by the number of players.']
+     'A boss\'s HP, after its normal scaling, is multiplied by the number of players.'],
+    ['Un shiny repetido en el gacha da fragmentos de ese Pokémon y vuelve a salir un shiny. Al terminar la tirada hay un botón para tirar otra vez ×10.',
+     'A duplicate shiny in the gacha gives fragments of that Pokémon and rolls another shiny. After the pull there is a button to pull ×10 again.'],
+    ['Completar la Pokédex de una región da un ticket dorado.',
+     'Completing a region\'s Pokédex awards a gold ticket.'],
+    ['Al evolucionar en una run, las mejoras de vida, ataque y velocidad pasan a la evolución si son más altas que las que ya tenía. No se suman y no pasan del máximo.',
+     'Evolving in a run carries HP, attack and speed upgrades to the new form when they are higher than the ones it already had. They are not added together and they cannot go past the cap.']
   ], fix: [
+    ['«Me gusta el dinero» cuenta solo el oro de las runs. El de las misiones no suma.',
+     '“I like money” counts only gold from runs. Mission gold does not count.'],
     ['A veces un Pokémon salvaje se quedaba invisible si el navegador soltaba su dibujo.',
      'A wild Pokémon could turn invisible when the browser dropped its sprite.'],
     ['Al jugar en grupo, Chrome a veces cortaba la conexión con la partida guardada.',

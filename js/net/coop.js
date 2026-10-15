@@ -34,6 +34,10 @@ G.Coop = (() => {
   let api = {};                         // callbacks del juego (game.js)
   let waiting = new Set();              // subida de nivel: quién falta por elegir
   let holds = new Set();                // quién está eligiendo una fusión (la partida se para para todos)
+  let offers = new Map();               // uid -> cartas que le salieron (para votar si no elige)
+  let levelSince = 0;                   // cuándo se abrió la subida de nivel
+  let cardVote = null;                  // { uid, cards, votes:Map, need:Set }
+  let kickVote = null;                  // { uid, name, votes:Map, need:Set }
   // El anfitrión mueve a los enemigos: si cambia de pestaña (o se le congela),
   // todo se para para todos. Antes los enemigos se quedaban quietos y los demás
   // seguían jugando con una ventaja enorme.
@@ -62,6 +66,7 @@ G.Coop = (() => {
     members = cfg.members;
     mates.clear();
     outEv = []; flushT = 0; waiting = new Set(); holds = new Set();
+    offers = new Map(); levelSince = 0; cardVote = null; kickVote = null;
     hostAway = false; stalled = false; lastHostAt = performance.now();
     cfg.members.forEach((m, i) => {
       const x = (i - (cfg.members.length - 1) / 2) * 34, y = 0;
@@ -79,6 +84,7 @@ G.Coop = (() => {
   function end() {
     active = false; host = false; local = null;
     mates.clear(); outEv = []; waiting = new Set(); holds = new Set();
+    offers = new Map(); cardVote = null; kickVote = null;
   }
 
   /** Te vas de la partida (los demás siguen). */
@@ -125,12 +131,12 @@ G.Coop = (() => {
     const m = g.find(x => x.kind === 'orbit') || g[0];
     return [r1(local.x), r1(local.y), r2(local.moveAngle), local.walking ? 1 : 0, r1(local.hp), r1(local.maxHp),
             local.dead ? 1 : 0, m ? m.id : '', m ? m.lvl : 1, r1(local.magnet), r2(local.aim), r2(local.xpMul),
-            r2(local.reviveT || 0)];
+            r2(local.reviveT || 0), local.item || ''];
   }
 
   function readState(a) {
     return { x: a[0], y: a[1], ang: a[2], walk: a[3], hp: a[4], maxHp: a[5], dead: a[6], mv: a[7], ml: a[8],
-             mag: a[9], aim: a[10], xpMul: a[11], rev: a[12] };
+             mag: a[9], aim: a[10], xpMul: a[11], rev: a[12], item: a[13] || '' };
   }
 
   // ---------------- envío ----------------
@@ -203,6 +209,7 @@ G.Coop = (() => {
         outEv = [];
       }
     }
+    if (host) maybeCardVote();
   }
 
   // ---------------- recepción ----------------
@@ -220,14 +227,15 @@ G.Coop = (() => {
     else if (u === hostUid) { const cb = api.lost; end(); if (cb) cb('Se ha perdido la conexión con el anfitrión.'); }
   });
 
-  function mateGone(u) {
+  function mateGone(u, quiet) {
     const m = mates.get(u);
     if (!m || !m.connected) return;
     m.connected = false;
     G.Projectiles.clearOrbs(m.pl);
-    G.Spawner.say(m.name + ' ha dejado la partida', 2.6);
+    if (!quiet) G.Spawner.say(m.name + ' ha dejado la partida', 2.6);
     if (waiting.has(u)) picked(u);
     if (holds.has(u)) holdOff(u);
+    dropFromVotes(u);
     if (api.mateLeft) api.mateLeft(m);
   }
 
@@ -236,7 +244,10 @@ G.Coop = (() => {
   function onClientFrame(from, msg) {
     const m = mates.get(from);
     if (!m || !m.connected) return;
-    if (msg.p) { m.state = msg.p; m.pl.net = readState(msg.p); m.xpMul = m.pl.net.xpMul || 1; }
+    if (msg.p) {
+      m.state = msg.p; m.pl.net = readState(msg.p); m.xpMul = m.pl.net.xpMul || 1;
+      m.pl.item = m.pl.net.item || null;
+    }
     for (const ev of msg.ev || []) {
       switch (ev[0]) {
         case 'h': {
@@ -264,6 +275,12 @@ G.Coop = (() => {
           emit(['pb', ev[1], ev[2]], from);
           break;
         case 'lp': picked(from); break;
+        case 'of':
+          if (!(cardVote && cardVote.uid === from)) offers.set(from, ev[1]);
+          break;
+        case 'vp': noteCardVote(from, ev[1]); break;
+        case 'ks': openKick(ev[1]); break;
+        case 'ky': noteKickVote(from, !!ev[1]); break;
         case 'hs': holdOn(from); break;
         case 'he': holdOff(from); break;
         case 're': G.Rift.enterRequest(); break;
@@ -294,7 +311,7 @@ G.Coop = (() => {
                    t1: (msg.tk || [])[0], t10: (msg.tk || [])[1], tb: (msg.tk || [])[2], tg: (msg.tk || [])[3] });
     for (const u in msg.p || {}) {
       const m = mates.get(u);
-      if (m) m.pl.net = readState(msg.p[u]);
+      if (m) { m.pl.net = readState(msg.p[u]); m.pl.item = m.pl.net.item || null; }
     }
     const now = performance.now();
     for (const a of msg.e || []) {
@@ -353,6 +370,15 @@ G.Coop = (() => {
       case 'hz': G.Hazards.add(ev[1], true); break;
       case 'fxr': G.FX.ring(ev[1], ev[2], 8, ev[3], ev[4], 0.5, 3); break;
       case 'tw': G.Towers.onNet(ev); break;
+      case 'tk': api.grantTicket && api.grantTicket(ev[1], ev[2]); break;
+      case 'gw': api.wheel && api.wheel(ev[1], ev[2], ev[3], ev[4]); break;
+      case 'cv': api.cardVote && api.cardVote(ev[1], ev[2], ev[3]); break;
+      case 'cf': api.forceCard && api.forceCard(ev[1]); break;
+      case 'cx': G.RunUI.closeVote(); break;
+      case 'kv': api.kickVote && api.kickVote(ev[1], ev[2]); break;
+      case 'kx': G.RunUI.closeVote(); if (api.kickDone) api.kickDone(!!ev[1], ev[2]); break;
+      case 'out': api.kicked && api.kicked(); break;
+      case 'gone': { const m = mates.get(ev[1]); if (m) m.connected = false; break; }
     }
   }
 
@@ -403,6 +429,9 @@ G.Coop = (() => {
   function levelStart(level) {
     waiting = new Set([me]);
     for (const m of mates.values()) if (m.connected) waiting.add(m.uid);
+    offers = new Map();
+    levelSince = performance.now();
+    cardVote = null;
     emit(['lu', level]);
     flushAll();
     api.levelStart(level);
@@ -419,6 +448,7 @@ G.Coop = (() => {
 
   /** Alguien ha elegido carta (anfitrión). */
   function picked(u) {
+    if (cardVote && cardVote.uid === u) { cardVote = null; emit(['cx']); G.RunUI.closeVote(); }
     if (!waiting.delete(u)) return;
     if (waiting.size) { sendWaiting(); return; }
     emit(['lr']);
@@ -456,6 +486,158 @@ G.Coop = (() => {
     else { outEv.push(['lp']); flushClient(true); }
   }
 
+  function dropFromVotes(u) {
+    if (cardVote && cardVote.uid === u) { cardVote = null; emit(['cx']); flushAll(); }
+    else if (cardVote && cardVote.need.delete(u)) finishCardVote();
+    if (kickVote && kickVote.uid === u) {
+      kickVote = null;
+      emit(['kx', 0, '']);
+      flushAll();
+      api.pauseForVote && api.pauseForVote(false);
+      G.RunUI.closeVote();
+    } else if (kickVote && kickVote.need.delete(u)) finishKickVote();
+  }
+
+  function roster() {
+    const out = [{ uid: me, name: nameOf(me), host: me === hostUid }];
+    for (const m of mates.values()) if (m.connected) out.push({ uid: m.uid, name: m.name, host: false });
+    return out;
+  }
+
+  /** El anfitrión apunta las cartas de cada uno (para votarlas si no elige). */
+  function reportCards(list) {
+    if (!active || !list) return;
+    if (host) { if (!(cardVote && cardVote.uid === me)) offers.set(me, list); return; }
+    outEv.push(['of', list]);
+    flushClient(true);
+  }
+
+  function voteTarget() { return cardVote ? cardVote.uid : null; }
+
+  function maybeCardVote() {
+    if (!host || cardVote || !waiting.size || !levelSince) return;
+    if (performance.now() - levelSince < 30000) return;
+    let uid = null, cards = null;
+    for (const id of waiting) {
+      const c = offers.get(id);
+      if (c && c.length) { uid = id; cards = c; break; }
+    }
+    if (!uid) {
+      if (performance.now() - levelSince > 45000) picked([...waiting][0]);
+      return;
+    }
+    const need = new Set();
+    if (uid !== me) need.add(me);
+    for (const m of mates.values()) if (m.connected && m.uid !== uid) need.add(m.uid);
+    if (!need.size) return;
+    cardVote = { uid, cards, votes: new Map(), need };
+    emit(['cv', uid, nameOf(uid), cards]);
+    flushAll();
+    if (need.has(me)) api.cardVote && api.cardVote(uid, nameOf(uid), cards);
+  }
+
+  function noteCardVote(from, index) {
+    if (!cardVote || from === cardVote.uid || !cardVote.need.has(from)) return;
+    cardVote.votes.set(from, index | 0);
+    cardVote.need.delete(from);
+    finishCardVote();
+  }
+
+  function voteCard(index) {
+    if (!cardVote) return;
+    if (host) noteCardVote(me, index);
+    else { outEv.push(['vp', index]); flushClient(true); }
+  }
+
+  function finishCardVote() {
+    if (!cardVote || cardVote.need.size) return;
+    const counts = new Map();
+    for (const v of cardVote.votes.values()) counts.set(v, (counts.get(v) || 0) + 1);
+    let best = 0, opts = [];
+    for (const [k, n] of counts) {
+      if (n > best) { best = n; opts = [k]; }
+      else if (n === best) opts.push(k);
+    }
+    const index = opts[Math.floor(Math.random() * opts.length)] || 0;
+    const uid = cardVote.uid;
+    cardVote = null;
+    emit(['cx']);
+    G.RunUI.closeVote();
+    if (uid === me) api.forceCard && api.forceCard(index);
+    else {
+      const m = mates.get(uid);
+      if (m && m.connected) m.q.push(['cf', index]);
+      flushAll();
+      picked(uid);
+    }
+  }
+
+  function askKick(uid) {
+    if (!active || !uid || uid === hostUid || kickVote) return;
+    if (host) openKick(uid);
+    else { outEv.push(['ks', uid]); flushClient(true); }
+  }
+
+  function openKick(uid) {
+    if (!host || kickVote || !uid || uid === hostUid) return;
+    const m = mates.get(uid);
+    if (!m || !m.connected) return;
+    const need = new Set();
+    if (uid !== me) need.add(me);
+    for (const o of mates.values()) if (o.connected && o.uid !== uid) need.add(o.uid);
+    if (!need.size) return;
+    kickVote = { uid, name: m.name, votes: new Map(), need };
+    emit(['kv', uid, m.name]);
+    flushAll();
+    api.pauseForVote && api.pauseForVote(true);
+    if (need.has(me)) api.kickVote && api.kickVote(uid, m.name);
+  }
+
+  function noteKickVote(from, yes) {
+    if (!kickVote || from === kickVote.uid || !kickVote.need.has(from)) return;
+    kickVote.votes.set(from, yes);
+    kickVote.need.delete(from);
+    finishKickVote();
+  }
+
+  function voteKick(yes) {
+    if (!kickVote) return;
+    if (host) noteKickVote(me, !!yes);
+    else { outEv.push(['ky', yes ? 1 : 0]); flushClient(true); }
+  }
+
+  function finishKickVote() {
+    if (!kickVote || kickVote.need.size) return;
+    let yes = 0, no = 0;
+    for (const v of kickVote.votes.values()) { if (v) yes++; else no++; }
+    const pass = yes > no;
+    const uid = kickVote.uid, name = kickVote.name;
+    kickVote = null;
+    emit(['kx', pass ? 1 : 0, name]);
+    flushAll();
+    api.kickDone && api.kickDone(pass, name);
+    api.pauseForVote && api.pauseForVote(false);
+    if (pass) kickNow(uid);
+  }
+
+  function kickNow(uid) {
+    const m = mates.get(uid);
+    if (!m || !m.connected) return;
+    m.q.push(['out']);
+    G.Net.send(m.uid, hostFrame(m));
+    mateGone(uid, true);
+    emit(['gone', uid]);
+    flushAll();
+  }
+
+  /** El ticket se lo queda quien lo recogió (o quien ganó la rueda). */
+  function giveTicket(uid, key, n) {
+    if (!active) return;
+    if (uid === me) { api.grantTicket && api.grantTicket(key, n); return; }
+    const m = mates.get(uid);
+    if (m && m.connected) m.q.push(['tk', key, n]);
+  }
+
   /** Anfitrión: se acabó para todos. */
   function over(data) {
     emit(['ov', data]);
@@ -467,6 +649,7 @@ G.Coop = (() => {
     ANIMS, COLORS, begin, end, leave, tick, players, puppets, xpFactor, scaleRate, scaleHp,
     cast, hit, status, hurtShown, enemyAdded, enemyGone, enemyShot, pickupAdded, pickupGone, say,
     propBroken, collected, shinyCaught, levelStart, localPicked, over, holdStart, holdEnd,
+    roster, reportCards, voteTarget, voteCard, askKick, voteKick, giveTicket,
     /** Anfitrión: evento para todos. Invitado: evento para el anfitrión. */
     broadcast(ev) { emit(ev); },
     toHost(ev) { if (active && !host) { outEv.push(ev); flushClient(true); } },

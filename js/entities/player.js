@@ -80,8 +80,10 @@ G.Player = class Player {
     this.amnesiaT = 0;         // Amnesia: estos huecos no se pueden usar
     this.amnesia = null;
     this.terror = 0;           // Aura de terror: lentitud acumulada (0–0,6)
-    this.clawT = 0;            // Garra Sangrienta: inicio de la ventana de 1 s
-    this.clawGot = 0;          // vida ya curada por la garra en esa ventana (tope 12)
+    this.clawAtk = null;       // Garra Sangrienta: de qué ataque es la cura
+    this.clawGot = 0;          // vida ya curada en ese ataque (tope 12)
+    this.clawSec = 0;          // inicio del segundo en curso
+    this.clawSecGot = 0;       // vida curada en ese segundo (tope 2% de la vida máxima)
     this.statsTaken = {};      // mejoras de stat cogidas (condición de evolución)
   }
 
@@ -100,7 +102,12 @@ G.Player = class Player {
   get spd() {
     const s = this.baseSpd * this.spdMul * (1 + this.buffs.spd.n * this.buffs.spd.amount) * (this.slowT > 0 ? 0.5 : 1) * (1 - Math.min(0.6, this.terror || 0));
     const w = G.Weather.speedFor(this.mon.types);
-    const slow = this.inLiquid ? G.World.liquidEffect(this.mon.types).slow || 1 : 1;
+    let slow = 1;
+    if (this.inLiquid) {
+      const le = G.World.liquidEffect(this.mon.types);
+      // Botines de Hielo: en el agua no frenan y dan +30% de velocidad.
+      slow = this.item === 'iceboots' && G.World.liquidKind() === 'water' ? 1.3 : (le.slow || 1);
+    }
     return s * slow * w;
   }
   get reduction() { return Math.min(0.8, this.dmgReduce + this.buffs.def.n * this.buffs.def.amount); }
@@ -298,6 +305,7 @@ G.Player = class Player {
     let hp = mon.hp, spd = mon.spd, atk = mon.atk;
     if (!quiet && G.Gacha && G.DB.save) {
       bonus = this.maxHp - G.Gacha.grown(this.mon, G.DB.save).hp;
+      G.Gacha.carryBoosts(G.DB.save, this.dex, mon.dex);
       const g = G.Gacha.grown(mon, G.DB.save);
       hp = g.hp; spd = g.spd; atk = g.atk;
     }
@@ -355,14 +363,20 @@ G.Player = class Player {
     if (id) G.Items.BY[id].on(this);
   }
 
-  /** Garra Sangrienta: 3 de vida por golpe, como mucho 12 en cada segundo. */
-  onDealt() {
+  /**
+   * Garra Sangrienta: 3 de vida por enemigo de un mismo ataque, hasta 12.
+   * Entre todos los ataques, no más del 2% de la vida máxima en un segundo.
+   */
+  onDealt(atk) {
     if (this.item !== 'bloodclaw' || this.dead) return;
     const now = performance.now();
-    if (now - this.clawT >= 1000) { this.clawT = now; this.clawGot = 0; }
-    const give = Math.min(3, 12 - this.clawGot);
+    if (atk !== this.clawAtk) { this.clawAtk = atk; this.clawGot = 0; }
+    if (now - this.clawSec >= 1000) { this.clawSec = now; this.clawSecGot = 0; }
+    const room = Math.min(12 - this.clawGot, this.maxHp * 0.02 - this.clawSecGot);
+    const give = Math.min(3, room);
     if (give <= 0) return;
     this.clawGot += give;
+    this.clawSecGot += give;
     this.hp = Math.min(this.maxHp, this.hp + give);
   }
 
@@ -423,15 +437,28 @@ G.Player = class Player {
     this.inLiquid = G.World.isLiquid(this.x, this.y);
     if (this.inLiquid) {
       const le = G.World.liquidEffect(this.mon.types);
-      if (le.dmg) {
+      const towel = this.item === 'saunatowel' && G.World.liquidKind() === 'lava';
+      if (le.dmg && !towel) {
         this.lavaTick -= dt;
         if (this.lavaTick <= 0) {
           this.lavaTick = le.every; this.invuln = 0;
           this.hurt(Math.max(le.flat, this.maxHp * le.dmg * 0.5));
           G.FX.burst(this.x, this.y - 4, le.color, 5, 70);
         }
-      } else if (this.walking && Math.random() < dt * 8) {
+      } else if (!le.dmg && this.walking && Math.random() < dt * 8) {
         G.FX.burst(this.x, this.y, le.slide ? '#ffffff' : '#b3defa', 2, 40);
+      }
+      // Toalla de Sauna: 4 de vida por segundo mientras pisas lava.
+      if (!this.dead && this.item === 'saunatowel' && G.World.liquidKind() === 'lava') {
+        const before = this.hp;
+        this.hp = Math.min(this.maxHp, this.hp + 4 * dt);
+        this.towelAcc = (this.towelAcc || 0) + (this.hp - before);
+        this.towelT = (this.towelT || 0) - dt;
+        if (this.towelT <= 0 && this.towelAcc >= 1) {
+          this.towelT = 0.8;
+          G.FX.dmgText(this.x, this.y - this.bodyH - 6, '+' + Math.round(this.towelAcc), '#ffb060');
+          this.towelAcc = 0;
+        }
       }
     }
 

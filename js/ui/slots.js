@@ -188,9 +188,9 @@ G.Slots = (() => {
     R(28, 124, 106, 22, '#0a0712');
     R(28, 144, 106, 2, C.chromeD);
     st.tray.forEach((b, j) => {
-      const n = st.ten ? 10 : 1;
-      const x = n === 1 ? 81 - 12 : 30 + j * 10;
-      const size = n === 1 ? 24 : 12;
+      const n = st.ten ? 10 : Math.max(1, st.tray.length);
+      const x = n === 1 ? 81 - 12 : n === 2 ? 48 + j * 36 : 30 + j * 10;
+      const size = n === 1 ? 24 : n === 2 ? 16 : 12;
       G.Icons.draw(ctx, b.sym, x, Math.round(b.y - (n === 1 ? 10 : 0)), size);
     });
 

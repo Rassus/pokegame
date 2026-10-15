@@ -370,7 +370,7 @@ G.World = (() => {
       G.FX.burst(p.x, p.y - 6, B.grass[1], 6, 70);
       const r = Math.random();
       if (r < 0.05) G.Pickups.drop('heal', p.x, p.y);
-      else if (r < 0.11) G.Pickups.drop('coin', p.x, p.y, 1);
+      else if (r < 0.05 + 0.06 * G.Items.coinFreq()) G.Pickups.drop('coin', p.x, p.y, 1);
       return;
     }
     if (p.type === 'rock') {
@@ -378,7 +378,7 @@ G.World = (() => {
       G.FX.ring(p.x, p.y - 8, 4, 26, B.rock[2], 0.3, 3);
       const r = Math.random();
       if (r < 0.40) G.Pickups.dropXp(p.x, p.y, 6);
-      if (r > 0.75) G.Pickups.drop('coin', p.x, p.y, 2);
+      if (r > 1 - 0.25 * G.Items.coinFreq()) G.Pickups.drop('coin', p.x, p.y, 2);
       if (r > 0.94) G.Pickups.drop('heal', p.x + 8, p.y);
       return;
     }
@@ -386,7 +386,7 @@ G.World = (() => {
       G.FX.burst(p.x, p.y - 10, '#f2c443', 22, 180);
       G.FX.ring(p.x, p.y - 8, 6, 46, '#f2c443', 0.45, 4);
       G.Camera.kick(0.25);
-      const n = G.U.randInt(4, 7);
+      const n = G.Items.coinRolls(G.U.randInt(4, 7));
       for (let i = 0; i < n; i++) G.Pickups.drop('coin', p.x + G.U.rand(-14, 14), p.y + G.U.rand(-10, 10), 3);
       G.Pickups.drop(Math.random() < 0.5 ? 'heal' : 'magnet', p.x, p.y);
       G.Pickups.dropXp(p.x, p.y, 20, false, false, false);
@@ -400,7 +400,7 @@ G.World = (() => {
       G.FX.burst(p.x, p.y - 12, '#f2c443', 34, 220);
       G.FX.ring(p.x, p.y - 8, 6, 80, '#f2c443', 0.6, 5);
       G.Camera.kick(0.4);
-      for (let i = 0; i < 9; i++) G.Pickups.drop('coin', p.x + G.U.rand(-22, 22), p.y + G.U.rand(-14, 14), 4);
+      for (let i = 0; i < G.Items.coinRolls(9); i++) G.Pickups.drop('coin', p.x + G.U.rand(-22, 22), p.y + G.U.rand(-14, 14), 4);
       G.Pickups.dropTickets('big', p.x, p.y);
       if (Math.random() * 100 < G.Items.DROP.big) G.Pickups.drop('item', p.x + 14, p.y - 14, G.Items.roll());
       G.Pickups.maybeEvoStone(p.x - 14, p.y - 14);

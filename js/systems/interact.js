@@ -41,6 +41,14 @@ G.Interact = (() => {
           break;
         case 'bigchest':
           if (!pl.dead && d2 < Math.max(46, p.r + pl.r + 24) ** 2) {
+            // Llave Maestra: un cofre, al momento, y el objeto desaparece.
+            if (pl.hasItem('masterkey')) {
+              pl.equip(null);
+              G.Spawner.say('¡La llave maestra abre el cofre!', 2.4, true);
+              p.open = 0;
+              G.World.breakProp(p);
+              break;
+            }
             if (p.open === 0) G.Audio.sfx('select');
             p.open += dt;
             if (p.open >= chestTime(pl)) { p.open = 0; G.World.breakProp(p); }

@@ -12,7 +12,8 @@
  * Se tira con tickets que se consiguen jugando:
  *   ×1   1 gris
  *   ×10  10 grises, 1 morado o 1 azul
- *   ×1   1 dorado (shiny)
+ *   ×1   1 dorado (shiny). Si ese shiny ya lo tienes, da fragmentos de su
+ *        línea y sale otro shiny.
  */
 G.Gacha = (() => {
   const EMPTY = { t1: 0, t10: 0, tb: 0, tg: 0 };
@@ -67,6 +68,27 @@ G.Gacha = (() => {
     return mon[stat] >= CAP[stat] || valueOf(mon, stat, levelsOf(save, mon.dex)[stat]) >= CAP[stat];
   }
   function canGrow(mon, save) { return ['hp', 'atk', 'spd'].some(s => !atCap(mon, save, s)); }
+  /** Niveles de mejora que caben antes del tope (150 de vida, 2 de ataque, 150 de velocidad). */
+  function maxLevels(mon, stat) {
+    const base = mon[stat], cap = CAP[stat], step = STEP[stat];
+    if (!(step > 0) || base >= cap) return 0;
+    return Math.floor((cap - base) / step + 1e-6);
+  }
+  /**
+   * Al evolucionar en una run, cada estadística de la evolución se queda
+   * con el mayor número de mejoras (la suya o la de la forma anterior).
+   * No se suman, y no se guarda más de lo que cabe bajo el tope.
+   */
+  function carryBoosts(save, fromDex, toDex) {
+    const mon = G.DEX_BY[toDex];
+    if (!save || !mon || fromDex === toDex) return;
+    const src = levelsOf(save, fromDex);
+    save.boost = save.boost || {};
+    const dst = save.boost[toDex] = Object.assign({ hp: 0, atk: 0, spd: 0 }, save.boost[toDex]);
+    for (const stat of ['hp', 'atk', 'spd']) {
+      dst[stat] = Math.min(maxLevels(mon, stat), Math.max(dst[stat] || 0, src[stat] || 0));
+    }
+  }
   /** Gasta fragmentos de la línea en un nivel de esa estadística. */
   function grow(save, dex, stat) {
     const mon = G.DEX_BY[dex];
@@ -151,34 +173,54 @@ G.Gacha = (() => {
     save.frags = save.frags || {};
     const gold = use === 'tg';
 
-    const out = [];
-    let refundSum = 0;
-    for (let i = 0; i < n; i++) {
-      const { rarity, list } = poolNear(rollRarity(use), gen);
-      let mon = G.U.pick(list);
-      let shiny = false;
-      if (gold) {
-        let withArt = list.filter(p => G.Sprites.hasShiny(p.dex));
-        if (!withArt.length) withArt = G.DEX.filter(p => p.gen === gen && G.Sprites.hasShiny(p.dex));
-        if (withArt.length) {
-          const missing = withArt.filter(p => !save.shiny[p.dex]);
-          mon = G.U.pick(missing.length ? missing : withArt);
-          shiny = true;
-        }
-      }
-
-      const need = fragNeed(mon.rarity);
+    function pickShiny() {
+      const { list } = poolNear(rollRarity('tg'), gen);
+      let withArt = list.filter(p => G.Sprites.hasShiny(p.dex));
+      if (!withArt.length) withArt = G.DEX.filter(p => p.gen === gen && G.Sprites.hasShiny(p.dex));
+      if (!withArt.length) return null;
+      const missing = withArt.filter(p => !save.shiny[p.dex]);
+      return G.U.pick(missing.length ? missing : withArt);
+    }
+    function takeShiny(mon) {
       const had = !!save.owned[mon.dex];
-      let isNew = false, refund = 0, unlocked = false, frags = 0, fragGain = 0;
-      if (gold && shiny) {
-        isNew = !save.shiny[mon.dex];
-        if (isNew) save.shiny[mon.dex] = { at: Date.now(), from: 'gacha' };
-        else refund = REFUND[mon.rarity] * 3;
+      const isNew = !save.shiny[mon.dex];
+      let unlocked = false, fragGain = 0, frags = 0;
+      if (isNew) {
+        save.shiny[mon.dex] = { at: Date.now(), from: 'gacha' };
         if (!had) {
           save.owned[mon.dex] = { at: Date.now(), from: 'gacha' };
           unlocked = true;
         }
-      } else if (had && !canGrow(mon, save)) {
+      } else {
+        const key = lineKey(mon.dex);
+        fragGain = G.Evo.stage(mon.dex);
+        frags = (save.frags[key] || 0) + fragGain;
+        save.frags[key] = frags;
+      }
+      return { dex: mon.dex, rarity: mon.rarity, shiny: true, isNew, refund: 0, frags, fragGain, need: 0, unlocked };
+    }
+
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      if (gold) {
+        const mon = pickShiny();
+        if (!mon) continue;
+        const card = takeShiny(mon);
+        out.push(card);
+        if (!card.isNew) {
+          const again = pickShiny();
+          if (again) out.push(takeShiny(again));
+        }
+        continue;
+      }
+      const { list } = poolNear(rollRarity(use), gen);
+      const mon = G.U.pick(list);
+      const shiny = false;
+
+      const need = fragNeed(mon.rarity);
+      const had = !!save.owned[mon.dex];
+      let isNew = false, refund = 0, unlocked = false, frags = 0, fragGain = 0;
+      if (had && !canGrow(mon, save)) {
         refund = REFUND[mon.rarity];
       } else {
         const key = lineKey(mon.dex);
@@ -194,17 +236,15 @@ G.Gacha = (() => {
         }
       }
       save.coins += refund;
-      refundSum += refund;
       out.push({ dex: mon.dex, rarity: mon.rarity, shiny, isNew, refund, frags, fragGain, need: had || unlocked ? 0 : need, unlocked });
     }
     save.stats.pulls = (save.stats.pulls || 0) + n;
     if (gold) save.stats.goldPulls = (save.stats.goldPulls || 0) + 1;
-    if (refundSum) save.stats.coinsEarned = (save.stats.coinsEarned || 0) + refundSum;
     return out;
   }
 
   return { debugForceShiny(n = 1) { forceShiny = n; },
-           costOf, RATES, TABLES, REFUND, FRAGS, fragNeed, lineFrags, CAP, STEP, growCost, grown, atCap, canGrow, grow,
+           costOf, RATES, TABLES, REFUND, FRAGS, fragNeed, lineFrags, CAP, STEP, growCost, grown, atCap, canGrow, grow, carryBoosts,
            RARITY_NAME, RARITY_COLOR, BANNERS,
            pool, featured, pull };
 })();

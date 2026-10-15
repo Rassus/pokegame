@@ -27,6 +27,7 @@ G.RunUI = (() => {
 
   function reroll() {
     if (!offers || rerollsLeft() <= 0) return;
+    if (G.Coop.voteTarget && G.Coop.voteTarget() === (G.Net && G.Net.uid)) return;
     const p = G.Game.player;
     p.rerolls = (p.rerolls || 0) + 1;
     G.Audio.sfx('select');
@@ -57,6 +58,9 @@ G.RunUI = (() => {
       el.onclick = () => pick(i);
       box.appendChild(el);
     });
+    if (coopMode && G.Coop.active) {
+      G.Coop.reportCards(list.map(c => ({ title: c.title, desc: c.desc, icon: c.icon, color: c.color, tag: c.tag || '' })));
+    }
   }
 
   function pick(i) {
@@ -87,6 +91,17 @@ G.RunUI = (() => {
     offers = null; offerCb = null;
     $('cards').classList.remove('done');
     G.UI.hide('scr-levelup');
+  }
+
+  /** Resumen de las cartas, para que el grupo vote si alguien no elige. */
+  function cardBrief() {
+    return (offers || []).map(c => ({ title: c.title, desc: c.desc, icon: c.icon, color: c.color, tag: c.tag || '' }));
+  }
+
+  /** El grupo eligió por ti. */
+  function forcePick(i) {
+    if (!offers || !offers[i]) return;
+    pick(i);
   }
 
   function showOver(r, onBack) {
@@ -204,6 +219,30 @@ G.RunUI = (() => {
     G.UI.soundControls($('pause-sound'));
     $('pause-coop').classList.toggle('hidden', !coop);
     $('btn-quit').textContent = coop ? 'Salir de la partida' : 'Abandonar run';
+    const kick = $('btn-kick');
+    const box = $('pause-kick');
+    kick.classList.toggle('hidden', !coop);
+    box.classList.add('hidden');
+    kick.onclick = () => {
+      if (!G.Coop.active) return;
+      const people = G.Coop.roster().filter(p => p.uid !== G.Net.uid && !p.host);
+      const list = $('pause-kick-list');
+      list.innerHTML = '';
+      if (!people.length) {
+        list.innerHTML = '<p class="note">No hay otro jugador al que sacar.</p>';
+      } else {
+        for (const p of people) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'btn';
+          b.textContent = p.name;
+          b.setAttribute('translate', 'no');
+          b.onclick = () => { G.UI.hide('scr-pause'); G.Coop.askKick(p.uid); };
+          list.appendChild(b);
+        }
+      }
+      box.classList.remove('hidden');
+    };
     G.UI.show('scr-pause');
   }
 
@@ -212,5 +251,172 @@ G.RunUI = (() => {
     $('btn-quit').onclick = onQuit;
   }
 
-  return { showLevelUp, reroll, showItemChoice, showBond, pickBond, bondBack, pick, setWaiting, closeLevelUp, showOver, wirePause, showPause };
+  // ---------------- rueda del ticket dorado ----------------
+
+  const WHEEL_COLS = ['#e53935', '#7e3ff2', '#1e88e5', '#26c6da', '#7cb342', '#fdd835', '#fb8c00', '#ec407a'];
+  let wheelQ = [], wheel = null;
+
+  function showWheel(names, win, dur, done) {
+    wheelQ.push({ names, win, dur, done, t: 0, announced: false });
+    if (!wheel) playWheel();
+  }
+
+  function playWheel() {
+    wheel = wheelQ.shift();
+    if (!wheel) return;
+    $('wheel-sub').textContent = 'Girando…';
+    $('wheel-win').textContent = '';
+    G.UI.show('scr-wheel');
+    drawWheel(0);
+  }
+
+  function drawWheel(rot) {
+    const cv = $('wheel-cv');
+    if (!cv || !wheel) return;
+    const ctx = cv.getContext('2d');
+    const names = wheel.names;
+    const n = Math.max(1, names.length);
+    const w = cv.width, h = cv.height;
+    const cx = w / 2, cy = h / 2 + 6, r = 168;
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rot);
+    for (let i = 0; i < n; i++) {
+      const a0 = -Math.PI / 2 + i * (Math.PI * 2 / n);
+      const a1 = a0 + Math.PI * 2 / n;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, r, a0, a1);
+      ctx.closePath();
+      ctx.fillStyle = WHEEL_COLS[i % WHEEL_COLS.length];
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.35)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.save();
+      ctx.rotate(a0 + Math.PI / n);
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = 'rgba(0,0,0,.55)';
+      ctx.lineWidth = 4;
+      ctx.font = '700 18px Segoe UI, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      const label = Object(String(names[i] || '').slice(0, 14));
+      ctx.strokeText(label, r - 16, 0);
+      ctx.fillText(label, r - 16, 0);
+      ctx.restore();
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, 28, 0, Math.PI * 2);
+    ctx.fillStyle = '#111';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, -16);
+    ctx.lineTo(10, 8);
+    ctx.lineTo(-10, 8);
+    ctx.closePath();
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    ctx.restore();
+    // La flecha fija marca el hueco de arriba, que es el que gana.
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - r - 8);
+    ctx.lineTo(cx - 14, cy - r - 28);
+    ctx.lineTo(cx + 14, cy - r - 28);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function tick(dt) {
+    if (!wheel) return;
+    wheel.t += dt;
+    const spins = 5;
+    const n = Math.max(1, wheel.names.length);
+    const slice = Math.PI * 2 / n;
+    const finalRot = spins * Math.PI * 2 - (wheel.win + 0.5) * slice;
+    const k = Math.min(1, wheel.t / wheel.dur);
+    const ease = 1 - Math.pow(1 - k, 3);
+    drawWheel(finalRot * ease);
+    if (k >= 1 && !wheel.announced) {
+      wheel.announced = true;
+      const name = wheel.names[wheel.win] || '';
+      $('wheel-sub').textContent = 'Ya está.';
+      $('wheel-win').textContent = name;
+      $('wheel-win').setAttribute('translate', 'no');
+      G.Audio.sfx('shinyGet');
+    }
+    if (wheel.t >= wheel.dur + 1.3) {
+      const cb = wheel.done;
+      wheel = null;
+      G.UI.hide('scr-wheel');
+      if (cb) cb();
+      if (wheelQ.length) playWheel();
+    }
+  }
+
+  function voteCardEl(c, i, onChoose) {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML =
+      `<div class="ico" style="background:${c.color || '#9fb1c9'}33">${G.Icons.html(c.icon || 'star', 32)}</div>
+       <div class="txt"><div class="nm">${c.title || ''}</div><div class="ds">${c.desc || ''}</div></div>
+       <div class="key">${i + 1}</div>`;
+    el.onclick = () => onChoose(i);
+    return el;
+  }
+
+  /** Voto por la carta de quien no elige. */
+  function showCardVote(name, cards, onChoose) {
+    $('vote-title').textContent = 'Carta de un compañero';
+    $('vote-sub').innerHTML = 'Elige la carta de <b translate="no"></b>. Cuando votéis todos, se queda la más votada.';
+    $('vote-sub').querySelector('b').textContent = name;
+    $('vote-wait').textContent = '';
+    const box = $('vote-cards');
+    box.innerHTML = '';
+    box.classList.remove('hidden');
+    cards.forEach((c, i) => box.appendChild(voteCardEl(c, i, index => {
+      box.querySelectorAll('.card').forEach((el, j) => el.classList.toggle('picked', j === index));
+      $('vote-wait').textContent = 'Has votado. Esperando al resto…';
+      onChoose(index);
+    })));
+    $('vote-yn').classList.add('hidden');
+    G.UI.show('scr-vote');
+  }
+
+  /** Voto para sacar a alguien. `mine` = te están votando a ti. */
+  function showKickVote(name, mine, onChoose) {
+    $('vote-title').textContent = 'Sacar de la partida';
+    $('vote-cards').innerHTML = '';
+    $('vote-wait').textContent = '';
+    const yn = $('vote-yn');
+    yn.innerHTML = '';
+    if (mine) {
+      $('vote-sub').innerHTML = 'Están votando si sales de la partida.';
+      yn.classList.add('hidden');
+      $('vote-wait').textContent = 'Esperando al resto…';
+    } else {
+      $('vote-sub').innerHTML = '¿Sacar a <b translate="no"></b> de la partida?';
+      $('vote-sub').querySelector('b').textContent = name;
+      yn.classList.remove('hidden');
+      for (const [label, yes] of [['Sí, sacar', true], ['No', false]]) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn' + (yes ? '' : ' ghost');
+        b.textContent = label;
+        b.onclick = () => {
+          yn.querySelectorAll('button').forEach(x => { x.disabled = true; });
+          $('vote-wait').textContent = 'Has votado. Esperando al resto…';
+          onChoose(yes);
+        };
+        yn.appendChild(b);
+      }
+    }
+    G.UI.show('scr-vote');
+  }
+
+  function closeVote() { G.UI.hide('scr-vote'); }
+
+  return { showLevelUp, reroll, showItemChoice, showBond, pickBond, bondBack, pick, forcePick, setWaiting, closeLevelUp, showOver, wirePause, showPause, showWheel, tick, showCardVote, showKickVote, closeVote };
 })();

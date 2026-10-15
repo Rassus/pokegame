@@ -91,7 +91,7 @@ G.AchDefs = (() => {
       id: 'lead' + gen, cat: 'coleccion', tier: 3, name: 'Líder de ' + name,
       desc: 'Colecciona toda la Pokédex de ' + name + '.',
       value: s => G.DEX.filter(p => p.gen === gen && s.owned && s.owned[p.dex]).length,
-      goal: 1, reward: { t10: 3 }, title: 'Líder de ' + name
+      goal: 1, reward: { tg: 1 }, title: 'Líder de ' + name
     });
   }
 
@@ -111,7 +111,7 @@ G.AchDefs = (() => {
            say: n => 'Gasta ' + unos(n, 'ticket dorado.', 'tickets dorados.'), value: st('goldPulls'),
            steps: [1, 5, 10, 25, 50, 75, 100] });
   ladder({ id: 'earnGold', cat: 'coleccion', name: 'Me gusta el dinero', title: 'Me gusta el dinero',
-           say: n => 'Gana ' + nTxt(n) + ' de oro.', value: st('coinsEarned'),
+           say: n => 'Gana ' + nTxt(n) + ' de oro en las runs.', value: st('coinsEarned'),
            steps: [1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000, 5000000, 25000000, 50000000] });
   ladder({ id: 'holdGold', cat: 'coleccion', name: 'Tío Mc Pato', title: 'Tío Mc Pato',
            say: n => 'Acumula ' + nTxt(n) + ' de oro.', value: s => s.coins || 0,

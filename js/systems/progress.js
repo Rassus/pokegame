@@ -152,14 +152,11 @@ G.Progress = (() => {
     const s = G.DB.save;
     if (!r) return;
     s.tickets = s.tickets || { t1: 0, t10: 0 };
-    if (r.coins) {
-      s.coins += r.coins;
-      s.stats = s.stats || {};
-      s.stats.coinsEarned = (s.stats.coinsEarned || 0) + r.coins;
-    }
+    if (r.coins) s.coins += r.coins;
     if (r.t1) s.tickets.t1 += r.t1;
     if (r.t10) s.tickets.t10 += r.t10;
-    const got = (r.t1 || 0) + (r.t10 || 0);
+    if (r.tg) s.tickets.tg = (s.tickets.tg || 0) + r.tg;
+    const got = (r.t1 || 0) + (r.t10 || 0) + (r.tg || 0);
     if (got) {
       s.stats = s.stats || {};
       s.stats.ticketsGot = (s.stats.ticketsGot || 0) + got;
@@ -169,6 +166,7 @@ G.Progress = (() => {
 
   function rewardText(r) {
     const p = [];
+    if (r.tg) p.push(G.Icons.html('ticketg', 12) + ' ' + r.tg);
     if (r.t10) p.push(G.Icons.html('ticket10', 12) + ' ' + r.t10 + ' ×10');
     if (r.t1) p.push(G.Icons.html('ticket', 12) + ' ' + r.t1);
     if (r.coins) p.push('<span class="coin"></span> ' + G.U.num(r.coins));

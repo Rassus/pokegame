@@ -36,6 +36,7 @@ G.Combat = (() => {
       return;
     }
     m.t = Math.max(0.05, m.cd * pl.cdMul);
+    m.atk = newAtk();
     pl.cast(m);
     if (G.Coop.active) G.Coop.cast(pl, m);
     // Vínculo: su icono destella en el HUD al lanzarse (uno que explota pegado al
@@ -77,8 +78,11 @@ G.Combat = (() => {
     return 520;
   }
 
+  let atkSeq = 1;
+  function newAtk() { return atkSeq++; }
+
   function payload(m) {
-    return { burn: m.burn || 0, poison: m.poison || 0, slow: m.slow || 0, knock: m.knock || 0, mtype: m.type };
+    return { burn: m.burn || 0, poison: m.poison || 0, slow: m.slow || 0, knock: m.knock || 0, mtype: m.type, atk: m.atk };
   }
 
   /** Tabla de tipos × clima para un ataque de tipo `type` contra `e`. */
@@ -260,7 +264,7 @@ G.Combat = (() => {
     const n = Math.max(1, m.count | 0);
     for (let i = 0; i < n; i++) {
       const a = Math.random() * 6.2832, d = n === 1 ? 0 : G.U.rand(18, 46);
-      fields.push({ kind: 'mine', owner: pl, ghost, m, col, vis, x: pl.x + Math.cos(a) * d, y: pl.y + Math.sin(a) * d * 0.8,
+      fields.push({ kind: 'mine', owner: pl, ghost, m, col, vis, atk: m.atk, x: pl.x + Math.cos(a) * d, y: pl.y + Math.sin(a) * d * 0.8,
                     t: 0, arm: 0.35, life: m.dur || 7, r: m.radius, dmg: m.dmg * pl.atk });
     }
     // Como mucho unas pocas por jugador: las más viejas se van.
@@ -278,7 +282,7 @@ G.Combat = (() => {
       const e = near[i];
       const x = e ? e.x + G.U.rand(-8, 8) : pl.x + G.U.rand(-140, 140);
       const y = e ? e.y + G.U.rand(-6, 6) : pl.y + G.U.rand(-110, 110);
-      fields.push({ kind: 'meteor', owner: pl, ghost, m, col, vis, x, y, t: -i * 0.09, fall: 0.5, r: m.radius, dmg: m.dmg * pl.atk });
+      fields.push({ kind: 'meteor', owner: pl, ghost, m, col, vis, atk: m.atk, x, y, t: -i * 0.09, fall: 0.5, r: m.radius, dmg: m.dmg * pl.atk });
     }
   }
 
@@ -327,7 +331,7 @@ G.Combat = (() => {
     // Parado no deja uno nuevo encima del anterior (sólo de vez en cuando).
     const last = pl.lastPatch;
     if (last && G.U.dist2(last.x, last.y, pl.x, pl.y) < (m.radius * 0.9) ** 2 && last.t < 1) return;
-    const f = { kind: 'patch', owner: pl, ghost, m, col, vis, x: pl.x, y: pl.y, t: 0, life: m.dur || 3, r: m.radius,
+    const f = { kind: 'patch', owner: pl, ghost, m, col, vis, atk: m.atk, x: pl.x, y: pl.y, t: 0, life: m.dur || 3, r: m.radius,
                 tick: 0, dmg: m.dmg * pl.atk };
     fields.push(f);
     pl.lastPatch = f;
@@ -355,7 +359,7 @@ G.Combat = (() => {
   function blast(f, r, k = 1) {
     if (f.ghost) return;
     const pl = f.owner, m = f.m;
-    for (const e of G.EnemyMgr.queryCircle(f.x, f.y, r)) hit(pl, e, f.dmg * k, f.col, e.x - f.x, e.y - f.y, m.knock || 0, m);
+    for (const e of G.EnemyMgr.queryCircle(f.x, f.y, r)) hit(pl, e, f.dmg * k, f.col, e.x - f.x, e.y - f.y, m.knock || 0, m, f.atk);
     for (const p of G.World.propsInCircle(f.x, f.y, r)) G.World.damageProp(p, f.dmg * k, f.col);
   }
 
@@ -394,7 +398,7 @@ G.Combat = (() => {
               x: f.x, y: f.y, vx: Math.cos(a) * (m.speed || 300), vy: Math.sin(a) * (m.speed || 300),
               dmg: f.dmg, r: m.size || 6, life: 1.4, pierce: m.pierce | 0, color: f.col,
               hits: new Set(), vis: f.vis, ghost: f.ghost, owner: f.owner
-            }, payload(m)));
+            }, payload(m), { atk: newAtk() }));
             f.kick = 0.12;
           }
         }
@@ -527,12 +531,12 @@ G.Combat = (() => {
   const CRIT_MUL = 1.5;
   const isCrit = pl => !ghost && pl.critChance > 0 && Math.random() < pl.critChance;
 
-  function hit(pl, e, dmg, col, dx, dy, knock, m) {
+  function hit(pl, e, dmg, col, dx, dy, knock, m, atk) {
     const k = typeK(m.type, e);
     const crit = isCrit(pl);
     dmg *= k * (crit ? CRIT_MUL : 1);
     e.hurt(dmg, col, dx, dy, knock, crit ? 'crit' : G.Types.label(G.Types.mult(m.type, e.types)));
-    if (!ghost) pl.onDealt(dmg);
+    if (!ghost) pl.onDealt(atk != null ? atk : m.atk);
     pl.dmgDealt += dmg;
     if (m.burn) e.applyBurn(m.burn);
     if (m.poison) e.applyPoison(m.poison);
@@ -620,6 +624,9 @@ G.Combat = (() => {
           const last = p.hitLog.get(e.id) || -99;
           if (now - last < p.rehit) continue;
           p.hitLog.set(e.id, now);
+          const bag = p.owner._orbPulse || (p.owner._orbPulse = {});
+          if (bag[p.mid] !== now) { bag[p.mid] = now; bag['#' + p.mid] = newAtk(); }
+          p.atk = bag['#' + p.mid];
           // Las órbitas duran toda la partida: se olvidan los golpes viejos.
           if (p.hitLog.size > 300) for (const [k, t] of p.hitLog) if (now - t > p.rehit) p.hitLog.delete(k);
         } else {
@@ -642,7 +649,7 @@ G.Combat = (() => {
                crit ? 'crit' : p.mtype ? G.Types.label(G.Types.mult(p.mtype, e.types)) : null);
         if (Math.random() < 0.5) G.FX.sp('impact', p.vis ? p.vis.pal : 'normal', e.x, e.y - e.bodyH * 0.5, { life: 0.12, scale: 1 });
         pl.dmgDealt += p.dmg * k;
-        pl.onDealt(p.dmg * k);
+        pl.onDealt(p.atk);
         if (p.burn) e.applyBurn(p.burn);
         if (p.poison) e.applyPoison(p.poison);
         if (p.slow) e.applySlow(p.slow);
