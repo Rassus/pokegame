@@ -245,7 +245,7 @@ G.Progress = (() => {
           s.achRank[a.id] = rank;
           const last = rank >= a.steps.length;
           if (last) s.ach[a.id] = Date.now();
-          notify('¡Logro: ' + a.name + '!', last && a.title ? 'Nuevo título: ' + a.title : 'Paso ' + rank + '/' + a.steps.length, a);
+          notify('¡Logro: ' + a.name + '!', last && a.title ? 'Nuevo título: ' + a.title : '', a);
           again = true;
         } else {
           if (s.ach[a.id]) continue;

@@ -535,7 +535,10 @@ G.World = (() => {
       ctx.globalAlpha = k;
     }
     ctx.drawImage(img, x, y, w, h);
-    if (p.flash > 0) { ctx.globalAlpha = 0.6; ctx.drawImage(G.Sprites.white(img), x, y, w, h); }
+    if (p.flash > 0) {
+      const blank = G.Sprites.white(img);
+      if (blank) { ctx.globalAlpha = 0.6; ctx.drawImage(blank, x, y, w, h); }
+    }
     ctx.restore();
   }
 

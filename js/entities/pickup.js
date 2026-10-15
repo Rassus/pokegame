@@ -35,15 +35,23 @@ G.Pickups = (() => {
     boss:  { p: [75, 50, 32, 1], n: [[3, 10], [1, 4], [1, 2], [1, 1]] },
     rift:  { p: [85, 65, 46, 3], n: [[12, 26], [2, 7], [1, 5], [1, 2]] }
   };
+  function partySize() {
+    if (!G.Coop || !G.Coop.active || !G.Coop.players) return 1;
+    return Math.max(1, G.Coop.players().length);
+  }
+
   function dropTickets(source, x, y) {
     const d = DROPS[source];
     if (!d) return;
     // Fortuna de tickets suma en cofres y jefes, no en cada Pokémon derrotado.
     const add = source === 'kill' ? [0, 0, 0, 0] : ((G.Game && G.Game.player && G.Game.player.ticketAdd) || [0, 0, 0, 0]);
+    // El botín del jefe es del grupo: en cooperativo cada uno se queda con la
+    // misma copia, así que la cantidad se parte entre los que estáis.
+    const share = source === 'boss' || source === 'rift' ? partySize() : 1;
     TICKET_KINDS.forEach((kind, i) => {
       if (Math.random() * 100 >= Math.min(100, d.p[i] + (add[i] || 0))) return;
       const [a, b] = d.n[i];
-      const n = G.U.randInt(a, b);
+      const n = Math.floor(G.U.randInt(a, b) / share);
       for (let k = 0; k < n; k++) push(orb(kind, x + G.U.rand(-18, 18), y + G.U.rand(-12, 12), 1));
     });
   }

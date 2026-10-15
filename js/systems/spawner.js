@@ -98,7 +98,7 @@ G.Spawner = (() => {
 
   function spawnBoss(pl, t, b) {
     const [x, y] = ringPoint(pl, Math.random() * 6.2832);
-    const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), G.Coop.scaleHp(players.length) * (players.length > 1 ? 1.4 : 1)), true);
+    const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), Math.max(1, players.length)), true);
     if (rollShiny(b.dex)) e.makeShiny();
     G.EnemyMgr.add(e);
     say('¡' + e.name + (e.shiny ? ' shiny' : '') + ' salvaje apareció!', 3.2);

@@ -58,45 +58,7 @@ G.HUD = (() => {
     ctx.textAlign = 'center';
     ctx.fillText(Math.ceil(pl.hp) + ' / ' + Math.round(pl.maxHp), px + 48 + 84, py + 26);
 
-    // buffs activos
-    const COL = { atk: '#ff6b4d', spd: '#7fe0ff', def: '#b0b8c8', regen: '#5fe08a' };
-    const LBL = { atk: 'ATK', spd: 'VEL', def: 'DEF', regen: 'REG' };
-    let bx = px;
-    ctx.textAlign = 'left';
-    for (const k in pl.buffs) {
-      const b = pl.buffs[k];
-      if (b.n <= 0) continue;
-      ctx.font = F(800, 9);
-      const txt = LBL[k] + ' ×' + b.n;
-      const tw = ctx.measureText(txt).width + 12;
-      roundRect(ctx, bx, py + 34, tw, 15, 7);
-      ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
-      ctx.fillStyle = COL[k];
-      ctx.fillText(txt, bx + 6, py + 45);
-      bx += tw + 5;
-    }
-
-    // Cartas de mejora de esta run (Potencia, Aprendizaje...): cuántas llevas.
-    const taken = G.LevelUp.STATS.filter(s => (pl.statsTaken[s.id] || 0) > 0);
-    if (taken.length) {
-      let y = py + 56;
-      ctx.font = F(700, 11);
-      ctx.textAlign = 'left';
-      for (const s of taken) {
-        const num = String(pl.statsTaken[s.id]);
-        const lw = ctx.measureText(s.title).width;
-        const nw = ctx.measureText(num).width;
-        const tw = lw + nw + 36;
-        roundRect(ctx, px, y, tw, 18, 7);
-        ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
-        G.Icons.draw(ctx, s.icon, px + 3, y + 2, 14);
-        ctx.fillStyle = '#e7eefc';
-        ctx.fillText(s.title, px + 20, y + 13);
-        ctx.fillStyle = '#ffd23f';
-        ctx.fillText(num, px + 26 + lw, y + 13);
-        y += 20;
-      }
-    }
+    // La vida se queda a la izquierda. Potenciadores y mejoras de la run, a la derecha.
 
     // ---------- reloj / bioma / kills ----------
     ctx.textAlign = 'center';
@@ -161,20 +123,58 @@ G.HUD = (() => {
       ctx.restore();
     }
 
-    // Poder de altar activo.
-    if (pl.power) {
-      const pw = pl.power, txt = pw.def.name.toUpperCase() + ' ' + Math.ceil(pw.t) + 's';
-      ctx.font = F(800, 9);
+    // Potenciadores (ATK, VEL...) y cartas de la run, pegados al borde derecho.
+    {
+      const edge = w - 16 - (touch ? 56 : 0);
+      let ry = wx ? 48 : 16;
+      const COL = { atk: '#ff6b4d', spd: '#7fe0ff', def: '#b0b8c8', regen: '#5fe08a' };
+      const LBL = { atk: 'ATK', spd: 'VEL', def: 'DEF', regen: 'REG' };
+      const chips = [];
+      for (const k in pl.buffs) {
+        const b = pl.buffs[k];
+        if (b.n > 0) chips.push({ txt: LBL[k] + ' ×' + b.n, col: COL[k] });
+      }
+      if (pl.power) {
+        const pw = pl.power;
+        chips.push({ txt: pw.def.name.toUpperCase() + ' ' + Math.ceil(pw.t) + 's', col: pw.def.color });
+      }
+      if (chips.length) {
+        ctx.font = F(800, 9);
+        ctx.textAlign = 'left';
+        let x = edge;
+        for (let i = chips.length - 1; i >= 0; i--) {
+          const c = chips[i];
+          const tw = ctx.measureText(c.txt).width + 12;
+          x -= tw;
+          roundRect(ctx, x, ry, tw, 15, 7);
+          ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
+          ctx.fillStyle = c.col;
+          ctx.fillText(c.txt, x + 6, ry + 11);
+          x -= 5;
+        }
+        ry += 20;
+      }
+      const taken = G.LevelUp.STATS.filter(s => (pl.statsTaken[s.id] || 0) > 0);
+      ctx.font = F(700, 11);
       ctx.textAlign = 'left';
-      const tw = ctx.measureText(txt).width + 12;
-      roundRect(ctx, bx, py + 34, tw, 15, 7);
-      ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fill();
-      ctx.fillStyle = pw.def.color;
-      ctx.fillText(txt, bx + 6, py + 45);
-      bx += tw + 5;
+      for (const s of taken) {
+        const num = String(pl.statsTaken[s.id]);
+        const lw = ctx.measureText(s.title).width;
+        const nw = ctx.measureText(num).width;
+        const tw = lw + nw + 36;
+        const x = edge - tw;
+        roundRect(ctx, x, ry, tw, 18, 7);
+        ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
+        G.Icons.draw(ctx, s.icon, x + 3, ry + 2, 14);
+        ctx.fillStyle = '#e7eefc';
+        ctx.fillText(s.title, x + 20, ry + 13);
+        ctx.fillStyle = '#ffd23f';
+        ctx.fillText(num, x + 26 + lw, ry + 13);
+        ry += 20;
+      }
     }
 
-    if (G.Coop.active) drawCoop(ctx, w, h, pl, px, py + (bx > px ? 56 : 40));
+    if (G.Coop.active) drawCoop(ctx, w, h, pl, px, py + 40);
 
     // Grieta: flecha grande que late en el borde si no se ve, y si se ve, una
     // flecha que bota encima; en la arena, cuenta atrás.

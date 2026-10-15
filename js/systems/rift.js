@@ -167,7 +167,7 @@ G.Rift = (() => {
     const lk = G.Enemies.late(t);          // tiempo extra (ver data/enemies.js)
     const def = {
       dex: mon.dex, name: mon.name,
-      hp: Math.round((3200 + t * 22) * lk * G.Coop.scaleHp(n) * (n > 1 ? 1.4 : 1)),
+      hp: Math.round((3200 + t * 22) * lk * Math.max(1, n)),
       spd: Math.round(G.U.clamp(48 + (mon.spd - 78) * 0.6, 48, 105)),
       dmg: Math.round((36 + t / 8) * Math.pow(lk, 0.7)), xp: Math.round(500 + t * 1.2),
       behavior: mon.types.some(x => ['psychic', 'electric', 'ghost', 'fairy', 'fire', 'water', 'ice', 'dragon'].includes(x)) ? 'ranged' : 'charger',

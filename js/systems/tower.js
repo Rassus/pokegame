@@ -221,7 +221,7 @@ G.Towers = (() => {
   function spawnBoss(pl, phase) {
     const mon = G.DEX_BY[run.dex];
     const n = G.Game.everyone().length;
-    const mul = scale() * (n > 1 ? 1.4 : 1) * PHASE_HP[phase];
+    const mul = threat() * Math.max(1, n) * PHASE_HP[phase];
     const far = mon.types.some(t => ['psychic', 'electric', 'ghost', 'fairy', 'fire', 'water', 'ice', 'dragon'].includes(t));
     const def = {
       dex: mon.dex, name: mon.name, behavior: far ? 'ranged' : 'charger',

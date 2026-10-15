@@ -29,8 +29,9 @@ G.Sprites = (() => {
   function white(img) {
     let c = whites.get(img);
     if (c) return c;
+    if (!(img.naturalWidth > 0)) return null;
     c = document.createElement('canvas');
-    c.width = img.width; c.height = img.height;
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
     const x = c.getContext('2d');
     x.drawImage(img, 0, 0);
     x.globalCompositeOperation = 'source-in';
@@ -229,13 +230,19 @@ G.Sprites = (() => {
       let m = animMeta(this.dex, this.cur, this.shiny);
       let s = sheet(this.dex, this.cur, this.shiny);
       const k = PX * this.scale;
+      if (s && s.ready && !(s.img.naturalWidth > 0)) {
+        // El navegador soltó el dibujo (memoria) pero la hoja sigue marcada como lista:
+        // drawImage no pinta nada y el Pokémon se queda invisible. Se vuelve a pedir.
+        s.ready = false;
+        s.img.src = s.src + '?r=' + (s.tries = (s.tries || 0) + 1);
+      }
       if (s && !s.ready) {
         // Mientras carga esta animación, enseña Idle si ya está.
         const idle = sheet(this.dex, 'Idle', this.shiny);
-        if (idle && idle.ready) { s = idle; m = animMeta(this.dex, 'Idle', this.shiny); }
+        if (idle && idle.ready && idle.img.naturalWidth > 0) { s = idle; m = animMeta(this.dex, 'Idle', this.shiny); }
       }
       const frame = s === sheet(this.dex, this.cur, this.shiny) ? this.frame : 0;
-      if (!m || !s || !s.ready) {
+      if (!m || !s || !s.ready || !(s.img.naturalWidth > 0)) {
         // Respaldo: bolita, por si falta el fichero.
         ctx.fillStyle = opts.color || '#6b7a94';
         ctx.beginPath(); ctx.arc(x, y - 12 * k, 8 * k, 0, 6.2832); ctx.fill();
@@ -249,10 +256,13 @@ G.Sprites = (() => {
       const prev = ctx.globalAlpha;
       if (alpha < 1) ctx.globalAlpha = prev * alpha;
       // Destello: blanco entero (enemigos) o medio blanco encima (tu Pokémon).
-      if (!opts.flash || opts.softFlash) ctx.drawImage(s.img, sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k);
+      ctx.drawImage(s.img, sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k);
       if (opts.flash) {
-        if (opts.softFlash) ctx.globalAlpha = prev * alpha * 0.55;
-        ctx.drawImage(white(s.img), sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k);
+        const blank = white(s.img);
+        if (blank && blank.width > 0) {
+          if (opts.softFlash) ctx.globalAlpha = prev * alpha * 0.55;
+          ctx.drawImage(blank, sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k);
+        }
       }
       ctx.globalAlpha = prev;
     }

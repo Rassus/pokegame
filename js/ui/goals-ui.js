@@ -163,13 +163,13 @@
       const goal = steps ? steps[Math.min(rank, steps.length - 1)] : a.goal;
       const v = Math.min(goal, a.value(s) || 0);
       const reward = steps ? a.rewards[Math.min(rank, a.rewards.length - 1)] : a.reward;
-      const paso = steps && !ok ? 'Paso ' + (rank + 1) + '/' + steps.length + ' · ' : '';
+      const desc = steps && a.say ? a.say(goal) : a.desc;
       const el = document.createElement('div');
       el.className = 'ach' + (ok ? ' ok' : '');
       el.innerHTML = `${G.Icons.html(ok ? 'medal' + a.tier : 'medalOff', 36)}
-        <div class="a-txt"><b>${esc(a.name)}</b><small>${esc(a.desc)}</small>
+        <div class="a-txt"><b>${esc(a.name)}</b><small>${esc(desc)}</small>
           ${ok ? '' : `<div class="bar"><i style="width:${v / (goal || 1) * 100}%"></i></div>`}
-          <div class="a-rw">${ok ? '¡Conseguido!' : paso + G.U.num(v) + ' / ' + G.U.num(goal)} · ${G.Progress.rewardText(reward)}
+          <div class="a-rw">${ok ? '¡Conseguido!' : G.U.num(v) + ' / ' + G.U.num(goal)} · ${G.Progress.rewardText(reward)}
           ${a.title ? ` · <span class="gold">Título: ${esc(a.title)}</span>` : ''}</div></div>`;
       return el;
     }

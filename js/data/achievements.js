@@ -95,49 +95,53 @@ G.AchDefs = (() => {
     });
   }
 
+  const nTxt = n => G.U.num(n);
+  const unos = (n, uno, varios) => nTxt(n) + ' ' + (n === 1 ? uno : varios);
+
   ladder({ id: 'shinyHunt', cat: 'coleccion', name: 'Cazador de colores', title: 'Cazador de colores',
-           desc: 'Vence Pokémon shiny en las runs.', value: st('shinyKills'),
+           say: n => 'Vence a ' + nTxt(n) + ' Pokémon shiny.', value: st('shinyKills'),
            steps: [1, 5, 25, 50, 100, 200, 1000] });
   ladder({ id: 'shinyBoss', cat: 'coleccion', name: 'La suerte es lo tuyo', title: 'La suerte es lo tuyo',
-           desc: 'Vence jefes shiny.', value: st('shinyBosses'),
+           say: n => 'Vence a ' + unos(n, 'jefe shiny.', 'jefes shiny.'), value: st('shinyBosses'),
            steps: [1, 3, 5, 8, 12, 20, 60, 100] });
   ladder({ id: 'slots', cat: 'coleccion', name: 'Ludopatía', title: 'Ludopatía',
-           desc: 'Juega a las tragaperras.', value: st('pulls'),
+           say: n => 'Juega ' + unos(n, 'vez a las tragaperras.', 'veces a las tragaperras.'), value: st('pulls'),
            steps: [10, 50, 100, 500, 1000, 5000] });
   ladder({ id: 'goldSpend', cat: 'coleccion', name: 'El que tiene plata, la gasta como quiere', title: 'Manirroto',
-           desc: 'Gasta tickets dorados.', value: st('goldPulls'),
+           say: n => 'Gasta ' + unos(n, 'ticket dorado.', 'tickets dorados.'), value: st('goldPulls'),
            steps: [1, 5, 10, 25, 50, 75, 100] });
   ladder({ id: 'earnGold', cat: 'coleccion', name: 'Me gusta el dinero', title: 'Me gusta el dinero',
-           desc: 'Gana oro en total.', value: st('coinsEarned'),
+           say: n => 'Gana ' + nTxt(n) + ' de oro.', value: st('coinsEarned'),
            steps: [1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000, 5000000, 25000000, 50000000] });
   ladder({ id: 'holdGold', cat: 'coleccion', name: 'Tío Mc Pato', title: 'Tío Mc Pato',
-           desc: 'Acumula oro.', value: s => s.coins || 0,
+           say: n => 'Acumula ' + nTxt(n) + ' de oro.', value: s => s.coins || 0,
            steps: [1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000] });
   ladder({ id: 'ticketPile', cat: 'coleccion', name: 'Coleccionista de tickets', title: 'Coleccionista de tickets',
-           desc: 'Acumula tickets en total.', value: st('ticketsGot'),
+           say: n => 'Acumula ' + unos(n, 'ticket.', 'tickets.'), value: st('ticketsGot'),
            steps: [10, 50, 100, 250, 500, 1000, 5000, 9999] });
 
   ladder({ id: 'longRun', cat: 'supervivencia', name: 'Historia sin fin', title: 'Historia sin fin',
-           desc: 'Aguanta en una run (minutos).', value: s => Math.floor(st('bestTime')(s) / 60),
+           say: n => 'Dura ' + unos(n, 'minuto en una run.', 'minutos en una run.'), value: s => Math.floor(st('bestTime')(s) / 60),
            steps: [25, 40, 60, 85, 100, 160, 320, 600] });
   ladder({ id: 'highLvl', cat: 'supervivencia', name: '99 y más allá', title: '99 y más allá',
-           desc: 'Sube de nivel en una run.', value: st('bestLevel'),
+           say: n => 'Llega al nivel ' + nTxt(n) + ' en una run.', value: st('bestLevel'),
            steps: [40, 50, 65, 90, 120, 150, 200, 235, 310, 500, 999] });
   ladder({ id: 'manyRuns', cat: 'supervivencia', name: 'Te tiene que gustar mucho el pi...', title: 'Te tiene que gustar mucho el pi...',
-           desc: 'Juega runs.', value: st('runs'),
+           say: n => 'Juega ' + unos(n, 'run.', 'runs.'), value: st('runs'),
            steps: [60, 70, 80, 90, 120, 150, 200, 250, 300] });
   ladder({ id: 'tower100', cat: 'supervivencia', name: 'Maestro de la torre', title: 'Maestro de la torre',
-           desc: 'Alcanza la oleada 100 de una torre.', value: st('towerClears'),
+           say: n => 'Alcanza la oleada 100 ' + (n === 1 ? '1 vez.' : nTxt(n) + ' veces.'), value: st('towerClears'),
            steps: [1, 3, 5, 10, 25, 50] });
   ladder({ id: 'towerOpen', cat: 'supervivencia', name: 'Me las sé todas', title: 'Me las sé todas',
-           desc: 'Desbloquea torres.', value: s => (G.Towers ? G.Towers.LIST : []).filter(t => t.dexes.some(d => s.legends && s.legends[d])).length,
+           say: n => 'Desbloquea ' + unos(n, 'torre.', 'torres.'),
+           value: s => (G.Towers ? G.Towers.LIST : []).filter(t => t.dexes.some(d => s.legends && s.legends[d])).length,
            steps: [1, 2, 4, 7, 10, 15, 25, 40] });
 
   ladder({ id: 'runKills', cat: 'combate', name: 'Asesino por excelencia', title: 'Asesino por excelencia',
-           desc: 'Derrota a Pokémon en una misma run.', value: st('bestKills'),
+           say: n => 'Mata a ' + nTxt(n) + ' Pokémon en una misma run.', value: st('bestKills'),
            steps: [500, 1000, 2000, 5000, 10000, 25000, 50000, 100000, 250000, 550000, 999000] });
   ladder({ id: 'runBosses', cat: 'combate', name: 'El terror de las watonas!', title: 'El terror de las watonas!',
-           desc: 'Derrota a jefes en una misma run.', value: st('bestBosses'),
+           say: n => 'Mata a ' + unos(n, 'jefe en una misma run.', 'jefes en una misma run.'), value: st('bestBosses'),
            steps: [5, 10, 25, 40, 60, 100, 150] });
 
   // Un logro por legendario: "Vence a Mewtwo"...

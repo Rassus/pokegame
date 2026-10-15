@@ -6,6 +6,23 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-15', title: ['La meta de ahora', 'The current goal'], chg: [
+    ['Los logros por escalones muestran solo la meta actual. Al cumplirla, el texto pasa a la siguiente: 1 torre, luego 2, luego 4…',
+     'Step achievements show only the current goal. Once you reach it, the text moves on: 1 tower, then 2, then 4…'],
+    ['Esas cartas ya no dicen «Paso 1/8»: se ve la meta y el avance.',
+     'Those cards no longer say “Step 1/8”: they show the goal and the progress.'],
+    ['Los potenciadores y las mejoras de la run se ven a la derecha.',
+     'Buffs and run upgrades are shown on the right.'],
+    ['Los tickets de un jefe se reparten entre los jugadores del grupo.',
+     'A boss\'s tickets are split among the players in the group.'],
+    ['La vida de un jefe, ya con su escala normal, se multiplica por el número de jugadores.',
+     'A boss\'s HP, after its normal scaling, is multiplied by the number of players.']
+  ], fix: [
+    ['A veces un Pokémon salvaje se quedaba invisible si el navegador soltaba su dibujo.',
+     'A wild Pokémon could turn invisible when the browser dropped its sprite.'],
+    ['Al jugar en grupo, Chrome a veces cortaba la conexión con la partida guardada.',
+     'In a group, Chrome could drop the connection to the saved game.']
+  ]},
   { d: '2026-10-14', title: ['Sin avisos de donación', 'No donation prompts'], new: [
     ['Logros por escalones: las 9 regiones completas, Pokémon y jefes shiny vencidos, tragaperras, tickets dorados gastados, oro ganado y oro acumulado, tickets, minutos y nivel en una run, partidas jugadas, torres al 100 y torres desbloqueadas, y bajas y jefes en una sola run.',
      'Step achievements: all 9 regions, shiny Pokémon and shiny bosses defeated, slot pulls, gold tickets spent, gold earned and gold held, tickets, minutes and level in a run, runs played, towers cleared at wave 100 and towers unlocked, and kills and bosses in a single run.']

@@ -962,8 +962,8 @@
     /** Lo que hay que dibujar ordenado por Y junto al resto de la escena. */
     function drawables(cam) {
       const out = [];
-      for (const e of corpses) if (cam.sees(e.x, e.y, 80)) out.push(e);
-      for (const e of list) if (cam.sees(e.x, e.y, 80)) out.push(e);
+      for (const e of corpses) if (cam.sees(e.x, e.y, 180)) out.push(e);
+      for (const e of list) if (cam.sees(e.x, e.y, 180)) out.push(e);
       return out;
     }
 
