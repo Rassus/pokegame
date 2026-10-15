@@ -107,6 +107,19 @@ G.RunUI = (() => {
 
   function showOver(r, onBack) {
     $('over-title').textContent = r.title || (r.dead ? 'Has caído…' : 'Run terminada');
+    renderOverDmg(r.dmg || []);
+    const tabs = $('over-tabs');
+    tabs.querySelectorAll('.gen-tab').forEach(btn => {
+      btn.classList.toggle('on', btn.dataset.over === 'sum');
+      btn.onclick = () => {
+        tabs.querySelectorAll('.gen-tab').forEach(b => b.classList.toggle('on', b === btn));
+        const dmg = btn.dataset.over === 'dmg';
+        $('over-stats').classList.toggle('hidden', dmg);
+        $('over-dmg').classList.toggle('hidden', !dmg);
+      };
+    });
+    $('over-stats').classList.remove('hidden');
+    $('over-dmg').classList.add('hidden');
     $('over-stats').innerHTML = `
       <div><span>Tiempo</span><b>${G.U.mmss(r.time)}</b></div>
       <div><span>Nivel</span><b>${r.level}</b></div>
@@ -133,6 +146,41 @@ G.RunUI = (() => {
       }
     }
     G.UI.show('scr-over');
+  }
+
+  /** Segunda pestaña: daño de cada movimiento y, en los de ataque, cuánto añadieron. */
+  function renderOverDmg(list) {
+    const box = $('over-dmg');
+    if (!list.length) {
+      box.innerHTML = '<p class="note">Todavía no has hecho daño.</p>';
+      return;
+    }
+    const rows = list.map(m => ({
+      ...m,
+      dealt: Math.round(m.dealt || 0),
+      added: Math.round(m.added || 0)
+    }));
+    for (const m of rows) m.show = m.kind === 'buff' ? (m.stat === 'atk' ? m.added : 0) : m.dealt;
+    rows.sort((a, b) => b.show - a.show);
+    const total = rows.reduce((s, m) => s + m.dealt, 0);
+    const max = Math.max(1, ...rows.map(m => m.show));
+    const anyAdd = rows.some(m => m.added > 0);
+    box.innerHTML = `<div class="total"><span>Daño total</span><b>${G.U.num(total)}</b></div>` +
+      rows.map(m => {
+        const col = G.U.TYPE_COLOR[m.type] || '#fff';
+        const pct = total > 0 ? Math.round(m.show / total * 100) : 0;
+        const val = m.kind === 'buff' && m.stat === 'atk'
+          ? `<b class="gold">+${G.U.num(m.added)}</b><small>añadió${total ? ' · ' + pct + '%' : ''}</small>`
+          : m.kind === 'buff'
+            ? '<small>Sin daño</small>'
+            : `<b>${G.U.num(m.dealt)}</b>${total ? '<small>' + pct + '%</small>' : ''}`;
+        return `<div class="dmg-row">
+          <span class="ico">${G.Icons.html('move:' + m.id, 22)}</span>
+          <div class="who"><b>${m.name} <small>Nv.${m.lvl}</small></b>
+            <div class="dmg-bar"><i style="width:${Math.round(m.show / max * 100)}%;background:${col}"></i></div></div>
+          <div class="val">${val}</div></div>`;
+      }).join('') +
+      (anyAdd ? '<p class="note">Ese daño ya va dentro de los otros movimientos.</p>' : '');
   }
 
   /** Has encontrado un objeto llevando ya otro: ¿con cuál te quedas? */

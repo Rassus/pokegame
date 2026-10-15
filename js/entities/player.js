@@ -60,6 +60,9 @@ G.Player = class Player {
     this.coins = 0;            // monedas recogidas en esta run
     this.t1 = 0; this.t10 = 0; this.tb = 0; this.tg = 0; // tickets de esta run: gris, morado, azul, dorado
     this.dmgDealt = 0;
+    this.dmgBy = {};           // id de movimiento -> daño hecho (ya con el ataque del momento)
+    this.buffAdd = {};         // id de potenciador de ataque -> daño extra que aportó
+    this.buffSrc = null;       // movimiento que tiene ahora el ataque subido
 
     this.invuln = 0;
     this.flash = 0;
@@ -387,12 +390,27 @@ G.Player = class Player {
     this.power = { def, t: dur, dur };
   }
 
-  addBuff(stat, amount, dur, maxStacks) {
+  addBuff(stat, amount, dur, maxStacks, src) {
     const b = this.buffs[stat];
     if (!b) return;
     b.amount = amount;
     b.n = Math.min(maxStacks, b.n + 1);
     b.t = dur;
+    if (stat === 'atk' && src) this.buffSrc = src;
+  }
+
+  /**
+   * Anota el daño de un golpe. `snap` es el ataque subido en el momento en que
+   * se calculó el golpe ({ mul, id }); si ya no está, el extra sigue siendo
+   * de ese movimiento. El daño del movimiento incluye ese extra.
+   */
+  noteDmg(moveId, dealt, snap) {
+    if (!(dealt > 0) || !moveId) return;
+    this.dmgBy[moveId] = (this.dmgBy[moveId] || 0) + dealt;
+    if (snap && snap.mul > 1 && snap.id) {
+      const extra = dealt * (1 - 1 / snap.mul);
+      this.buffAdd[snap.id] = (this.buffAdd[snap.id] || 0) + extra;
+    }
   }
 
   // ---------------- ciclo ----------------
@@ -405,7 +423,10 @@ G.Player = class Player {
 
     for (const k in this.buffs) {
       const b = this.buffs[k];
-      if (b.n > 0) { b.t -= dt; if (b.t <= 0) b.n = 0; }
+      if (b.n > 0) {
+        b.t -= dt;
+        if (b.t <= 0) { b.n = 0; if (k === 'atk') this.buffSrc = null; }
+      }
     }
     if (this.slowT > 0) this.slowT -= dt;
     if (this.silence > 0) this.silence -= dt;

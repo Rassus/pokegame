@@ -439,6 +439,10 @@ G.Game = (() => {
     G.RunUI.showOver({
       dead, time, level: pl.level, kills: pl.kills, bosses: pl.bosses, coins, record, t1: pl.t1, t10: pl.t10, tb: pl.tb, tg: pl.tg,
       moves: pl.moves, caught, title,
+      dmg: pl.moves.map(m => ({
+        id: m.id, name: m.name, lvl: m.lvl, type: m.type, kind: m.kind, stat: m.stat || '',
+        dealt: pl.dmgBy[m.id] || 0, added: pl.buffAdd[m.id] || 0
+      })),
       breakdown: Object.entries(parts).filter(([, v]) => v).map(([k, v]) => `${k} ${G.U.num(v)}`).join(' · ') +
                  (mul > 1 ? ` · ×${mul.toFixed(2)} Fortuna` : '') +
                  (caughtName ? ' · ' + caughtName + ' atrapado' : '') + towerExtra

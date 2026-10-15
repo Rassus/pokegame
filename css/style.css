@@ -431,6 +431,19 @@ label { display: block; font-size: 14px; color: var(--muted); margin: 8px 0 4px;
 .tag-chip { font-size: 11px; padding: 2px 7px; border-radius: 5px; color: #10131a; text-shadow: none; font-weight: 700; }
 
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 18px; }
+#scr-over .gen-tabs { justify-content: center; margin-top: 2px; }
+#over-dmg { text-align: left; margin: 4px 0 14px; }
+#over-dmg .total { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+#over-dmg .total span { color: var(--muted); font-size: 12px; text-transform: uppercase; }
+.dmg-row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 1px dashed rgba(244,248,255,.15); }
+.dmg-row .ico { flex: 0 0 auto; }
+.dmg-row .who { flex: 1; min-width: 0; }
+.dmg-row .who b { display: block; font-size: 15px; }
+.dmg-row .who b small { color: var(--muted); font-weight: 400; }
+.dmg-bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,.08); margin-top: 4px; overflow: hidden; }
+.dmg-bar i { display: block; height: 100%; border-radius: 3px; }
+.dmg-row .val { text-align: right; min-width: 78px; font-size: 16px; }
+.dmg-row .val small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; }
 .stats > div { background: rgba(0,0,0,.22); border-radius: 9px; padding: 8px 10px; }
 .stats > div > span:first-child { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; }
 .stats b { font-size: 22px; }

@@ -12,6 +12,8 @@ G.CHANGELOG = [
     ['Cada jefe tiene su torre. Kanto cuesta 3.000 Pokémonedas, Johto 10.000 y, desde Hoenn, 50.000 más 10 tickets grises por jugador. Rayquaza es una torre de 150 oleadas: la entrada son 100.000 y aparece seis veces antes del jefe final.',
      'Each boss has a tower. Kanto costs 3,000 PokéCoins, Johto 10,000 and, from Hoenn on, 50,000 plus 10 grey tickets per player. Rayquaza is a 150-wave tower: entry is 100,000 and it appears six times before the final boss.']
   ], chg: [
+    ['Al terminar la run, la pestaña Daño muestra cuánto hizo cada movimiento. Los que suben el ataque, como Danza Espada, indican cuánto daño añadieron.',
+     'At the end of a run, the Damage tab shows how much each move dealt. Moves that raise attack, like Swords Dance, show how much damage they added.'],
     ['Al superar una torre: 1 ticket dorado, oro por 4 veces el costo y un 60% de 45 a 100 fragmentos de ese jefe. Si no lo tienes, sigue habiendo un 25% de atraparlo.',
      'Clearing a tower gives 1 gold ticket, gold equal to 4 times the entry cost and a 60% chance of 45 to 100 fragments of that boss. If you do not own it, there is still a 25% chance to catch it.'],
     ['Cada oleada, los Pokémon tienen un 3% más de vida y de daño que en la anterior. En las oleadas 10, 30, 50, 70 y 90 salen Chansey: 1, 3, 5, 7 y 7, con esa misma fuerza.',

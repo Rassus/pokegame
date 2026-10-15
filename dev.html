@@ -557,9 +557,14 @@
 </section>
 
 <section id="scr-over" class="scr dim hidden">
-  <div class="box center" style="width:min(480px,100%)">
+  <div class="box center" style="width:min(520px,100%)">
     <h2 id="over-title">Has caído…</h2>
+    <div id="over-tabs" class="gen-tabs">
+      <button type="button" class="gen-tab on" data-over="sum"><b>Resumen</b></button>
+      <button type="button" class="gen-tab" data-over="dmg"><b>Daño</b></button>
+    </div>
     <div id="over-stats" class="stats"></div>
+    <div id="over-dmg" class="hidden"></div>
     <button id="btn-again" class="btn gold">Volver al menú</button>
   </div>
 </section>

@@ -81,8 +81,16 @@ G.Combat = (() => {
   let atkSeq = 1;
   function newAtk() { return atkSeq++; }
 
-  function payload(m) {
-    return { burn: m.burn || 0, poison: m.poison || 0, slow: m.slow || 0, knock: m.knock || 0, mtype: m.type, atk: m.atk };
+  /** Ataque subido en este instante, para repartir luego el daño de Danza Espada y similares. */
+  function buffSnap(pl) {
+    const b = pl.buffs && pl.buffs.atk;
+    if (!b || b.n <= 0 || !pl.buffSrc) return null;
+    const mul = 1 + b.n * b.amount;
+    return mul > 1 ? { mul, id: pl.buffSrc } : null;
+  }
+
+  function payload(pl, m) {
+    return { burn: m.burn || 0, poison: m.poison || 0, slow: m.slow || 0, knock: m.knock || 0, mtype: m.type, atk: m.atk, mid: m.id, buff: buffSnap(pl) };
   }
 
   /** Tabla de tipos × clima para un ataque de tipo `type` contra `e`. */
@@ -102,7 +110,7 @@ G.Combat = (() => {
         dmg: m.dmg * pl.atk, r: m.size, life: m.life,
         pierce: m.pierce | 0, color: col, homing: m.homing || 0,
         hits: new Set(), vis, ghost, owner: pl
-      }, payload(m)));
+      }, payload(pl, m)));
     }
     G.FX.spark(pl.x + Math.cos(pl.aim) * pl.r, pl.y - G.LIFT + Math.sin(pl.aim) * pl.r,
                col, Math.cos(pl.aim), Math.sin(pl.aim), 3);
@@ -120,7 +128,7 @@ G.Combat = (() => {
         dmg: m.dmg * pl.atk, r: m.size, life: m.life,
         pierce: m.pierce | 0, color: col, homing: m.homing || 0,
         hits: new Set(), vis, ghost, owner: pl
-      }, payload(m)));
+      }, payload(pl, m)));
     }
     G.FX.ring(pl.x, pl.y, pl.r, pl.r * 4, col, 0.3, 3);
   }
@@ -201,7 +209,7 @@ G.Combat = (() => {
   }
 
   function buff(pl, m) {
-    pl.addBuff(m.stat, m.amount, m.dur, m.stacks | 0);
+    pl.addBuff(m.stat, m.amount, m.dur, m.stacks | 0, m.id);
     const col = G.U.TYPE_COLOR[m.type];
     G.FX.ring(pl.x, pl.y, pl.r * 2.4, pl.r * 1.1, col, 0.35, 2.5);
     const vis = G.VFX.forMove(m);
@@ -224,7 +232,7 @@ G.Combat = (() => {
         x: pl.x, y: pl.y, vx: Math.cos(a) * m.speed, vy: Math.sin(a) * m.speed,
         dmg: m.dmg * pl.atk, r: m.size, life: out * 4 + 1.5, pierce: 999, color: col,
         hits: new Set(), vis, ghost, owner: pl, boom: out, bsp: m.speed * 1.1
-      }, payload(m)));
+      }, payload(pl, m)));
     }
   }
 
@@ -265,7 +273,7 @@ G.Combat = (() => {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * 6.2832, d = n === 1 ? 0 : G.U.rand(18, 46);
       fields.push({ kind: 'mine', owner: pl, ghost, m, col, vis, atk: m.atk, x: pl.x + Math.cos(a) * d, y: pl.y + Math.sin(a) * d * 0.8,
-                    t: 0, arm: 0.35, life: m.dur || 7, r: m.radius, dmg: m.dmg * pl.atk });
+                    t: 0, arm: 0.35, life: m.dur || 7, r: m.radius, dmg: m.dmg * pl.atk, buff: buffSnap(pl) });
     }
     // Como mucho unas pocas por jugador: las más viejas se van.
     const mine = fields.filter(f => f.kind === 'mine' && f.owner === pl);
@@ -282,7 +290,7 @@ G.Combat = (() => {
       const e = near[i];
       const x = e ? e.x + G.U.rand(-8, 8) : pl.x + G.U.rand(-140, 140);
       const y = e ? e.y + G.U.rand(-6, 6) : pl.y + G.U.rand(-110, 110);
-      fields.push({ kind: 'meteor', owner: pl, ghost, m, col, vis, atk: m.atk, x, y, t: -i * 0.09, fall: 0.5, r: m.radius, dmg: m.dmg * pl.atk });
+      fields.push({ kind: 'meteor', owner: pl, ghost, m, col, vis, atk: m.atk, x, y, t: -i * 0.09, fall: 0.5, r: m.radius, dmg: m.dmg * pl.atk, buff: buffSnap(pl) });
     }
   }
 
@@ -291,7 +299,7 @@ G.Combat = (() => {
     const col = G.U.TYPE_COLOR[m.type], vis = G.VFX.forMove(m);
     const a = pl.aim + Math.PI + G.U.rand(-0.6, 0.6);
     fields.push({ kind: 'turret', owner: pl, ghost, m, col, vis, x: pl.x + Math.cos(a) * 26, y: pl.y + Math.sin(a) * 20,
-                  t: 0, life: m.dur || 6, shotT: 0.3, dmg: m.dmg * pl.atk });
+                  t: 0, life: m.dur || 6, shotT: 0.3, dmg: m.dmg * pl.atk, buff: buffSnap(pl) });
     const mine = fields.filter(f => f.kind === 'turret' && f.owner === pl && !f.gone);
     for (const f of mine.slice(0, Math.max(0, mine.length - Math.max(1, m.count | 0)))) f.gone = true;
     G.FX.ring(pl.x, pl.y, 4, 30, col, 0.3, 2);
@@ -332,7 +340,7 @@ G.Combat = (() => {
     const last = pl.lastPatch;
     if (last && G.U.dist2(last.x, last.y, pl.x, pl.y) < (m.radius * 0.9) ** 2 && last.t < 1) return;
     const f = { kind: 'patch', owner: pl, ghost, m, col, vis, atk: m.atk, x: pl.x, y: pl.y, t: 0, life: m.dur || 3, r: m.radius,
-                tick: 0, dmg: m.dmg * pl.atk };
+                tick: 0, dmg: m.dmg * pl.atk, buff: buffSnap(pl) };
     fields.push(f);
     pl.lastPatch = f;
     const mine = fields.filter(o => o.kind === 'patch' && o.owner === pl && !o.gone);
@@ -350,7 +358,7 @@ G.Combat = (() => {
         x: pl.x + Math.cos(a) * 4, y: pl.y + Math.sin(a) * 4, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
         dmg: m.dmg * pl.atk, r: m.size, life: m.life * G.U.rand(0.85, 1.05), pierce: m.pierce | 0, color: col,
         hits: new Set(), vis, ghost, owner: pl
-      }, payload(m)));
+      }, payload(pl, m)));
     }
     G.FX.spark(pl.x + Math.cos(pl.aim) * pl.r, pl.y - G.LIFT + Math.sin(pl.aim) * pl.r, col, Math.cos(pl.aim), Math.sin(pl.aim), 5);
   }
@@ -359,7 +367,7 @@ G.Combat = (() => {
   function blast(f, r, k = 1) {
     if (f.ghost) return;
     const pl = f.owner, m = f.m;
-    for (const e of G.EnemyMgr.queryCircle(f.x, f.y, r)) hit(pl, e, f.dmg * k, f.col, e.x - f.x, e.y - f.y, m.knock || 0, m, f.atk);
+    for (const e of G.EnemyMgr.queryCircle(f.x, f.y, r)) hit(pl, e, f.dmg * k, f.col, e.x - f.x, e.y - f.y, m.knock || 0, m, f.atk, f.buff || null);
     for (const p of G.World.propsInCircle(f.x, f.y, r)) G.World.damageProp(p, f.dmg * k, f.col);
   }
 
@@ -398,7 +406,7 @@ G.Combat = (() => {
               x: f.x, y: f.y, vx: Math.cos(a) * (m.speed || 300), vy: Math.sin(a) * (m.speed || 300),
               dmg: f.dmg, r: m.size || 6, life: 1.4, pierce: m.pierce | 0, color: f.col,
               hits: new Set(), vis: f.vis, ghost: f.ghost, owner: f.owner
-            }, payload(m), { atk: newAtk() }));
+            }, payload(f.owner, m), { atk: newAtk(), buff: f.buff || null }));
             f.kick = 0.12;
           }
         }
@@ -484,9 +492,9 @@ G.Combat = (() => {
 
     for (let i = orbs.length; i < want; i++) {
       G.Projectiles.spawnOrb({
-        owner: pl, ghost: isGhost, mid: m.id,
+        owner: pl, ghost: isGhost,
         x: pl.x, y: pl.y, r: m.size, color: col, vis: G.VFX.forMove(m),
-        dmg: m.dmg * pl.atk,
+        dmg: m.dmg * pl.atk, mid: m.id, buff: buffSnap(pl),
         oa: (i / want) * 6.2832, orad: m.radius, ospeed: m.speed,
         rehit: Math.max(0.12, m.cd),
         knock: m.knock || 0, burn: m.burn || 0, poison: m.poison || 0, slow: m.slow || 0, mtype: m.type
@@ -495,6 +503,8 @@ G.Combat = (() => {
     const live = G.Projectiles.all().filter(mine);
     live.forEach((p, i) => {
       p.dmg = m.dmg * pl.atk;
+      p.mid = m.id;
+      p.buff = buffSnap(pl);
       p.orad = m.radius;
       p.ospeed = m.speed;
       p.r = m.size;
@@ -531,13 +541,18 @@ G.Combat = (() => {
   const CRIT_MUL = 1.5;
   const isCrit = pl => !ghost && pl.critChance > 0 && Math.random() < pl.critChance;
 
-  function hit(pl, e, dmg, col, dx, dy, knock, m, atk) {
+  function hit(pl, e, dmg, col, dx, dy, knock, m, atk, snap) {
     const k = typeK(m.type, e);
     const crit = isCrit(pl);
     dmg *= k * (crit ? CRIT_MUL : 1);
     e.hurt(dmg, col, dx, dy, knock, crit ? 'crit' : G.Types.label(G.Types.mult(m.type, e.types)));
-    if (!ghost) pl.onDealt(atk != null ? atk : m.atk);
-    pl.dmgDealt += dmg;
+    if (!ghost) {
+      pl.onDealt(atk != null ? atk : m.atk);
+      pl.dmgDealt += dmg;
+      // El 10.º argumento, aunque sea null, es el ataque del momento del golpe
+      // (una mina guarda el de cuando se puso, no el de cuando estalla).
+      pl.noteDmg(m.id, dmg, arguments.length >= 10 ? snap : buffSnap(pl));
+    }
     if (m.burn) e.applyBurn(m.burn);
     if (m.poison) e.applyPoison(m.poison);
     if (m.slow) e.applySlow(m.slow);
@@ -649,6 +664,7 @@ G.Combat = (() => {
                crit ? 'crit' : p.mtype ? G.Types.label(G.Types.mult(p.mtype, e.types)) : null);
         if (Math.random() < 0.5) G.FX.sp('impact', p.vis ? p.vis.pal : 'normal', e.x, e.y - e.bodyH * 0.5, { life: 0.12, scale: 1 });
         pl.dmgDealt += p.dmg * k;
+        if (p.mid) pl.noteDmg(p.mid, p.dmg * k, p.buff || null);
         pl.onDealt(p.atk);
         if (p.burn) e.applyBurn(p.burn);
         if (p.poison) e.applyPoison(p.poison);
