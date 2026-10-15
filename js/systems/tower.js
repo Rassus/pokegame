@@ -130,8 +130,18 @@ G.Towers = (() => {
   function done() { return !!(run && run.done); }
   function take() { const r = run; run = null; return r; }
 
+  function noteClear() {
+    if (!run || run.counted || run.duel) return;
+    run.counted = true;
+    const s = G.DB.save;
+    if (!s) return;
+    s.stats = s.stats || {};
+    s.stats.towerClears = (s.stats.towerClears || 0) + 1;
+  }
+
   function markClear() {
     if (!run) return;
+    noteClear();
     if (!run.reward) { run.cleared = true; run.reward = rollReward(); }
     run.done = true;
   }
@@ -410,6 +420,7 @@ G.Towers = (() => {
   }
 
   function finish() {
+    noteClear();
     run.cleared = true;
     run.reward = rollReward();
     run.done = true;

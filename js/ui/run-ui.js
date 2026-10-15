@@ -89,19 +89,6 @@ G.RunUI = (() => {
     G.UI.hide('scr-levelup');
   }
 
-  /**
-   * Mensaje de apoyo (Ko-fi) al acabar: tras un récord o cada 10 partidas,
-   * nunca en la primera y como mucho una vez al día. Se cierra con la X.
-   */
-  function askSupport(r) {
-    if (!G.Funding || !G.Funding.url) return false;
-    const runs = (G.DB.save && G.DB.save.stats && G.DB.save.stats.runs) || 0;
-    if (runs < 2 || !(r.record || runs % 10 === 0)) return false;
-    const today = new Date().toISOString().slice(0, 10);
-    try { if (localStorage.getItem('ps.ask') === today) return false; localStorage.setItem('ps.ask', today); } catch (e) { return false; }
-    return true;
-  }
-
   function showOver(r, onBack) {
     $('over-title').textContent = r.title || (r.dead ? 'Has caído…' : 'Run terminada');
     $('over-stats').innerHTML = `
@@ -118,14 +105,7 @@ G.RunUI = (() => {
         ${r.moves.map(m => `${G.Icons.html('move:' + m.id, 16)} ${m.name} Nv.${m.lvl}`).join(' · ') || '—'}</b></div>
       ${r.caught && r.caught.length ? `<div style="grid-column:1/-1" class="caught"><span>${G.Icons.html('shiny', 12)} Shinies conseguidos</span>
         <div class="caught-row" id="over-caught"></div></div>` : ''}
-      ${r.record ? '<div style="grid-column:1/-1;text-align:center" class="gold">¡Nuevo récord de tiempo!</div>' : ''}
-      ${askSupport(r) ? `<div class="support-ask" id="over-ask" style="grid-column:1/-1">
-        <button class="x" type="button" aria-label="Cerrar">×</button>
-        <p>¿Te está gustando PokéSurvivor? Lo hago yo solo y los servidores cuestan dinero. Si quieres, puedes ayudarme a mantenerlo en línea.</p>
-        <a class="btn small gold" href="${G.Funding.url}" target="_blank" rel="noopener">${G.Icons.html('heart', 14)} Apoyar en Ko-fi</a>
-      </div>` : ''}`;
-    const ask = $('over-ask');
-    if (ask) ask.querySelector('.x').onclick = () => ask.remove();
+      ${r.record ? '<div style="grid-column:1/-1;text-align:center" class="gold">¡Nuevo récord de tiempo!</div>' : ''}`;
     $('btn-again').onclick = onBack;
     if (r.caught && r.caught.length) {
       const row = $('over-caught');

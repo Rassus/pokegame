@@ -79,12 +79,14 @@ G.DB = (() => {
       itemsFound: {},         // id -> fecha: objetos equipables encontrados
       evoMoves: {},           // id -> fecha: movimientos evolucionados alguna vez
       ach: {},                // id -> fecha: logros conseguidos
+      achRank: {},            // id -> escalones ya cobrados (logros con varios pasos)
       missions: {},           // misiones del día / semana (systems/progress.js)
       region: 1,              // última generación abierta (1 = Kanto … 9 = Paldea)
       regionProg: 0,          // avance de la misión que abre la siguiente
       profile: { favs: [], title: '' },   // perfil público: 3 favoritos y título
       stats: { runs: 0, bestTime: 0, bestLevel: 0, totalKills: 0, pulls: 0, coinsEarned: 0, shinies: 0,
-               bossesTotal: 0, riftWins: 0, evolutions: 0, missionsDone: 0, groupRuns: 0, bestGroupTime: 0 }
+               bossesTotal: 0, riftWins: 0, evolutions: 0, missionsDone: 0, groupRuns: 0, bestGroupTime: 0,
+               shinyKills: 0, shinyBosses: 0, goldPulls: 0, ticketsGot: 0, bestKills: 0, bestBosses: 0, towerClears: 0 }
     };
   }
 
@@ -115,7 +117,9 @@ G.DB = (() => {
       s.region = g;
       s.regionProg = 0;
     }
+    const ticketsGotMissing = s.stats.ticketsGot == null;
     for (const k in base.stats) if (s.stats[k] == null) s.stats[k] = base.stats[k];
+    if (!s.achRank) s.achRank = {};
     // v1 -> v2: había un único banner (Kanto) con el pity como número.
     if (typeof s.pity === 'number') s.pity = { 1: s.pity };
     // v2 -> v3: las mejoras eran de la cuenta; pasan al compañero de entonces.
@@ -126,6 +130,10 @@ G.DB = (() => {
       s.pupgDone = true;
     }
     s.tickets = Object.assign({ t1: 0, t10: 0, tb: 0, tg: 0 }, s.tickets);
+    if (ticketsGotMissing) {
+      const t = s.tickets;
+      s.stats.ticketsGot = (t.t1 || 0) + (t.t10 || 0) + (t.tb || 0) + (t.tg || 0);
+    }
     sanitize(s);
     s.v = VERSION;
     return s;
@@ -239,6 +247,8 @@ G.DB = (() => {
       r[coll] = r[coll] || {};
       for (const k in older[coll] || {}) if (!r[coll][k]) r[coll][k] = older[coll][k];
     }
+    r.achRank = r.achRank || {};
+    for (const k in older.achRank || {}) r.achRank[k] = Math.max(r.achRank[k] || 0, older.achRank[k] || 0);
     // Misiones del mismo día/semana: el mayor progreso y lo ya recogido.
     const mo = older.missions || {}, mr = r.missions = r.missions || {};
     for (const [per, list] of [['day', 'daily'], ['week', 'weekly']]) {

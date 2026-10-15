@@ -10,14 +10,7 @@ G.SupportUI = (() => {
     ? (Math.round(v * 100) / 100).toLocaleString(G.I18n.lang === 'en' ? 'en' : 'es', { style: 'currency', currency: 'EUR' }) + ' / mes'
     : v;
 
-  function init() {
-    const b = $('btn-support');
-    if (!F.url) return;                       // aún sin cuenta de Ko-fi: no sale
-    b.classList.remove('hidden');
-    b.innerHTML = G.Icons.html('heart', 18) + ' <span>Apoyar</span>';
-    b.onclick = open;
-    $('sup-close').onclick = close;
-  }
+  function init() { /* el botón de la barra y el aviso al acabar la run están quitados */ }
 
   function open() {
     const rows = F.costs.map(([c, v]) => `<tr><td>${c}</td><td class="num">${val(v)}</td></tr>`).join('');

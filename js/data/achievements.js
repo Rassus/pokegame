@@ -3,6 +3,7 @@
  * veces, un título para el perfil. Se comprueban en systems/progress.js.
  *
  *   value(save) -> progreso actual (número) · goal -> lo que hay que llegar
+ *   steps[]     -> el mismo logro, varios escalones; el premio de cada uno va en rewards[]
  *
  * Además hay un logro por CADA legendario: vencerle en una grieta.
  */
@@ -70,6 +71,75 @@ G.AchDefs = (() => {
     { id: 'group10', cat: 'otros', tier: 2, name: 'Compañero fiel', desc: 'Juega 10 partidas en grupo.', value: st('groupRuns'), goal: 10, reward: { t10: 1 }, title: 'Compañero fiel' }
   ];
 
+  /** Premio de cada escalón: monedas al principio, tickets hacia el final. */
+  function pays(steps) {
+    return steps.map((_, i) => {
+      if (i === steps.length - 1) return { t10: 2 };
+      if (i >= Math.max(2, steps.length - 3)) return { t10: 1 };
+      if (i >= 2) return { t1: 2 };
+      return { coins: 400 * (i + 1) };
+    });
+  }
+  function ladder(def) {
+    LIST.push(Object.assign({ tier: 3, rewards: pays(def.steps) }, def));
+  }
+
+  const REGIONS = [[1, 'Kanto'], [2, 'Johto'], [3, 'Hoenn'], [4, 'Sinnoh'], [5, 'Teselia'],
+                   [6, 'Kalos'], [7, 'Alola'], [8, 'Galar'], [9, 'Paldea']];
+  for (const [gen, name] of REGIONS) {
+    LIST.push({
+      id: 'lead' + gen, cat: 'coleccion', tier: 3, name: 'Líder de ' + name,
+      desc: 'Colecciona toda la Pokédex de ' + name + '.',
+      value: s => G.DEX.filter(p => p.gen === gen && s.owned && s.owned[p.dex]).length,
+      goal: 1, reward: { t10: 3 }, title: 'Líder de ' + name
+    });
+  }
+
+  ladder({ id: 'shinyHunt', cat: 'coleccion', name: 'Cazador de colores', title: 'Cazador de colores',
+           desc: 'Vence Pokémon shiny en las runs.', value: st('shinyKills'),
+           steps: [1, 5, 25, 50, 100, 200, 1000] });
+  ladder({ id: 'shinyBoss', cat: 'coleccion', name: 'La suerte es lo tuyo', title: 'La suerte es lo tuyo',
+           desc: 'Vence jefes shiny.', value: st('shinyBosses'),
+           steps: [1, 3, 5, 8, 12, 20, 60, 100] });
+  ladder({ id: 'slots', cat: 'coleccion', name: 'Ludopatía', title: 'Ludopatía',
+           desc: 'Juega a las tragaperras.', value: st('pulls'),
+           steps: [10, 50, 100, 500, 1000, 5000] });
+  ladder({ id: 'goldSpend', cat: 'coleccion', name: 'El que tiene plata, la gasta como quiere', title: 'Manirroto',
+           desc: 'Gasta tickets dorados.', value: st('goldPulls'),
+           steps: [1, 5, 10, 25, 50, 75, 100] });
+  ladder({ id: 'earnGold', cat: 'coleccion', name: 'Me gusta el dinero', title: 'Me gusta el dinero',
+           desc: 'Gana oro en total.', value: st('coinsEarned'),
+           steps: [1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000, 5000000, 25000000, 50000000] });
+  ladder({ id: 'holdGold', cat: 'coleccion', name: 'Tío Mc Pato', title: 'Tío Mc Pato',
+           desc: 'Acumula oro.', value: s => s.coins || 0,
+           steps: [1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000] });
+  ladder({ id: 'ticketPile', cat: 'coleccion', name: 'Coleccionista de tickets', title: 'Coleccionista de tickets',
+           desc: 'Acumula tickets en total.', value: st('ticketsGot'),
+           steps: [10, 50, 100, 250, 500, 1000, 5000, 9999] });
+
+  ladder({ id: 'longRun', cat: 'supervivencia', name: 'Historia sin fin', title: 'Historia sin fin',
+           desc: 'Aguanta en una run (minutos).', value: s => Math.floor(st('bestTime')(s) / 60),
+           steps: [25, 40, 60, 85, 100, 160, 320, 600] });
+  ladder({ id: 'highLvl', cat: 'supervivencia', name: '99 y más allá', title: '99 y más allá',
+           desc: 'Sube de nivel en una run.', value: st('bestLevel'),
+           steps: [40, 50, 65, 90, 120, 150, 200, 235, 310, 500, 999] });
+  ladder({ id: 'manyRuns', cat: 'supervivencia', name: 'Te tiene que gustar mucho el pi...', title: 'Te tiene que gustar mucho el pi...',
+           desc: 'Juega runs.', value: st('runs'),
+           steps: [60, 70, 80, 90, 120, 150, 200, 250, 300] });
+  ladder({ id: 'tower100', cat: 'supervivencia', name: 'Maestro de la torre', title: 'Maestro de la torre',
+           desc: 'Alcanza la oleada 100 de una torre.', value: st('towerClears'),
+           steps: [1, 3, 5, 10, 25, 50] });
+  ladder({ id: 'towerOpen', cat: 'supervivencia', name: 'Me las sé todas', title: 'Me las sé todas',
+           desc: 'Desbloquea torres.', value: s => (G.Towers ? G.Towers.LIST : []).filter(t => t.dexes.some(d => s.legends && s.legends[d])).length,
+           steps: [1, 2, 4, 7, 10, 15, 25, 40] });
+
+  ladder({ id: 'runKills', cat: 'combate', name: 'Asesino por excelencia', title: 'Asesino por excelencia',
+           desc: 'Derrota a Pokémon en una misma run.', value: st('bestKills'),
+           steps: [500, 1000, 2000, 5000, 10000, 25000, 50000, 100000, 250000, 550000, 999000] });
+  ladder({ id: 'runBosses', cat: 'combate', name: 'El terror de las watonas!', title: 'El terror de las watonas!',
+           desc: 'Derrota a jefes en una misma run.', value: st('bestBosses'),
+           steps: [5, 10, 25, 40, 60, 100, 150] });
+
   // Un logro por legendario: "Vence a Mewtwo"...
   for (const p of G.DEX.filter(p => p.leg && G.SPRITE_META[p.dex])) {
     LIST.push({ id: 'leg_' + p.dex, cat: 'legendarios', tier: 2, dex: p.dex, name: 'Vence a ' + p.name,
@@ -79,6 +149,13 @@ G.AchDefs = (() => {
   for (const a of LIST) if (a.id === 'legAll') { a.goal = totalLegends; a.desc = `Vence a los ${totalLegends} legendarios.`; }
   // Metas que dependen de los datos del juego.
   for (const a of LIST) if (a.id === 'ownAll') { a.goal = G.DEX.length; a.desc = `Ten los ${G.DEX.length} Pokémon del juego.`; }
+  for (const a of LIST) if (String(a.id).startsWith('lead')) {
+    const gen = +String(a.id).slice(4);
+    const n = G.DEX.filter(p => p.gen === gen).length;
+    const name = a.name.replace('Líder de ', '');
+    a.goal = n || 1;
+    a.desc = 'Colecciona los ' + n + ' Pokémon de ' + name + '.';
+  }
   const evoTotal = Object.keys(G.Moves.EVO).length;
   for (const a of LIST) if (a.id === 'evoAll') { a.goal = evoTotal; a.desc = `Evoluciona los ${evoTotal} movimientos distintos.`; }
   const itemTotal = G.Items.LIST.length + 1;

@@ -190,6 +190,8 @@ G.Game = (() => {
     };
     if (!d.t1 && !d.t10 && !d.tb && !d.tg) return;
     sv.tickets.t1 += d.t1; sv.tickets.t10 += d.t10; sv.tickets.tb += d.tb; sv.tickets.tg += d.tg;
+    sv.stats = sv.stats || {};
+    sv.stats.ticketsGot = (sv.stats.ticketsGot || 0) + d.t1 + d.t10 + d.tb + d.tg;
     banked = { t1: pl.t1, t10: pl.t10, tb: pl.tb, tg: pl.tg };
     if (save_) G.DB.commit();
   }
@@ -331,6 +333,8 @@ G.Game = (() => {
     if (!tower) save.stats.bestTime = Math.max(save.stats.bestTime, Math.floor(time));
     if (coop && !tower) save.stats.bestGroupTime = Math.max(save.stats.bestGroupTime || 0, Math.floor(time));
     save.stats.bestLevel = Math.max(save.stats.bestLevel, pl.level);
+    save.stats.bestKills = Math.max(save.stats.bestKills || 0, pl.kills || 0);
+    save.stats.bestBosses = Math.max(save.stats.bestBosses || 0, pl.bosses || 0);
     save.stats.coinsEarned += coins;
     G.Progress.event('runEnd', { time, level: pl.level, coins: pl.coins, types: pl.mon.types, group: coop });
     G.Progress.checkAch();

@@ -1,7 +1,7 @@
 /* ============ progress.js — misiones, logros y estadísticas de cuenta ============
  * El juego avisa de lo que pasa con G.Progress.event(tipo, datos):
  *
- *   kill      { types, boss, legend }  (también en las copias del cooperativo)
+ *   kill      { types, boss, legend, shiny }  (también en las copias del cooperativo)
  *   chest     cofre con candado abierto
  *   item      { id }        objeto equipado
  *   evolve    { move }      movimiento evolucionado
@@ -11,7 +11,7 @@
  *
  * y esto actualiza en la partida guardada:
  *   stats.bossesTotal · riftWins · evolutions · missionsDone · groupRuns
- *   legends{dex} · arenas{tipo} · itemsFound{id} · evoMoves{id} · ach{id}
+ *   legends{dex} · arenas{tipo} · itemsFound{id} · evoMoves{id} · ach{id} · achRank{id}
  *   missions { day, daily[], rerolled, week, weekly[] }
  *
  * Misiones: 3 diarias + 2 semanales, sorteadas con una semilla de la fecha y
@@ -60,6 +60,7 @@ G.Progress = (() => {
     }
     if (s.region == null) s.region = 1;
     if (s.regionProg == null) s.regionProg = 0;
+    s.achRank = s.achRank || {};
   }
 
   /** Misión que abre la región siguiente, o null si ya están las 9. */
@@ -151,9 +152,18 @@ G.Progress = (() => {
     const s = G.DB.save;
     if (!r) return;
     s.tickets = s.tickets || { t1: 0, t10: 0 };
-    if (r.coins) s.coins += r.coins;
+    if (r.coins) {
+      s.coins += r.coins;
+      s.stats = s.stats || {};
+      s.stats.coinsEarned = (s.stats.coinsEarned || 0) + r.coins;
+    }
     if (r.t1) s.tickets.t1 += r.t1;
     if (r.t10) s.tickets.t10 += r.t10;
+    const got = (r.t1 || 0) + (r.t10 || 0);
+    if (got) {
+      s.stats = s.stats || {};
+      s.stats.ticketsGot = (s.stats.ticketsGot || 0) + got;
+    }
     if (G.UI && G.UI.refreshCoins && !document.getElementById('topbar').classList.contains('hidden')) G.UI.refreshCoins();
   }
 
@@ -175,6 +185,10 @@ G.Progress = (() => {
     switch (kind) {
       case 'kill':
         if (d.boss) S.bossesTotal = (S.bossesTotal || 0) + 1;
+        if (d.shiny) {
+          if (d.boss) S.shinyBosses = (S.shinyBosses || 0) + 1;
+          else S.shinyKills = (S.shinyKills || 0) + 1;
+        }
         if (d.legend) { s.legends = s.legends || {}; if (!s.legends[d.legend]) s.legends[d.legend] = Date.now(); }
         break;
       case 'rift':
@@ -196,14 +210,14 @@ G.Progress = (() => {
     advance(s.missions.weekly, kind, d);
     advanceRegion(s, kind, d);
     // Los logros se miran como mucho una vez por segundo (hay cientos de bajas).
-    if (kind !== 'kill' || d.boss || d.legend) checkAch();
+    if (kind !== 'kill' || d.boss || d.legend || d.shiny) checkAch();
     else if (performance.now() - achT > 1000) checkAch();
   }
 
   /** Un enemigo ha caído (anfitrión, solitario o copia en el invitado). */
   function kill(e) {
     const legend = e.legend || (G.Rift.inArena && e.boss) ? e.dex : 0;
-    event('kill', { types: e.types || [], boss: !!e.boss, legend });
+    event('kill', { types: e.types || [], boss: !!e.boss, legend, shiny: !!e.shiny });
   }
 
   // ---------------- logros ----------------
@@ -213,12 +227,35 @@ G.Progress = (() => {
     if (!s) return;
     achT = performance.now();
     s.ach = s.ach || {};
-    for (const a of G.AchDefs.LIST) {
-      if (s.ach[a.id]) continue;
-      if (a.value(s) < a.goal) continue;
-      s.ach[a.id] = Date.now();
-      grant(a.reward);
-      notify('¡Logro: ' + a.name + '!', a.title ? 'Nuevo título: ' + a.title : '', a);
+    s.achRank = s.achRank || {};
+    let guard = 0, again = true;
+    while (again && guard++ < 8) {
+      again = false;
+      for (const a of G.AchDefs.LIST) {
+        if (a.steps) {
+          let rank = s.achRank[a.id] || 0;
+          if (rank >= a.steps.length) continue;
+          const v = a.value(s);
+          const from = rank;
+          while (rank < a.steps.length && v >= a.steps[rank]) {
+            grant(a.rewards[rank]);
+            rank++;
+          }
+          if (rank === from) continue;
+          s.achRank[a.id] = rank;
+          const last = rank >= a.steps.length;
+          if (last) s.ach[a.id] = Date.now();
+          notify('¡Logro: ' + a.name + '!', last && a.title ? 'Nuevo título: ' + a.title : 'Paso ' + rank + '/' + a.steps.length, a);
+          again = true;
+        } else {
+          if (s.ach[a.id]) continue;
+          if (a.value(s) < a.goal) continue;
+          s.ach[a.id] = Date.now();
+          grant(a.reward);
+          notify('¡Logro: ' + a.name + '!', a.title ? 'Nuevo título: ' + a.title : '', a);
+          again = true;
+        }
+      }
     }
   }
 

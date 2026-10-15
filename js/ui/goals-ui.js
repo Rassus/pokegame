@@ -157,14 +157,19 @@
     }
 
     function achCard(a, s) {
-      const ok = !!(s.ach && s.ach[a.id]);
-      const v = Math.min(a.goal, a.value(s));
+      const steps = a.steps;
+      const rank = steps ? ((s.achRank && s.achRank[a.id]) || 0) : 0;
+      const ok = steps ? rank >= steps.length : !!(s.ach && s.ach[a.id]);
+      const goal = steps ? steps[Math.min(rank, steps.length - 1)] : a.goal;
+      const v = Math.min(goal, a.value(s) || 0);
+      const reward = steps ? a.rewards[Math.min(rank, a.rewards.length - 1)] : a.reward;
+      const paso = steps && !ok ? 'Paso ' + (rank + 1) + '/' + steps.length + ' · ' : '';
       const el = document.createElement('div');
       el.className = 'ach' + (ok ? ' ok' : '');
       el.innerHTML = `${G.Icons.html(ok ? 'medal' + a.tier : 'medalOff', 36)}
         <div class="a-txt"><b>${esc(a.name)}</b><small>${esc(a.desc)}</small>
-          ${ok ? '' : `<div class="bar"><i style="width:${v / a.goal * 100}%"></i></div>`}
-          <div class="a-rw">${ok ? '¡Conseguido!' : G.U.num(v) + ' / ' + G.U.num(a.goal)} · ${G.Progress.rewardText(a.reward)}
+          ${ok ? '' : `<div class="bar"><i style="width:${v / (goal || 1) * 100}%"></i></div>`}
+          <div class="a-rw">${ok ? '¡Conseguido!' : paso + G.U.num(v) + ' / ' + G.U.num(goal)} · ${G.Progress.rewardText(reward)}
           ${a.title ? ` · <span class="gold">Título: ${esc(a.title)}</span>` : ''}</div></div>`;
       return el;
     }

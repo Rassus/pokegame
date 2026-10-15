@@ -152,6 +152,7 @@ G.Gacha = (() => {
     const gold = use === 'tg';
 
     const out = [];
+    let refundSum = 0;
     for (let i = 0; i < n; i++) {
       const { rarity, list } = poolNear(rollRarity(use), gen);
       let mon = G.U.pick(list);
@@ -193,9 +194,12 @@ G.Gacha = (() => {
         }
       }
       save.coins += refund;
+      refundSum += refund;
       out.push({ dex: mon.dex, rarity: mon.rarity, shiny, isNew, refund, frags, fragGain, need: had || unlocked ? 0 : need, unlocked });
     }
     save.stats.pulls = (save.stats.pulls || 0) + n;
+    if (gold) save.stats.goldPulls = (save.stats.goldPulls || 0) + 1;
+    if (refundSum) save.stats.coinsEarned = (save.stats.coinsEarned || 0) + refundSum;
     return out;
   }
 

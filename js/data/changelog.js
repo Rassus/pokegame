@@ -6,6 +6,13 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-14', title: ['Sin avisos de donación', 'No donation prompts'], new: [
+    ['Logros por escalones: las 9 regiones completas, Pokémon y jefes shiny vencidos, tragaperras, tickets dorados gastados, oro ganado y oro acumulado, tickets, minutos y nivel en una run, partidas jugadas, torres al 100 y torres desbloqueadas, y bajas y jefes en una sola run.',
+     'Step achievements: all 9 regions, shiny Pokémon and shiny bosses defeated, slot pulls, gold tickets spent, gold earned and gold held, tickets, minutes and level in a run, runs played, towers cleared at wave 100 and towers unlocked, and kills and bosses in a single run.']
+  ], chg: [
+    ['Se quitó el botón de Apoyar de la barra y el aviso de Ko-fi al terminar una partida.',
+     'The Support button in the top bar and the Ko-fi prompt at the end of a run are gone.']
+  ]},
   { d: '2026-10-13', title: ['Todas las partidas cuentan', 'Every run counts'], new: [
     ['Regiones: solo Kanto empieza abierta. En Misiones hay una misión fija para abrir cada región siguiente (Johto, Hoenn… hasta Paldea). El gacha de una región cerrada se puede mirar, pero no tirar. Si ya tenías Pokémon de otras regiones, esas siguen abiertas.',
      'Regions: only Kanto starts open. Missions has a fixed quest to open each next region (Johto, Hoenn… through Paldea). You can look at a locked region\'s banner, but not pull on it. If you already had Pokémon from other regions, those stay open.'],
