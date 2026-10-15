@@ -1,38 +1,45 @@
 /* ============ tower-ui.js — pantalla de torres ============ */
 G.TowerUI = (() => {
   const $ = G.UI.$;
+  const INTRO = 'Cada jefe que venzas en una grieta tiene su torre. La primera oleada sale al entrar y luego una cada 10 segundos, aunque queden Pokémon vivos. El oro de la entrada se reparte entre la sala. Desde Hoenn, cada jugador paga 10 tickets grises. Rayquaza cuesta 100.000 de oro y no pide tickets. Al ganar: 1 ticket dorado, oro ×4 del costo y un 60% de 45 a 100 fragmentos. Si no lo tienes, un 25% de atraparlo. El jefe puede salir shiny (1/1024) y, cada vez que cae, fusionas un movimiento. Cada oleada suma un 3% de vida y de daño. En la 10, 30, 50, 70 y 90 salen Chansey.';
+  let gen = 1;
 
   function open() {
     G.UI.show('scr-towers', true);
     const box = $('tower-list');
-    const cost = G.Towers.share();
-    const n = (G.Social.room && G.Social.room.members.length) || 1;
-    const split = n > 1 ? ' Entre ' + n + ': ' + cost + ' cada uno.' : '';
-    box.innerHTML = '<p class="sub">100 oleadas en una grieta. La primera sale al entrar y luego una cada 10 segundos, aunque queden Pokémon vivos. La entrada son ' + G.Towers.FEE + ' Pokémonedas, a partes iguales.' + split + ' Si no lo tienes, al ganar hay un 25% de atraparlo; si ya lo tienes, da de 25 a 50 fragmentos. El jefe puede salir shiny (1/1024). Las mejoras suben la dificultad. Sale en las oleadas 25, 50, 75 y 100: al derrotarlo, fusionas un movimiento.</p>';
-    for (const t of G.Towers.LIST) {
+    const gens = [];
+    for (let g = 1; g <= 9; g++) if (G.Towers.LIST.some(t => t.gen === g)) gens.push(g);
+    if (!gens.includes(gen)) gen = gens[0] || 1;
+    const tabs = gens.map(g => {
+      const all = G.Towers.LIST.filter(t => t.gen === g);
+      const n = all.filter(t => G.Towers.unlocked(t.dexes[0])).length;
+      const name = (G.Towers.REGIONS && G.Towers.REGIONS[g]) || g;
+      return '<button type="button" class="gen-tab' + (g === gen ? ' on' : '') + '" data-gen="' + g + '"><b>' + name + '</b><small>' + n + '/' + all.length + '</small></button>';
+    }).join('');
+    box.innerHTML = '<p class="sub">' + INTRO + '</p><div class="gen-tabs">' + tabs + '</div><div id="tower-rows"></div>';
+    box.querySelectorAll('.gen-tab').forEach(b => { b.onclick = () => { gen = +b.dataset.gen; open(); }; });
+    const rows = $('tower-rows');
+    for (const t of G.Towers.LIST.filter(t => t.gen === gen)) {
       const el = document.createElement('div');
-      el.className = 'panel';
-      el.style.marginTop = '12px';
-      const openDex = t.dexes.filter(d => G.Towers.unlocked(d));
-      let body;
-      if (!openDex.length) {
-        const names = t.dexes.map(d => G.DEX_BY[d] ? G.DEX_BY[d].name : d).join(', ');
-        body = '<div class="tower-row"><b>' + t.name + '</b><span class="ds">Vence a ' + names + ' en una grieta</span></div>';
+      el.className = 'tower-row';
+      const dex = t.dexes[0];
+      const name = G.DEX_BY[dex] ? G.DEX_BY[dex].name : t.name;
+      if (!G.Towers.unlocked(dex)) {
+        el.innerHTML = '<b>' + name + '</b><span class="ds">Vence a ' + name + ' en una grieta</span>';
       } else {
-        const who = t.dexes.map(d => {
-          const name = G.DEX_BY[d] ? G.DEX_BY[d].name : d;
-          const ok = G.Towers.unlocked(d);
-          const own = ok && G.DB.owns(d) ? ' · en tu pokédex' : '';
-          return ok ? name + own : name + ' · sin vencer';
-        }).join(' · ');
+        const pay = G.Towers.due(t.id);
+        const own = G.DB.owns(dex) ? ' · en tu pokédex' : '';
+        const extra = t.waves > 100 ? ' · 6 encuentros antes del jefe final' : ' · jefe en la 25, 50, 75 y 100';
+        const label = pay.tickets
+          ? 'Entrar · ' + G.U.num(pay.share) + ' y ' + pay.tickets + ' tickets grises'
+          : 'Entrar · ' + G.U.num(pay.share);
         const duel = G.UI.helpersOn()
           ? '<button class="btn small" data-id="' + t.id + '" data-duel="1">Jefe directo</button>' : '';
-        body = '<div class="tower-row"><b>' + t.name + '</b><span class="ds">' + who + '</span>' +
-          '<span class="tower-go"><button class="btn small gold" data-id="' + t.id + '">Entrar · ' + cost + '</button>' + duel + '</span></div>';
+        el.innerHTML = '<b>' + name + '</b><span class="ds">' + t.waves + ' oleadas' + extra + own + '</span>' +
+          '<span class="tower-go"><button class="btn small gold" data-id="' + t.id + '">' + label + '</button>' + duel + '</span>';
+        el.querySelectorAll('button').forEach(b => { b.onclick = () => start(b.dataset.id, b.dataset.duel === '1'); });
       }
-      el.innerHTML = body;
-      el.querySelectorAll('button').forEach(b => { b.onclick = () => start(b.dataset.id, b.dataset.duel === '1'); });
-      box.appendChild(el);
+      rows.appendChild(el);
     }
   }
 
@@ -41,14 +48,16 @@ G.TowerUI = (() => {
     const room = G.Social && G.Social.room;
     const n = (room && room.members.length) || 1;
     if (room && n >= 2 && !room.isHost) { G.UI.toast('Entra el anfitrión de la sala'); return; }
-    const cost = duel ? 0 : G.Towers.share();
-    if (!duel && (!G.DB.save || (G.DB.save.coins || 0) < cost)) {
-      G.UI.toast('No tienes Pokémonedas para la torre (' + G.U.num(cost) + ')');
-      return;
+    const pay = G.Towers.due(id);
+    if (!pay) return;
+    if (!duel) {
+      const why = G.Towers.afford(pay);
+      if (why === 'tickets') { G.UI.toast('No tienes tickets grises para la torre (' + pay.tickets + ')'); return; }
+      if (why === 'coins') { G.UI.toast('No tienes Pokémonedas para la torre (' + G.U.num(pay.share) + ')'); return; }
     }
     const cfg = G.Towers.prepare(id);
     if (!cfg) return;
-    if (duel) { cfg.duel = true; cfg.share = 0; }
+    if (duel) { cfg.duel = true; cfg.share = 0; cfg.tickets = 0; }
     G.Audio.sfx('confirm');
     if (room && n >= 2) {
       const startCfg = {

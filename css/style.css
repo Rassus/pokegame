@@ -342,8 +342,10 @@ label { display: block; font-size: 14px; color: var(--muted); margin: 8px 0 4px;
 #scr-wheel #wheel-win { min-height: 1.4em; font-size: 22px; margin: 8px 0 0; }
 .kick-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 #btn-kick { margin: 12px auto 0; }
-.tower-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px dashed rgba(244,248,255,.15); }
-.tower-row .ds { color: var(--muted); font-size: 13px; font-weight: 400; }
+#scr-towers .box { min-height: 0; max-height: 100%; display: flex; flex-direction: column; }
+#tower-list { margin-top: 8px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.tower-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px dashed rgba(244,248,255,.15); flex-wrap: wrap; }
+.tower-row .ds { color: var(--muted); font-size: 13px; font-weight: 400; flex: 1 1 180px; }
 .tower-go { display: flex; gap: 8px; flex-wrap: wrap; }
 
 #pull-fx {

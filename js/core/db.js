@@ -153,7 +153,7 @@ G.DB = (() => {
     const n = v => (Number.isFinite(+v) && +v > 0 ? Math.floor(+v) : 0);
     s.region = Math.max(1, Math.min(9, n(s.region) || 1));
     s.regionProg = n(s.regionProg);
-    s.stats.towerBest = Math.min(100, n(s.stats.towerBest));
+    s.stats.towerBest = Math.min(150, n(s.stats.towerBest));
     if (s.tower100 && typeof s.tower100 === 'object') {
       const clean = {};
       for (const id of Object.keys(s.tower100)) {

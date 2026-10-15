@@ -1,34 +1,48 @@
 /* ============ tower.js — torres en una grieta ============
- * Una sola entrada (no hay modo atrapar / enfrentar). Siempre 100 oleadas.
- * La primera sale al entrar; las siguientes, cada 10 s, aunque queden vivos.
- * Se juega en una arena de grieta. La dificultad sube con las mejoras del
- * compañero (en grupo, las del anfitrión, que es quien genera las oleadas).
+ * Cada jefe vencido en una grieta tiene su torre. La primera oleada sale al
+ * entrar; las siguientes, cada 10 s, aunque queden vivos. Se juega en una
+ * arena de grieta. La dificultad sube con las mejoras del compañero (en
+ * grupo, las del anfitrión, que es quien genera las oleadas).
  *
- * Sala de Kanto: montaña. Al entrar sale uno de los pájaros que ya venciste.
- * Oleadas con más Pokémon de su tipo; el resto, otros de Kanto.
+ * Entrada, en oro y a partes iguales: Kanto 3.000, Johto 10.000, Hoenn y
+ * las de después 50.000. Desde Hoenn, cada jugador paga además 10 tickets
+ * grises. Rayquaza es aparte: 150 oleadas, 100.000 de oro y seis encuentros
+ * antes del jefe final.
  *
- * Al superar la torre, cada jugador: si no lo tiene, 25% de atraparlo;
- * si ya lo tiene, 25-50 fragmentos de su línea. El jefe es shiny a 1/1024.
- * La entrada (FEE) se reparte entre los de la sala.
- * No cuenta para el récord de tiempo ni para el ranking.
+ * Al superar la torre: 1 ticket dorado, oro ×4 del costo y un 60% de 45 a 100
+ * fragmentos de ese jefe. Si no lo tienes, un 25% de atraparlo. El jefe puede
+ * salir shiny (1/1024). No cuenta para el récord de tiempo ni para el ranking.
  */
 G.Towers = (() => {
-  const FEE = 3000;
-  const WAVES = 100;
   const EVERY = 10;
-  const LIST = [
-    { id: 'kanto', name: 'Sala de Kanto', dexes: [144, 145, 146] },
-    { id: 'mew', name: 'Mew', dexes: [151] },
-    { id: 'mewtwo', name: 'Mewtwo', dexes: [150] }
-  ];
+  const CHANSEY = 113;
+  const CHANSEY_N = { 10: 1, 30: 3, 50: 5, 70: 7, 90: 7 };
+  const PLAN = [25, 50, 75, 100];
+  const REGIONS = ['', 'Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Teselia', 'Kalos', 'Alola', 'Galar', 'Paldea'];
   const ONE = { hp: 1, spd: 1, dmg: 1 };
+
+  function specFor(p) {
+    if (p.dex === 384) return { fee: 100000, tickets: 0, waves: 150, plan: [20, 40, 60, 80, 100, 120, 150] };
+    const gen = p.gen || 1;
+    const fee = gen === 1 ? 3000 : gen === 2 ? 10000 : 50000;
+    return { fee, tickets: gen >= 3 ? 10 : 0, waves: 100, plan: PLAN.slice() };
+  }
+
+  const LIST = G.DEX.filter(p => p.leg && G.SPRITE_META[p.dex]).map(p => {
+    const spec = specFor(p);
+    return {
+      id: String(p.dex), name: p.name, gen: p.gen || 1,
+      region: REGIONS[p.gen] || REGIONS[1], dexes: [p.dex],
+      fee: spec.fee, tickets: spec.tickets, waves: spec.waves, plan: spec.plan
+    };
+  });
   const KIT = {
     1: ['med'],
     2: ['med', 'aura'],
     3: ['med', 'aura', 'amnesia'],
     4: ['med', 'aura', 'amnesia', 'silence']
   };
-  const PHASE_HP = [0, 0.8, 1.05, 1.35, 1.7];
+  const PHASE_HP = [0, 0.8, 1.05, 1.35, 1.7, 2.1, 2.55, 3.05];
 
   let armed = null;
   let run = null;
@@ -46,14 +60,35 @@ G.Towers = (() => {
     return Math.max(1, room && room.members ? room.members.length : 1);
   }
 
-  function share() { return Math.ceil(FEE / party()); }
+  function due(id) {
+    const t = LIST.find(x => x.id === id);
+    if (!t) return null;
+    return { share: Math.ceil(t.fee / party()), tickets: t.tickets || 0, fee: t.fee };
+  }
+
+  /** '' si puede pagar; si no, 'coins' o 'tickets'. */
+  function afford(cfg) {
+    const save = G.DB.save;
+    const cost = (cfg && cfg.share) || 0;
+    const tickets = (cfg && cfg.tickets) || 0;
+    if (cost > 0 && (!save || (save.coins || 0) < cost)) return 'coins';
+    if (tickets > 0 && (!save || !save.tickets || (save.tickets.t1 || 0) < tickets)) return 'tickets';
+    return '';
+  }
 
   function charge(cfg) {
+    const why = afford(cfg);
+    if (why) return false;
     const save = G.DB.save;
-    const cost = cfg && cfg.share;
-    if (!(cost > 0)) return true;
-    if (!save || (save.coins || 0) < cost) return false;
-    save.coins -= cost;
+    const cost = (cfg && cfg.share) || 0;
+    const tickets = (cfg && cfg.tickets) || 0;
+    if (!(cost > 0) && !(tickets > 0)) return true;
+    if (!save) return false;
+    if (cost > 0) save.coins -= cost;
+    if (tickets > 0) {
+      save.tickets = Object.assign({ t1: 0, t10: 0, tb: 0, tg: 0 }, save.tickets);
+      save.tickets.t1 -= tickets;
+    }
     G.DB.commit();
     return true;
   }
@@ -63,19 +98,19 @@ G.Towers = (() => {
   function claim() { const a = armed; armed = null; return a; }
   function reset() { run = null; }
 
-  /** Qué pájaro (o qué jefe) y en qué arena. La llama quien entra. */
+  /** Qué jefe y en qué arena. La llama quien entra. */
   function prepare(id) {
     const t = LIST.find(x => x.id === id);
     if (!t) return null;
-    const open = t.dexes.filter(unlocked);
-    if (!open.length) return null;
-    const dex = G.U.pick(open);
-    const type = id === 'kanto' ? 'flying' : arenaType(dex);
+    const dex = t.dexes[0];
+    if (!unlocked(dex)) return null;
+    const pay = due(id);
     return {
-      id, dex, share: share(),
+      id, dex, fee: t.fee, tickets: pay.tickets, waves: t.waves, plan: t.plan.slice(),
+      share: pay.share,
       arena: {
         tx: 5000 + G.U.randInt(0, 2999), ty: 5000 + G.U.randInt(0, 2999),
-        r: 11, type
+        r: 11, type: arenaType(dex)
       },
       shiny: G.Sprites.hasShiny(dex) && Math.random() < 1 / 1024,
       duel: false
@@ -102,8 +137,10 @@ G.Towers = (() => {
 
   function begin(cfg) {
     const tile = ts();
+    const plan = (cfg.plan && cfg.plan.length) ? cfg.plan.slice() : PLAN.slice();
     run = {
-      id: cfg.id, dex: cfg.dex, shiny: !!cfg.shiny, waves: WAVES,
+      id: cfg.id, dex: cfg.dex, shiny: !!cfg.shiny, waves: cfg.waves || 100,
+      plan, phases: plan.length, fee: cfg.fee || 0,
       wave: 0, wait: 0.4, cleared: false, done: false, reward: null,
       bosses: [], finalDown: false, aura: 0, fx: null, duel: !!cfg.duel,
       ax: cfg.arena.tx * tile + tile / 2, ay: cfg.arena.ty * tile + tile / 2, ar: cfg.arena.r
@@ -123,7 +160,7 @@ G.Towers = (() => {
     G.Spawner.say('Has entrado en la grieta…', 2.4, true);
     const pool = minionPool(cfg.dex);
     const dexes = pool.typed.concat(pool.rest).map(p => p.dex);
-    G.Sprites.preload(dexes.concat(cfg.dex), 8000, cfg.shiny);
+    G.Sprites.preload(dexes.concat(cfg.dex, CHANSEY), 8000, cfg.shiny);
   }
 
   function active() { return !!run && !run.done; }
@@ -152,22 +189,28 @@ G.Towers = (() => {
       const name = (G.DEX_BY[run.dex] && G.DEX_BY[run.dex].name) || '';
       return name ? '¡Jefe: ' + name + '!' : 'Jefe directo';
     }
-    if (!run.wave) return 'Torre · ' + WAVES + ' oleadas';
-    const left = run.wave < WAVES && run.wait > 0 ? ' · ' + Math.ceil(run.wait) + ' s' : '';
-    return 'Oleada ' + run.wave + '/' + WAVES + left;
+    if (!run.wave) return 'Torre · ' + run.waves + ' oleadas';
+    const left = run.wave < run.waves && run.wait > 0 ? ' · ' + Math.ceil(run.wait) + ' s' : '';
+    return 'Oleada ' + run.wave + '/' + run.waves + left;
   }
 
   function minionPool(dex) {
-    const types = (G.DEX_BY[dex] && G.DEX_BY[dex].types) || [];
-    const base = G.DEX.filter(p => !p.leg && G.SPRITE_META[p.dex] && (p.gen || 1) === 1 && p.dex !== dex);
+    const mon = G.DEX_BY[dex];
+    const gen = (mon && mon.gen) || 1;
+    const types = (mon && mon.types) || [];
+    const base = G.DEX.filter(p => !p.leg && G.SPRITE_META[p.dex] && (p.gen || 1) === gen && p.dex !== dex && p.dex !== CHANSEY);
     const typed = base.filter(p => p.types.some(t => types.includes(t)));
     const rest = base.filter(p => !typed.includes(p));
-    return { typed, rest: rest.length ? rest : base };
+    const bag = rest.length ? rest : base;
+    if (bag.length) return { typed, rest: bag };
+    const any = G.DEX.filter(p => !p.leg && G.SPRITE_META[p.dex] && p.dex !== CHANSEY);
+    return { typed: [], rest: any };
   }
 
   function pickMinion(pool, prefer) {
     if (prefer && pool.typed.length) return G.U.pick(pool.typed);
-    return G.U.pick(pool.rest.length ? pool.rest : pool.typed);
+    const bag = pool.rest.length ? pool.rest : pool.typed;
+    return bag.length ? G.U.pick(bag) : null;
   }
 
   /**
@@ -195,6 +238,30 @@ G.Towers = (() => {
     return threat() * G.Coop.scaleHp(n);
   }
 
+  /** Cada oleada es un 3% más fuerte que la anterior, en vida y en daño. */
+  function growOf(k) { return Math.pow(1.03, Math.max(0, k - 1)); }
+
+  function waveDef(p, k, mul, behavior) {
+    const grow = growOf(k);
+    const far = (p.types || []).some(t => ['psychic', 'electric', 'fire', 'water', 'ice', 'ghost', 'dragon'].includes(t));
+    const beh = behavior || (far ? 'ranged' : 'chase');
+    return {
+      dex: p.dex, name: p.name, behavior: beh,
+      hp: Math.round((26 + k * 12) * mul * grow),
+      spd: Math.round(G.U.clamp(52 + ((p.spd || 78) - 78) * 0.25, 46, 96)),
+      dmg: Math.round((6 + k * 0.85) * mul * grow),
+      xp: Math.round(4 + k * 1.4),
+      shotDmg: Math.round((4 + k * 0.55) * mul * grow),
+      shotCd: beh === 'healer' ? 3.5 : 2.1,
+      range: beh === 'healer' ? 230 : 200
+    };
+  }
+
+  function place(def) {
+    const [x, y] = spot();
+    G.EnemyMgr.add(new G.Enemy(def, x, y, ONE));
+  }
+
   function spawnPack(pl) {
     const k = run.wave;
     const mul = scale();
@@ -203,25 +270,19 @@ G.Towers = (() => {
     const preferN = pool.typed.length ? Math.ceil(n * 0.6) : 0;
     for (let i = 0; i < n; i++) {
       const p = pickMinion(pool, i < preferN);
-      const far = p.types.some(t => ['psychic', 'electric', 'fire', 'water', 'ice', 'ghost', 'dragon'].includes(t));
-      const def = {
-        dex: p.dex, name: p.name, behavior: far ? 'ranged' : 'chase',
-        hp: Math.round((26 + k * 12) * mul),
-        spd: Math.round(G.U.clamp(52 + (p.spd - 78) * 0.25, 46, 96)),
-        dmg: Math.round((6 + k * 0.85) * mul),
-        xp: Math.round(4 + k * 1.4),
-        shotDmg: Math.round((4 + k * 0.55) * mul), shotCd: 2.1, range: 200
-      };
-      const [x, y] = spot(pl);
-      G.EnemyMgr.add(new G.Enemy(def, x, y, ONE));
+      if (p) place(waveDef(p, k, mul));
     }
-    G.Spawner.say('Oleada ' + k + ' de ' + WAVES, 2.2);
+    const hens = CHANSEY_N[k] || 0;
+    const hen = G.DEX_BY[CHANSEY];
+    if (hen && hens) for (let i = 0; i < hens; i++) place(waveDef(hen, k, mul, 'healer'));
+    G.Spawner.say('Oleada ' + k + ' de ' + run.waves, 2.2);
   }
 
   function spawnBoss(pl, phase) {
     const mon = G.DEX_BY[run.dex];
     const n = G.Game.everyone().length;
-    const mul = threat() * Math.max(1, n) * PHASE_HP[phase];
+    const hpK = PHASE_HP[phase] || PHASE_HP[PHASE_HP.length - 1];
+    const mul = threat() * Math.max(1, n) * hpK * growOf(run.wave || 1);
     const far = mon.types.some(t => ['psychic', 'electric', 'ghost', 'fairy', 'fire', 'water', 'ice', 'dragon'].includes(t));
     const def = {
       dex: mon.dex, name: mon.name, behavior: far ? 'ranged' : 'charger',
@@ -360,10 +421,10 @@ G.Towers = (() => {
     e.guard = 0;
     t.cd -= dt;
     if (t.cd > 0) return null;
-    const kit = (KIT[e.towerPhase] || []).filter(id => id !== 'med' || t.meds < 3).filter(id => id !== 'aura' || run.aura <= 0);
+    const kit = (KIT[Math.min(4, e.towerPhase)] || []).filter(id => id !== 'med' || t.meds < 3).filter(id => id !== 'aura' || run.aura <= 0);
     if (!kit.length) { t.cd = 4; return null; }
     const low = e.hp < e.maxHp * 0.7 && t.meds < 3 && kit.includes('med');
-    if (startCast(e, pl, low && Math.random() < 0.55 ? 'med' : G.U.pick(kit))) t.cd = e.towerPhase === 4 ? 9 : 12;
+    if (startCast(e, pl, low && Math.random() < 0.55 ? 'med' : G.U.pick(kit))) t.cd = e.towerPhase >= 4 ? 9 : 12;
     else t.cd = 3;
     return t.med > 0 || t.cast ? [0, 0, t.med > 0 ? 'Idle' : 'Charge'] : null;
   }
@@ -400,7 +461,7 @@ G.Towers = (() => {
       run.aura = 0;
       run.fx = null;
       grantBond(true);
-      if (b.phase < 4) G.Spawner.say('Se retira… volverá más adelante', 2.4);
+      if (b.phase < run.phases) G.Spawner.say('Se retira… volverá más adelante', 2.4);
       else run.finalDown = true;
     }
   }
@@ -412,11 +473,12 @@ G.Towers = (() => {
   function rollReward() {
     const own = G.DB.owns(run.dex);
     const wantShiny = run.shiny && !G.DB.ownsShiny(run.dex);
-    const frags = own ? G.U.randInt(25, 50) : 0;
     let caught = false, caughtShiny = false;
     if (!own && Math.random() < 0.25) { caught = true; caughtShiny = !!run.shiny; }
     else if (wantShiny && Math.random() < 0.25) caughtShiny = true;
-    return { frags, caught, caughtShiny };
+    if (run.duel) return { frags: 0, caught, caughtShiny, gold: 0, ticket: 0 };
+    const frags = Math.random() < 0.6 ? G.U.randInt(45, 100) : 0;
+    return { frags, caught, caughtShiny, gold: (run.fee || 0) * 4, ticket: 1 };
   }
 
   function finish() {
@@ -425,9 +487,12 @@ G.Towers = (() => {
     run.reward = rollReward();
     run.done = true;
     const r = run.reward;
-    const msg = r.caught || r.caughtShiny ? '¡Lo has atrapado!'
-      : r.frags ? '+' + r.frags + ' fragmentos' : '¡Torre superada!';
-    G.Spawner.say(msg, 2.4, true);
+    const bits = [];
+    if (r.caught || r.caughtShiny) bits.push('¡Lo has atrapado!');
+    if (r.ticket) bits.push('1 ticket dorado');
+    if (r.frags) bits.push('+' + r.frags + ' fragmentos');
+    if (r.gold) bits.push('+' + G.U.num(r.gold) + ' Pokémonedas');
+    G.Spawner.say(bits.join(' · ') || '¡Torre superada!', 2.4, true);
     G.Audio.sfx('legend');
   }
 
@@ -440,7 +505,7 @@ G.Towers = (() => {
     if (!authority()) {
       tickGuestFx(dt);
       keepInside(false);
-      if (!run.duel && run.wave < WAVES) {
+      if (!run.duel && run.wave < run.waves) {
         run.wait -= dt;
         if (run.wait <= 0) { run.wave++; run.wait = EVERY; }
       }
@@ -451,24 +516,24 @@ G.Towers = (() => {
     if (run.duel) {
       if (!run.bosses.length) {
         run.wait -= dt;
-        if (run.wait <= 0) { run.wave = WAVES; spawnBoss(me, 4); }
+        if (run.wait <= 0) { run.wave = run.waves; spawnBoss(me, run.phases); }
       }
       return;
     }
-    if (run.wave < WAVES) {
+    if (run.wave < run.waves) {
       run.wait -= dt;
       if (run.wait > 0) return;
       run.wave++;
       spawnPack(me);
-      const phase = run.wave % 25 === 0 ? (run.wave / 25) | 0 : 0;
-      if (phase) spawnBoss(me, phase);
+      const at = run.plan.indexOf(run.wave);
+      if (at >= 0) spawnBoss(me, at + 1);
       run.wait = EVERY;
     }
   }
 
   /** La torre está limpia: el jefe final cayó y no queda nadie. */
   function clearReady() {
-    return authority() && !!run && !run.done && run.wave >= WAVES && run.finalDown && !anyAlive();
+    return authority() && !!run && !run.done && run.wave >= run.waves && run.finalDown && !anyAlive();
   }
 
   function grantBond(send) {
@@ -528,7 +593,7 @@ G.Towers = (() => {
   }
 
   return {
-    LIST, FEE, unlocked, share, charge, prepare, peek, arm, claim, reset,
+    LIST, REGIONS, unlocked, due, afford, charge, prepare, peek, arm, claim, reset,
     begin, active, done, take, markClear, clearReady, finish, hud, update, hold, inAura, draw, drawScreen, onNet
   };
 })();

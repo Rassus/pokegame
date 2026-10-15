@@ -88,7 +88,10 @@ G.Game = (() => {
   function startRun(coop = null) {
     const towerCfg = (coop && coop.tower) || G.Towers.peek();
     if (towerCfg && !G.Towers.charge(towerCfg)) {
-      G.UI.toast('No tienes Pokémonedas para la torre (' + G.U.num(towerCfg.share) + ')');
+      const why = G.Towers.afford(towerCfg);
+      G.UI.toast(why === 'tickets'
+        ? 'No tienes tickets grises para la torre (' + (towerCfg.tickets || 0) + ')'
+        : 'No tienes Pokémonedas para la torre (' + G.U.num(towerCfg.share) + ')');
       if (coop && G.Social.room) G.LobbyUI.open();
       return;
     }
@@ -371,10 +374,10 @@ G.Game = (() => {
       jefes: pl.bosses * 80,
       recogidas: pl.coins
     };
-    const coins = Math.round((parts.tiempo + parts.derrotados + parts.jefes + parts.recogidas) * mul);
+    let coins = Math.round((parts.tiempo + parts.derrotados + parts.jefes + parts.recogidas) * mul);
     const tower = G.Towers.take();
     if (tower && !tower.duel) {
-      const wave = tower.cleared ? 100 : (tower.wave || 0);
+      const wave = tower.cleared ? (tower.waves || 100) : (tower.wave || 0);
       save.stats.towerBest = Math.max(save.stats.towerBest || 0, wave);
       if (tower.cleared && tower.id) {
         save.tower100 = save.tower100 || {};
@@ -398,6 +401,16 @@ G.Game = (() => {
         const key = String(G.Evo.root(tower.dex));
         save.frags[key] = (save.frags[key] || 0) + rw.frags;
         towerExtra += ' · ' + rw.frags + ' fragmentos de ' + (nm || '');
+      }
+      if (rw.gold) {
+        coins += rw.gold;
+        towerExtra += ' · +' + G.U.num(rw.gold) + ' Pokémonedas';
+      }
+      if (rw.ticket) {
+        save.tickets = Object.assign({ t1: 0, t10: 0, tb: 0, tg: 0 }, save.tickets);
+        save.tickets.tg += rw.ticket;
+        save.stats.ticketsGot = (save.stats.ticketsGot || 0) + rw.ticket;
+        towerExtra += ' · 1 ticket dorado';
       }
     }
     const record = !tower && time > save.stats.bestTime;
