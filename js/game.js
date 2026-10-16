@@ -104,7 +104,7 @@ G.Game = (() => {
     G.Towers.claim();
     const save = G.DB.save;
     const mon = G.DEX_BY[save.partner];
-    const perks = G.Upgrades.perks(G.DB.upgradesOf(mon.dex));
+    const perks = G.Upgrades.perks(G.DB.upgradesOf(mon.dex), G.DB.globalUpgrades());
 
     G.UI.hideAll();
     G.UI.chrome(false);
@@ -256,15 +256,18 @@ G.Game = (() => {
     },
     levelStart(level) {
       // Si tenías abierta la elección de objeto, vuelve al terminar: afterLevelUp.
+      // level === 0: tienda de torre (2 mejoras + baya).
       if (state === 'choice' && openItem && G.Coop.active) G.Coop.holdEnd();
       state = 'levelup';
       G.UI.hide('scr-pause');
       G.Audio.sfx('levelup');
-      G.RunUI.showLevelUp(level, G.LevelUp.offer(pl), card => {
-        G.Audio.sfx('confirm');
+      const shop = !level;
+      const cards = shop ? G.LevelUp.shopOffer(pl) : G.LevelUp.offer(pl);
+      G.RunUI.showLevelUp(level, cards, card => {
+        G.Audio.sfx(card.type === 'berry' ? 'heal' : 'confirm');
         card.apply(pl);
         G.Coop.localPicked();
-      }, true);
+      }, true, { shop });
     },
     waiting(names) { G.RunUI.setWaiting(names); },
     resume() {
@@ -480,6 +483,16 @@ G.Game = (() => {
 
   // ---------------- subida de nivel ----------------
 
+  function openCards(level, list, shop) {
+    state = 'levelup';
+    G.Audio.sfx('levelup');
+    G.RunUI.showLevelUp(level, list, card => {
+      G.Audio.sfx(card.type === 'berry' ? 'heal' : 'confirm');
+      card.apply(pl);
+      state = 'playing';
+    }, false, { shop: !!shop });
+  }
+
   function maybeLevelUp() {
     if (pendingLevels <= 0 || state !== 'playing') return;
     if (G.Coop.active) {
@@ -492,13 +505,20 @@ G.Game = (() => {
     // Nunca abras cartas con el Pokémon caído (morir y recoger XP en el mismo frame).
     if (pl.dead) return;
     pendingLevels--;
-    state = 'levelup';
-    G.Audio.sfx('levelup');
-    G.RunUI.showLevelUp(pl.level, G.LevelUp.offer(pl), card => {
-      G.Audio.sfx('confirm');
-      card.apply(pl);
-      state = 'playing';
-    });
+    openCards(pl.level, G.LevelUp.offer(pl), false);
+  }
+
+  /** Torres: tienda cada 10 oleadas (Premio por oleada la adelanta hasta cada 5). */
+  function maybeTowerShop() {
+    if (state !== 'playing' || !G.Towers.wantShop || !G.Towers.wantShop()) return;
+    G.Towers.clearShop();
+    if (G.Coop.active) {
+      if (G.Coop.players().every(p => p.dead)) return;
+      G.Coop.levelStart(0);
+      return;
+    }
+    if (pl.dead) return;
+    openCards(0, G.LevelUp.shopOffer(pl), true);
   }
 
   // ---------------- vínculos ----------------
@@ -535,7 +555,7 @@ G.Game = (() => {
 
   // ---------------- recogida ----------------
 
-  const PICK_SFX = { xp: 'xp', xpBig: 'xp', coin: 'coin', heal: 'heal', bomb: 'break', magnet: 'confirm', ticket: 'shiny', ticket10: 'legend', ticketb: 'legend', ticketg: 'shinyGet', item: 'legend', evostone: 'legend' };
+  const PICK_SFX = { xp: 'xp', xpBig: 'xp', coin: 'coin', heal: 'heal', bomb: 'break', magnet: 'confirm', ticket: 'shiny', ticket10: 'legend', ticketb: 'legend', ticketg: 'shinyGet', item: 'legend', evostone: 'legend', candy: 'legend' };
 
   /** Piedra Evolución: hueco propio, no sustituye al objeto de la run. */
   function equipStone() {
@@ -628,6 +648,14 @@ G.Game = (() => {
     }
     if (p.kind === 'evostone') {
       if (mine) equipStone();
+      return;
+    }
+    if (p.kind === 'candy') {
+      // Un nivel justo: llena la barra y no arrastra el sobrante.
+      pl.xp = pl.xpNext;
+      pendingLevels += pl.gainXp(0);
+      G.FX.dmgText(who.x, who.y - (who.bodyH || 28) - 8, '+1 nivel', '#c47bff', true);
+      G.FX.ring(who.x, who.y, 8, 90, '#c47bff', 0.75, 5);
       return;
     }
     const TICK = { ticket: ['t1', '+1 ticket', '#c9cedb'], ticket10: ['t10', '+1 morado', '#c47bff'], ticketb: ['tb', '+1 azul', '#4fb4ff'], ticketg: ['tg', '+1 dorado', '#ffd23f'] };
@@ -819,7 +847,10 @@ G.Game = (() => {
     G.FX.update(dt);
 
     G.Audio.music(G.Rift.inArena || G.Towers.active() ? 'rift' : G.EnemyMgr.bossAlive() ? 'boss' : G.BIOME_MUSIC[biome % G.BIOME_MUSIC.length]);
-    if (!coop || G.Coop.isHost) maybeLevelUp();
+    if (!coop || G.Coop.isHost) {
+      maybeTowerShop();
+      maybeLevelUp();
+    }
     if (pl.bonds > 0) offerBond(true);
     if (G.Coop.isHost) checkAllDown(dt);
   }
@@ -1086,6 +1117,7 @@ G.Flow = {
   /** Empieza la partida en grupo (el anfitrión la manda a todos). */
   startCoop(cfg) {
     if (G.Game.state !== 'ui' || !G.Social.room) return;
+    G.Social.setReady(false);
     G.LobbyUI.close();
     G.Game.startRun(cfg);
   }

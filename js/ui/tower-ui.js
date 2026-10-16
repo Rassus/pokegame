@@ -1,7 +1,7 @@
 /* ============ tower-ui.js — pantalla de torres ============ */
 G.TowerUI = (() => {
   const $ = G.UI.$;
-  const INTRO = 'Cada jefe que venzas en una grieta tiene su torre. La primera oleada sale al entrar y luego una cada 10 segundos, aunque queden Pokémon vivos. El oro de la entrada se reparte entre la sala. Desde Hoenn, cada jugador paga 10 tickets grises. Rayquaza cuesta 100.000 de oro y no pide tickets. Al ganar: 1 ticket dorado, oro ×4 del costo y un 60% de 45 a 100 fragmentos. Si no lo tienes, un 25% de atraparlo. El jefe puede salir shiny (1/1024) y, cada vez que cae, fusionas un movimiento. Cada oleada suma un 3% de vida y de daño. En la 10, 30, 50, 70 y 90 salen Chansey.';
+  const INTRO = 'Cada jefe que venzas en una grieta tiene su torre. La primera oleada sale al entrar y luego una cada 10 segundos, aunque queden Pokémon vivos. El oro de la entrada se reparte entre la sala. Desde Hoenn, cada jugador paga 10 tickets grises. Rayquaza cuesta 100.000 de oro y no pide tickets. Al ganar: 1 ticket dorado, oro ×4 del costo y un 60% de 45 a 100 fragmentos. Si no lo tienes, un 25% de atraparlo. El jefe puede salir shiny (1/1024) y, cada vez que cae, fusionas un movimiento. Cada oleada suma un 3% de vida y de daño. En la 10, 30, 50, 70 y 90 salen Chansey. Cada 10 oleadas abre una tienda con 2 mejoras y una baya (blanca, morada, azul o dorada); Premio por oleada la adelanta hasta cada 5. En torres de Kanto, los Pokémon dan además XP ×2, 3 Pokémonedas y un 0,01% de un fragmento suyo.';
   let gen = 1;
 
   function open() {

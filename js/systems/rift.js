@@ -150,6 +150,13 @@ G.Rift = (() => {
     G.Hazards.clear();
     G.World.setArena({ tx: cfg.tx, ty: cfg.ty, r: cfg.r, type: cfg.type });
     G.World.setBiome(G.Tiles.arenaBiome(cfg.type), true);
+    if (G.Upgrades.lvl('spring')) {
+      const cx = cfg.tx * ts + ts / 2, cy = cfg.ty * ts + ts / 2;
+      const spots = [[3, 0], [-3, 0], [0, 3], [4, 2], [-4, 2]];
+      for (const [dx, dy] of spots) {
+        if (G.World.dropProp('spring', cx + dx * ts, cy + dy * ts)) break;
+      }
+    }
     // Cada arena trae su clima (el volcán, sol; el glaciar, nieve...).
     const th = G.Tiles.ARENA_THEMES[cfg.type];
     if (th && th.weather) G.Weather.force(th.weather, ARENA_TIME + 15);

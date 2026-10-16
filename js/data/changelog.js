@@ -6,12 +6,33 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-16', title: ['Tirar todo', 'Pull all'], new: [
+    ['Caramelo Raro: sale en la hierba, en las rocas y al derrotar un Pokémon, con un 0,001% de probabilidad. Cuando sale, se anuncia. El imán no lo atrae: hay que pasar por encima. Sube un nivel.',
+     'Rare Candy: it appears in tall grass, in rocks and when you defeat a Pokémon, with a 0.001% chance. When it appears, it is announced. The magnet does not pull it: you have to walk over it. It raises you one level.'],
+    ['Mejora de run: Willy Wonka es mi pastor, nada me faltará, Amén. Suma +0,001% / +0,002% / +0,005% a esa probabilidad. Cuesta 5.000, 45.000 y 450.000.',
+     'Run upgrade: Willy Wonka is my shepherd, I shall not want, Amen. It adds +0.001% / +0.002% / +0.005% to that chance. It costs 5,000, 45,000 and 450,000.'],
+    ['En el gacha, junto a Tirar ×10, está Tirar todo. Sigue de 10 en 10 sin enseñar cada Pokémon, hasta que paras o se acaban los tickets. Al terminar hay una tarjeta por Pokémon, con los fragmentos sumados.',
+     'In the gacha, next to Pull ×10, there is Pull all. It keeps pulling 10 at a time without showing each Pokémon, until you stop or the tickets run out. At the end there is one card per Pokémon, with the fragments added up.']
+  ], fix: [
+    ['Al subir vida, ataque o velocidad, los fragmentos que quedan bajan en el momento en las fichas de la pokédex, y ya no vuelven al sincronizar la partida.',
+     'After raising HP, attack or speed, the fragments left drop right away on the Pokédex cards, and they no longer come back when the save syncs.']
+  ] },
   { d: '2026-10-15', title: ['La meta de ahora', 'The current goal'], new: [
     ['Objetos nuevos: Medallón de Meowth (las monedas caen un 30% más), Boleto Ganador (el oro recogido vale ×1,5 al momento), Ganzúa (los cofres se abren 1 s antes), Llave Maestra (abre un cofre al tocarlo y se gasta), Botines de Hielo (en el agua no frenan y dan +30% de velocidad) y Toalla de Sauna (la lava no hace daño y cura 4 de vida por segundo).',
      'New items: Meowth Medal (coins drop 30% more often), Winning Ticket (picked-up gold is worth ×1.5 right away), Lockpick (chests open 1 s faster), Master Key (opens one chest on touch, then it is gone), Ice Boots (in water they do not slow you and grant +30% speed) and Sauna Towel (lava deals no damage and heals 4 HP per second).'],
     ['Cada jefe tiene su torre. Kanto cuesta 3.000 Pokémonedas, Johto 10.000 y, desde Hoenn, 50.000 más 10 tickets grises por jugador. Rayquaza es una torre de 150 oleadas: la entrada son 100.000 y aparece seis veces antes del jefe final.',
-     'Each boss has a tower. Kanto costs 3,000 PokéCoins, Johto 10,000 and, from Hoenn on, 50,000 plus 10 grey tickets per player. Rayquaza is a 150-wave tower: entry is 100,000 and it appears six times before the final boss.']
+     'Each boss has a tower. Kanto costs 3,000 PokéCoins, Johto 10,000 and, from Hoenn on, 50,000 plus 10 grey tickets per player. Rayquaza is a 150-wave tower: entry is 100,000 and it appears six times before the final boss.'],
+    ['En torres de Kanto, los Pokémon de oleada dan experiencia ×2, 3 Pokémonedas y un 0,01% de un fragmento de ese Pokémon. En todas las torres, cada 10 oleadas abre una tienda: 2 mejoras al azar y una baya (blanca 45% vida, morada 70%, azul 90%, dorada 100% + escudo 50%).',
+     'In Kanto towers, wave Pokémon give ×2 XP, 3 PokéCoins and a 0.01% chance of a fragment of that Pokémon. In every tower, every 10 waves a shop opens: 2 random upgrades and a berry (white 45% HP, purple 70%, blue 90%, gold 100% + 50% shield).'],
+    ['Las mejoras se separan. Del Pokémon: Vitalidad, Fuerza, Velocidad, Reflejos, Defensa, Síntesis, Imán, Sabiduría, Repertorio, Golpe crítico, Cambio de cartas y Veto. De la run: Fortuna (hasta 40, +3,5% por nivel), Fortuna de tickets, Rapidez para abrir cofres y Cantidad de cofres (3 niveles, ×1,2 / ×1,4 / ×1,7). De la grieta: Fuente de agua (3.500, un manantial). De la torre: Oro extra (hasta +40 por baja), Exp extra (hasta +100%), Premio por oleada (la tienda pasa de cada 10 a cada 5) y Ángel guardián (una vida, 25.000).',
+     'Upgrades are split. Pokémon: Vitality, Strength, Speed, Reflexes, Defense, Synthesis, Magnet, Wisdom, Repertoire, Critical Hit, Card reroll and Ban. Run: Fortune (up to 40, +3.5% per level), Ticket fortune, Chest opening speed and Chest amount (3 levels, ×1.2 / ×1.4 / ×1.7). Rift: Water spring (3,500, one spring). Tower: Extra gold (up to +40 per defeat), Extra XP (up to +100%), Wave prize (the shop goes from every 10 waves to every 5) and Guardian angel (one life, 25,000).'],
+    ['En la sala, cada jugador se marca listo. La partida sólo empieza cuando lo estáis todos.',
+     'In the room, each player marks ready. The run only starts once everyone is ready.'],
+    ['Rastro de jefes (run, 1.000, un nivel): una flecha amarilla marca a cada jefe, en el borde si no se ve y encima si se ve.',
+     'Boss trail (run, 1,000, one level): a yellow arrow marks every boss, on the edge if it is off screen and above it if it is on screen.']
   ], chg: [
+    ['En Mejoras, si mantienes pulsado el botón de comprar, sube todos los niveles de esa mejora que te alcance el oro.',
+     'In Upgrades, holding the buy button raises every level of that upgrade you can afford.'],
     ['Rayquaza, en su torre, cierra una luz sobre sí cinco veces, cada vez más rápido, y suelta un rayo del grosor de su sprite. Dura 4 segundos, la pantalla tiembla y el suelo por donde pasó quema durante 15 segundos. Vuelve a usarlo a los 30.',
      'In his tower, Rayquaza closes a light on himself five times, faster each time, then fires a beam as thick as his sprite. It lasts 4 seconds, the screen shakes, and the ground it crossed burns for 15 seconds. He uses it again after 30.'],
     ['Al terminar la run, la pestaña Daño muestra cuánto hizo cada movimiento. Los que suben el ataque, como Danza Espada, indican cuánto daño añadieron.',

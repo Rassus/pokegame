@@ -361,6 +361,10 @@ G.MenuUI = (() => {
         if (!G.Gacha.grow(G.DB.save, dex, b.dataset.grow)) return;
         G.DB.commit(true);
         G.UI.refreshCoins();
+        const grid = $('dex-grid');
+        const top = grid.scrollTop;
+        renderGrid();
+        grid.scrollTop = top;
         showDetail(dex);
       };
     });
@@ -385,6 +389,42 @@ G.MenuUI = (() => {
   // ---------------- mejoras ----------------
 
   let upgDex = null;
+  let upgCat = 'mon';
+  const UPG_NOTE = {
+    mon: 'Cada Pokémon tiene las suyas. Sólo cuentan cuando juegas con él.',
+    run: 'Valen en todas las partidas, con cualquier Pokémon.',
+    rift: 'Valen al entrar en una grieta.',
+    tower: 'Valen en todas las torres.'
+  };
+
+  /**
+   * Un clic compra uno; si mantienes, sigue comprando hasta que no alcance
+   * o sueltes. step() debe devolver false para parar. onEnd al soltar o al tope.
+   */
+  function holdBuy(btn, step, onEnd) {
+    let delay = 0, rep = 0, on = false;
+    const stop = () => {
+      if (!on) return;
+      on = false;
+      clearTimeout(delay); clearInterval(rep);
+      delay = rep = 0;
+      window.removeEventListener('pointerup', stop);
+      window.removeEventListener('pointercancel', stop);
+      if (onEnd) onEnd();
+    };
+    const go = () => { if (on && !step()) stop(); };
+    btn.addEventListener('pointerdown', e => {
+      if (btn.disabled || (e.button != null && e.button !== 0)) return;
+      e.preventDefault();
+      stop();
+      on = true;
+      go();
+      if (!on) return;
+      delay = setTimeout(() => { if (on) rep = setInterval(go, 70); }, 320);
+      window.addEventListener('pointerup', stop);
+      window.addEventListener('pointercancel', stop);
+    });
+  }
 
   function openUpgrades() {
     G.UI.show('scr-upgrades', true);
@@ -398,19 +438,33 @@ G.MenuUI = (() => {
     sel.innerHTML = mons.map(d => `<option value="${d}">${G.DEX_BY[d].name}${d === s.partner ? ' (compañero)' : ''}${lv(d) ? ' · ' + lv(d) + ' niveles' : ''}</option>`).join('');
     sel.value = upgDex;
     sel.onchange = () => { upgDex = +sel.value; G.Audio.sfx('select'); renderUpgrades(); };
+    const tabs = $('upg-tabs');
+    tabs.innerHTML = G.Upgrades.CATS.map(c =>
+      '<button type="button" class="gen-tab' + (c.id === upgCat ? ' on' : '') + '" data-cat="' + c.id + '"><b>' + c.name + '</b></button>'
+    ).join('');
+    tabs.querySelectorAll('[data-cat]').forEach(b => {
+      b.onclick = () => { upgCat = b.dataset.cat; G.Audio.sfx('select'); openUpgrades(); };
+    });
     renderUpgrades();
   }
 
   function renderUpgrades() {
     const s = G.DB.save;
-    const levels = G.DB.upgradesOf(upgDex);
+    const monTab = upgCat === 'mon';
+    const levels = monTab ? G.DB.upgradesOf(upgDex) : G.DB.globalUpgrades();
     const mon = G.DEX_BY[upgDex];
-    const shiny = upgDex === s.partner && !!s.partnerShiny && G.DB.ownsShiny(upgDex);
-    G.UI.sprite($('upg-stage'), upgDex, { lively: true, scale: 2, hero: true, shiny });
-    $('upg-stage').style.setProperty('--stage-c', shiny ? '#9ae6ff' : G.U.TYPE_COLOR[mon.types[0]]);
+    $('upg-note').textContent = UPG_NOTE[upgCat] || '';
+    $('upg-stage').style.display = monTab ? '' : 'none';
+    $('upg-pick').style.display = monTab ? '' : 'none';
+    if (monTab) {
+      const shiny = upgDex === s.partner && !!s.partnerShiny && G.DB.ownsShiny(upgDex);
+      G.UI.sprite($('upg-stage'), upgDex, { lively: true, scale: 2, hero: true, shiny });
+      $('upg-stage').style.setProperty('--stage-c', shiny ? '#9ae6ff' : G.U.TYPE_COLOR[mon.types[0]]);
+    }
     const box = $('upg-list');
     box.innerHTML = '';
     for (const u of G.Upgrades.LIST) {
+      if (u.cat !== upgCat) continue;
       const lvl = levels[u.id] || 0;
       const maxed = lvl >= u.max;
       const cost = maxed ? 0 : G.Upgrades.cost(u.id, lvl);
@@ -426,25 +480,46 @@ G.MenuUI = (() => {
           ${u.id === 'ban' && lvl > 0 ? `<button class="btn small" data-ban>Elegir (${banList().length}/${lvl})</button>` : ''}
           <button class="btn small ${maxed ? '' : 'gold'}" data-buy data-sfx="none" ${maxed || s.coins < cost ? 'disabled' : ''}>
           ${maxed ? 'Máx.' : `<span class="coin"></span> ${G.U.num(cost)}`}</button></div>`;
-      if (u.id === 'ban' && lvl > 0) el.querySelector('[data-ban]').onclick = () => { banOpen = !banOpen; renderUpgrades(); };
-      el.querySelector('[data-buy]').onclick = () => {
+      if (u.id === 'ban' && lvl > 0 && monTab) el.querySelector('[data-ban]').onclick = () => { banOpen = !banOpen; renderUpgrades(); };
+      const buyBtn = el.querySelector('[data-buy]');
+      let bought = 0;
+      holdBuy(buyBtn, () => {
         // Se vuelve a leer todo al pulsar (la partida puede haber cambiado desde que se dibujó).
-        const sv = G.DB.save, lv = G.DB.upgradesOf(upgDex), now = lv[u.id] || 0;
-        if (now >= u.max) { renderUpgrades(); return; }
+        const sv = G.DB.save;
+        const lv = monTab ? G.DB.upgradesOf(upgDex) : G.DB.globalUpgrades();
+        const now = lv[u.id] || 0;
+        if (now >= u.max) return false;
         const price = G.Upgrades.cost(u.id, now);
-        if (sv.coins < price) { renderUpgrades(); return; }
+        if (sv.coins < price) return false;
         sv.coins -= price;
         lv[u.id] = now + 1;
+        bought = now + 1;
         G.DB.commit(true);
         G.Audio.sfx('buy');
         G.UI.refreshCoins();
-        G.UI.toast(`${mon.name} · ${u.name}: nivel ${now + 1}`);
+        const pips = el.querySelectorAll('.pips i');
+        if (pips[now]) pips[now].classList.add('on');
+        const next = now + 1;
+        if (next >= u.max) {
+          buyBtn.textContent = 'Máx.';
+          buyBtn.disabled = true;
+          buyBtn.classList.remove('gold');
+          return false;
+        }
+        const nextPrice = G.Upgrades.cost(u.id, next);
+        buyBtn.innerHTML = `<span class="coin"></span> ${G.U.num(nextPrice)}`;
+        if (sv.coins < nextPrice) { buyBtn.disabled = true; return false; }
+        return true;
+      }, () => {
+        if (!bought) return;
+        G.UI.toast((monTab ? mon.name + ' · ' : '') + u.name + ': nivel ' + bought);
+        bought = 0;
         renderUpgrades();
-      };
+      });
       box.appendChild(el);
-      if (u.id === 'ban' && lvl > 0 && banOpen) box.appendChild(banPicker(lvl));
+      if (monTab && u.id === 'ban' && lvl > 0 && banOpen) box.appendChild(banPicker(lvl));
     }
-    box.appendChild(bindPanel());
+    if (monTab) box.appendChild(bindPanel());
   }
 
   // ---------------- atajos: hueco fijo para cada movimiento ----------------

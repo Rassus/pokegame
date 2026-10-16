@@ -176,6 +176,8 @@
         G.Pickups.maybeEvoStone(this.x + 26, this.y - 10);
       }
       G.Pickups.dropXp(this.x, this.y, this.xp, this.boss, !!this.legend);
+      G.Pickups.maybeRareCandy(this.x, this.y);
+      if (G.Towers && G.Towers.active() && G.Towers.onMinionDown) G.Towers.onMinionDown(this);
       if (this.golden && Math.random() < G.Items.coinChance(0.35)) G.Pickups.drop('coin', this.x + 6, this.y - 4, 3);
       // Duende del tesoro: Meowth suelta monedas; Gholdengo, un ticket ×10.
       if (this.behavior === 'thief') {

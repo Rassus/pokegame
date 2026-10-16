@@ -349,6 +349,7 @@
     <h3 id="lobby-inv-title" style="margin:14px 0 6px">Invitar amigos</h3>
     <div id="lobby-invite" class="fr-list"></div>
     <div class="row" style="margin-top:14px">
+      <button id="lobby-ready" class="btn gold grow">Listo</button>
       <button id="lobby-start" class="btn gold grow">Empezar partida</button>
     </div>
     <p class="note" id="lobby-note"></p>
@@ -421,11 +422,12 @@
 <section id="scr-upgrades" class="scr dim hidden">
   <div class="box wide">
     <div class="row between"><h2>Mejoras</h2><button class="btn small ghost" data-back>Volver</button></div>
+    <div class="gen-tabs" id="upg-tabs"></div>
     <div class="upg-head">
       <canvas id="upg-stage" class="stage" width="120" height="96"></canvas>
       <div class="grow">
-        <p class="sub" style="margin:0">Cada Pokémon tiene sus propias mejoras: sólo cuentan cuando juegas con él.</p>
-        <div class="row" style="margin-top:8px">
+        <p class="sub" id="upg-note" style="margin:0">Cada Pokémon tiene sus propias mejoras: sólo cuentan cuando juegas con él.</p>
+        <div class="row" id="upg-pick" style="margin-top:8px">
           <label for="upg-mon" style="margin:0">Pokémon</label>
           <select id="upg-mon" class="field" style="width:auto;min-width:220px"></select>
         </div>
@@ -482,8 +484,14 @@
 <div id="pull-fx" class="hidden">
   <canvas id="slot" width="176" height="170" title="Clic para acelerar"></canvas>
   <div class="pull-results" id="pull-results"></div>
+  <div id="pull-bulk" class="hidden">
+    <p id="pull-bulk-n">Tirando…</p>
+    <p class="sub" id="pull-bulk-sub">De 10 en 10. Parar cuando quieras.</p>
+    <button id="pull-stop" class="btn" type="button">Parar</button>
+  </div>
   <div class="pull-actions hidden" id="pull-actions">
     <button id="pull-again" class="btn" type="button">Tirar ×10</button>
+    <button id="pull-all" class="btn gold" type="button">Tirar todo</button>
     <button id="pull-close" class="btn gold" type="button">Continuar</button>
   </div>
 </div>
@@ -491,8 +499,8 @@
 <!-- ====== Durante la run ====== -->
 <section id="scr-levelup" class="scr dim hidden">
   <div class="box center">
-    <h2>¡Nivel <span id="lvl-num">2</span>!</h2>
-    <p class="sub">Elige una recompensa · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></p>
+    <h2 id="lvl-title">¡Nivel <span id="lvl-num">2</span>!</h2>
+    <p id="lvl-sub" class="sub">Elige una recompensa · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></p>
     <div id="cards" class="cards"></div>
     <button id="lvl-reroll" class="btn small ghost hidden" data-sfx="none" style="margin-top:10px">Cambiar opciones (<span id="lvl-rr-n">1</span>) · <kbd>R</kbd></button>
     <p id="lvl-wait" class="note hidden"></p>

@@ -231,6 +231,53 @@ G.HUD = (() => {
       ctx.fillText('GRIETA · ' + G.U.mmss(G.Rift.timeLeft), w / 2, boss ? 98 : 76);
     }
 
+    // Rastro de jefes: flecha amarilla, en el borde si no se ve y encima si se ve.
+    if (G.Upgrades.lvl('bfind')) {
+      const nowB = performance.now() / 1000, beatB = 0.5 + Math.sin(nowB * 7) * 0.5;
+      for (const b of G.EnemyMgr.all()) {
+        if (!b.boss || b.dead) continue;
+        const sx = (b.x - cam.left()) * cam.scale, sy = (b.y - 40 - cam.top()) * cam.scale;
+        const off = sx < 0 || sx > w || sy < 0 || sy > h;
+        const label = b.name.toUpperCase() + ' · ' + Math.round(G.U.dist(pl.x, pl.y, b.x, b.y) / 32) + ' m';
+        ctx.save();
+        if (off) {
+          const M = 52, ex = G.U.clamp(sx, M, w - M), ey = G.U.clamp(sy, M + 70, h - M - 80);
+          const a = Math.atan2(sy - ey, sx - ex), ca = Math.cos(a), sa = Math.sin(a);
+          ctx.translate(ex, ey);
+          ctx.globalAlpha = 0.2 + beatB * 0.25;
+          ctx.fillStyle = '#ffd23f';
+          ctx.beginPath(); ctx.arc(0, 0, 28 + beatB * 8, 0, 6.2832); ctx.fill();
+          ctx.globalAlpha = 1;
+          const tri = (k) => {
+            ctx.beginPath();
+            ctx.moveTo(ca * 40 * k, sa * 40 * k);
+            ctx.lineTo(Math.cos(a + 2.45) * 20 * k, Math.sin(a + 2.45) * 20 * k);
+            ctx.lineTo(Math.cos(a - 2.45) * 20 * k, Math.sin(a - 2.45) * 20 * k);
+            ctx.closePath();
+          };
+          tri(1.12); ctx.fillStyle = '#3a2808'; ctx.fill();
+          tri(1); ctx.fillStyle = beatB > 0.5 ? '#ffe98a' : '#ffd23f'; ctx.fill();
+          ctx.font = F(800, 12);
+          ctx.textAlign = ca > 0.3 ? 'right' : ca < -0.3 ? 'left' : 'center';
+          const lx = -ca * 34, ly = -sa * 30 + 4;
+          ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)';
+          ctx.strokeText(label, lx, ly);
+          ctx.fillStyle = '#ffe98a';
+          ctx.fillText(label, lx, ly);
+        } else {
+          const by = sy - 46 - Math.abs(Math.sin(nowB * 4)) * 10;
+          ctx.translate(sx, by);
+          ctx.beginPath(); ctx.moveTo(-15, -12); ctx.lineTo(15, -12); ctx.lineTo(0, 8); ctx.closePath();
+          ctx.lineWidth = 4; ctx.strokeStyle = '#3a2808'; ctx.stroke();
+          ctx.fillStyle = beatB > 0.5 ? '#ffe98a' : '#ffd23f'; ctx.fill();
+          ctx.font = F(800, 11); ctx.textAlign = 'center';
+          ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)';
+          ctx.strokeText(label, 0, -18); ctx.fillStyle = '#ffe98a'; ctx.fillText(label, 0, -18);
+        }
+        ctx.restore();
+      }
+    }
+
     // Eventos: cuenta atrás, flecha al Pokémon perdido / a la marca y a los duendes.
     G.Events.drawHud(ctx, w, h, pl, F);
 

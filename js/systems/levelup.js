@@ -128,7 +128,7 @@ G.LevelUp = (() => {
     return out;
   }
 
-  /** Devuelve 3 cartas distintas, elegidas por peso. */
+  /** Devuelve n cartas distintas, elegidas por peso. */
   function offer(pl, n = 3) {
     const pool = candidates(pl);
     const picked = [];
@@ -149,5 +149,45 @@ G.LevelUp = (() => {
     return picked;
   }
 
-  return { offer, STATS };
+  // Tienda de torre: 2 mejoras + 1 baya con rareza.
+  const BERRIES = [
+    { id: 'berry', w: 55, title: 'Baya', tag: 'Blanco', color: '#dfe6f2',
+      desc: 'Recupera el 45% de tu vida ahora mismo.', heal: 0.45, shield: 0 },
+    { id: 'joy', w: 28, title: 'Baya Alegría', tag: 'Morado', color: '#c47bff',
+      desc: 'Recupera el 70% de tu vida ahora mismo.', heal: 0.7, shield: 0 },
+    { id: 'angel', w: 14, title: 'Baya Ángel', tag: 'Azul', color: '#4fb4ff',
+      desc: 'Recupera el 90% de tu vida ahora mismo.', heal: 0.9, shield: 0 },
+    { id: 'miracle', w: 3, title: 'Baya Milagro', tag: 'Dorada', color: '#ffd23f',
+      desc: 'Recupera el 100% de tu vida y ganas un escudo del 50%.', heal: 1, shield: 0.5 }
+  ];
+
+  function rollBerry() {
+    const total = BERRIES.reduce((a, b) => a + b.w, 0);
+    let r = Math.random() * total;
+    let b = BERRIES[0];
+    for (const x of BERRIES) { r -= x.w; if (r <= 0) { b = x; break; } }
+    return {
+      w: 0, type: 'berry', key: 'berry:' + b.id,
+      icon: 'berry', color: b.color, tag: b.tag,
+      title: b.title, desc: b.desc,
+      apply: p => {
+        p.heal(p.maxHp * b.heal);
+        if (b.shield > 0) p.shield = Math.max(p.shield || 0, p.maxHp * b.shield);
+        G.FX.ring(p.x, p.y, 8, 70, b.color, 0.55, 4);
+      }
+    };
+  }
+
+  /** Dos mejoras al azar (como las de nivel) y una baya segura. */
+  function shopOffer(pl) {
+    const ups = offer(pl, 2).filter(c => c.key !== 'stat:heal');
+    while (ups.length < 2) {
+      const more = offer(pl, 1).filter(c => c.key !== 'stat:heal' && !ups.some(u => u.key === c.key));
+      if (!more.length) break;
+      ups.push(more[0]);
+    }
+    return ups.concat(rollBerry());
+  }
+
+  return { offer, shopOffer, STATS, BERRIES };
 })();

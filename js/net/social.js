@@ -275,7 +275,7 @@ G.Social = (() => {
 
   function memberInfo() {
     const s = G.DB.save;
-    return { name: me.name, dex: s.partner, shiny: !!s.partnerShiny && G.DB.ownsShiny(s.partner), at: ts() };
+    return { name: me.name, dex: s.partner, shiny: !!s.partnerShiny && G.DB.ownsShiny(s.partner), ready: false, at: ts() };
   }
 
   /**
@@ -383,8 +383,19 @@ G.Social = (() => {
 
   /** Actualiza tu Pokémon en la sala (si cambias de compañero). */
   function refreshMember() {
-    if (room && me) fb.rtdb.ref('rooms/' + room.id + '/m/' + uid).update(
-      { dex: G.DB.save.partner, shiny: !!G.DB.save.partnerShiny && G.DB.ownsShiny(G.DB.save.partner) }).catch(() => {});
+    if (!room || !me || !G.DB.save) return;
+    const dex = G.DB.save.partner;
+    const shiny = !!G.DB.save.partnerShiny && G.DB.ownsShiny(dex);
+    const mine = room.members.find(m => m.uid === uid);
+    const patch = { dex, shiny };
+    if (mine && (mine.dex !== dex || !!mine.shiny !== shiny)) patch.ready = false;
+    fb.rtdb.ref('rooms/' + room.id + '/m/' + uid).update(patch).catch(() => {});
+  }
+
+  /** Te marcas listo o no. La partida sólo arranca cuando lo estáis todos. */
+  function setReady(on) {
+    if (!room || !uid) return;
+    fb.rtdb.ref('rooms/' + room.id + '/m/' + uid).update({ ready: !!on }).catch(() => {});
   }
 
   // ---------------- invitaciones ----------------
@@ -499,7 +510,7 @@ G.Social = (() => {
 
   return {
     start, stop, claimNick, request, accept, remove, publishProfile, getProfile, profileData,
-    createRoom, joinRoom, leaveRoom, setOpen, refreshMember, setPlaying, refreshPresence,
+    createRoom, joinRoom, leaveRoom, setOpen, refreshMember, setReady, setPlaying, refreshPresence,
     invite, acceptInvite, declineInvite,
     on(fn) { listeners.add(fn); }, off(fn) { listeners.delete(fn); },
     get me() { return me; },

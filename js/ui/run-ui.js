@@ -3,10 +3,23 @@ G.RunUI = (() => {
   const $ = G.UI.$;
   let offers = null, offerCb = null, coopMode = false;
 
-  /** @param coop  en grupo: tras elegir, se queda esperando a los demás */
-  function showLevelUp(level, list, cb, coop = false) {
-    offerCb = cb; coopMode = coop;
-    $('lvl-num').textContent = level;
+  let shopMode = false;
+
+  /** @param coop  en grupo: tras elegir, se queda esperando a los demás
+   *  @param opts.shop  tienda de torre: título distinto y sin cambiar opciones */
+  function showLevelUp(level, list, cb, coop = false, opts = {}) {
+    offerCb = cb; coopMode = coop; shopMode = !!opts.shop;
+    const title = $('lvl-title');
+    const sub = $('lvl-sub');
+    if (shopMode) {
+      if (title) title.textContent = '¡Tienda!';
+      if (sub) sub.innerHTML = 'Elige una recompensa · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>';
+    } else {
+      if (title) title.innerHTML = '¡Nivel <span id="lvl-num"></span>!';
+      const num = $('lvl-num');
+      if (num) num.textContent = level;
+      if (sub) sub.innerHTML = 'Elige una recompensa · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>';
+    }
     $('lvl-wait').textContent = '';
     $('lvl-wait').classList.toggle('hidden', !coop);
     $('cards').classList.remove('done');
@@ -26,7 +39,7 @@ G.RunUI = (() => {
   }
 
   function reroll() {
-    if (!offers || rerollsLeft() <= 0) return;
+    if (shopMode || !offers || rerollsLeft() <= 0) return;
     const vote = G.Coop.voteTarget && G.Coop.voteTarget();
     if (vote && vote === (G.Net && G.Net.uid)) return;
     const p = G.Game.player;
@@ -39,7 +52,7 @@ G.RunUI = (() => {
     offers = list;
     const left = rerollsLeft();
     $('lvl-rr-n').textContent = left;
-    $('lvl-reroll').classList.toggle('hidden', left <= 0);
+    $('lvl-reroll').classList.toggle('hidden', shopMode || left <= 0);
     const box = $('cards');
     box.innerHTML = '';
     list.forEach((c, i) => {
@@ -47,10 +60,10 @@ G.RunUI = (() => {
       el.className = 'card';
       const tag = c.type === 'new'
         ? `<span class="tag-chip" style="background:${c.color}">Nuevo · ${c.tag}</span>`
-        : c.type === 'up' || c.type === 'evo'
+        : c.type === 'up' || c.type === 'evo' || c.type === 'berry'
           ? `<span class="tag-chip" style="background:${c.color}">${c.tag}</span>`
           : `<span class="tag-chip" style="background:${c.color === '#ffd23f' ? '#ffd23f' : '#9fb1c9'}">${c.tag}</span>`;
-      if (c.type === 'evo') el.classList.add('evo');
+      if (c.type === 'evo' || (c.type === 'berry' && c.tag === 'Dorada')) el.classList.add('evo');
       el.innerHTML =
         `<div class="ico" style="background:${c.color}33">${G.Icons.html(c.icon, 32)}</div>
          <div class="txt"><div class="nm">${c.title} ${tag}</div><div class="ds">${c.desc}</div></div>
@@ -89,7 +102,7 @@ G.RunUI = (() => {
   }
 
   function closeLevelUp() {
-    offers = null; offerCb = null;
+    offers = null; offerCb = null; shopMode = false;
     $('cards').classList.remove('done');
     G.UI.hide('scr-levelup');
   }

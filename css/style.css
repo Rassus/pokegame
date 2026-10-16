@@ -359,7 +359,9 @@ label { display: block; font-size: 14px; color: var(--muted); margin: 8px 0 4px;
 }
 /* Centrado vertical que no corta por arriba cuando no cabe. */
 #pull-fx::before, #pull-fx::after { content: ''; margin: auto; }
-.pull-actions { position: sticky; bottom: 8px; z-index: 2; display: flex; gap: 10px; flex-shrink: 0; }
+.pull-actions { position: sticky; bottom: 8px; z-index: 2; display: flex; gap: 10px; flex-shrink: 0; flex-wrap: wrap; justify-content: center; }
+#pull-bulk { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+#pull-bulk-n { margin: 0; font-size: 28px; font-weight: 800; color: var(--gold); }
 .pull-actions .btn { box-shadow: 0 4px 18px rgba(0,0,0,.6); }
 @media (max-height: 520px) {
   #pull-fx { gap: 10px; }
@@ -577,6 +579,9 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .lob-card small { color: var(--muted); font-size: 12px; }
 .lob-card .conn { font-size: 12px; color: var(--green); }
 .lob-card .conn.wait { color: var(--gold); }
+.lob-card .rdy { font-size: 12px; font-weight: 700; color: var(--muted); }
+.lob-card.ready { box-shadow: inset 0 0 0 2px var(--green); }
+.lob-card.ready .rdy { color: var(--green); }
 .lob-card.empty { border-style: dashed; border-color: rgba(244,248,255,.18); color: var(--muted); }
 
 .invite-pop {

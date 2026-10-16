@@ -27,6 +27,7 @@ G.Player = class Player {
     this.coinMul = perks.coinMul || 1;
     this.ticketAdd = perks.ticketAdd || [0, 0, 0, 0];
     this.chestCut = perks.chestCut || 0;
+    this.angelLeft = perks.angel ? 1 : 0;   // Ángel guardián: una vida extra en la torre
 
     const st = grown || mon;
     this.maxHp = st.hp + (perks.hp || 0);
@@ -279,6 +280,14 @@ G.Player = class Player {
       G.FX.dmgText(this.x, this.y - this.bodyH - 16, '¡Banda Focus!', '#ff9a3d', true);
       G.FX.ring(this.x, this.y, 6, 70, '#ff9a3d', 0.5, 4);
     }
+    if (this.hp <= 0 && this.angelLeft > 0 && G.Towers && G.Towers.active()) {
+      this.angelLeft--;
+      this.hp = this.maxHp;
+      this.invuln = 1.4;
+      G.FX.dmgText(this.x, this.y - this.bodyH - 16, '¡Ángel guardián!', '#fff6c8', true);
+      G.FX.ring(this.x, this.y, 8, 90, '#fff6c8', 0.7, 5);
+      G.Spawner.say('¡Ángel guardián! Vuelves a la vida', 2.4, true);
+    }
     if (this.hp <= 0) {
       this.hp = 0; this.dead = true;
       this.anim.play('Faint', { hold: true });
@@ -436,7 +445,8 @@ G.Player = class Player {
     if (this.item === 'shellbell' && !this.dead) {
       const cap = this.maxHp * 0.25;
       this.shield = this.shield < cap ? Math.min(cap, this.shield + this.maxHp * 0.01 * dt) : cap;
-    } else this.shield = 0;
+    }
+    // Sin Cascabel, el escudo (p. ej. Baya Milagro) se queda hasta que el daño lo gaste.
     if (this.power && (this.power.t -= dt) <= 0) { this.power.def.off(this); this.power = null; }
     if (this.regen > 0) this.hp = Math.min(this.maxHp, this.hp + this.regen * dt);
 

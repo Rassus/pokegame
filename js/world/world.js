@@ -157,14 +157,16 @@ G.World = (() => {
       let type = null, kind = 0;
       // Interactivos (raros), lejos del claro del principio.
       const hs = H(tx, ty, seed + 909);
+      const chestK = (G.Upgrades && G.Upgrades.chestMul) ? G.Upgrades.chestMul() : 1;
       if (open && Math.hypot(tx, ty) > 12 && hs < 0.0032) {
-        type = hs < 0.0004 ? 'altar' : hs < 0.0008 ? 'spring' : hs < 0.0011 ? 'bigchest' : 'trap';
+        const bigHi = 0.0008 + 0.0003 * chestK;
+        type = hs < 0.0004 ? 'altar' : hs < 0.0008 ? 'spring' : hs < bigHi ? 'bigchest' : 'trap';
         kind = Math.floor(H(tx, ty, seed + 910) * (type === 'altar' ? 4 : 3));
       }
       if (type) { /* ya elegido */ }
       else if (open && h < (grove ? 0.07 : 0.006)) type = 'tree';
       else if (open && h > 0.992) type = 'rock';
-      else if (open && h > 0.985 && h <= 0.992 && H(tx, ty, seed + 606) < 0.07) type = 'chest';
+      else if (open && h > 0.985 && h <= 0.992 && H(tx, ty, seed + 606) < 0.07 * ((G.Upgrades && G.Upgrades.chestMul) ? G.Upgrades.chestMul() : 1)) type = 'chest';
       else if (fbm(tx / 5, ty / 5, seed + 707) > 0.66 && H(tx, ty, seed + 808) < 0.75) type = 'grass';
       if (!type) continue;
 
@@ -380,6 +382,7 @@ G.World = (() => {
     G.Audio.sfx(p.type === 'grass' ? 'grass' : p.type === 'chest' ? 'chest' : 'break');
     if (p.type === 'grass') {
       G.FX.burst(p.x, p.y - 6, B.grass[1], 6, 70);
+      G.Pickups.maybeRareCandy(p.x, p.y);
       const r = Math.random();
       if (r < 0.05) G.Pickups.drop('heal', p.x, p.y);
       else if (r < 0.05 + 0.06 * G.Items.coinFreq()) G.Pickups.drop('coin', p.x, p.y, 1);
@@ -388,6 +391,7 @@ G.World = (() => {
     if (p.type === 'rock') {
       G.FX.burst(p.x, p.y - 10, B.rock[1], 14, 140);
       G.FX.ring(p.x, p.y - 8, 4, 26, B.rock[2], 0.3, 3);
+      G.Pickups.maybeRareCandy(p.x, p.y);
       const r = Math.random();
       if (r < 0.40) G.Pickups.dropXp(p.x, p.y, 6);
       if (r > 1 - 0.25 * G.Items.coinFreq()) G.Pickups.drop('coin', p.x, p.y, 2);
@@ -602,6 +606,19 @@ G.World = (() => {
     kindAt, isWall, isLiquid, isFree, collide, projectileBlock, propsInCircle, nearestBreakable,
     damageProp, breakAt, specialsNear, update,
     breakProp(p) { if (!broken.has(p.tx + ',' + p.ty)) destroyProp(p); },
+    /** Coloca un objeto (manantial, etc.) en el tile de esas coordenadas. */
+    dropProp(type, x, y) {
+      if (!PROP[type]) return null;
+      const tx = tileOf(x), ty = tileOf(y);
+      const cx = Math.floor(tx / N), cy = Math.floor(ty / N);
+      const c = chunkData(cx, cy);
+      if (c.props.some(q => q.tx === tx && q.ty === ty)) return null;
+      const p = makeProp(type, tx, ty);
+      c.props.push(p);
+      if (p.solid) c.propAt.set(tx + ',' + ty, p);
+      images.delete(cx + ',' + cy);
+      return p;
+    },
     /**
      * Arena de la grieta: { tx, ty, r } (en tiles), o null al salir.
      * Al quitarla se olvidan esos chunks: si no, el círculo de paredes

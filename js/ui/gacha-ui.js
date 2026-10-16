@@ -14,6 +14,8 @@ G.GachaUI = (() => {
     $('pull-g').onclick = () => pull(1, 'tg');
     $('pull-close').onclick = close;
     $('pull-again').onclick = again;
+    $('pull-all').onclick = pullAll;
+    $('pull-stop').onclick = () => { bulkStop = true; };
 
     const tabs = $('gacha-gens');
     G.Gacha.BANNERS.forEach(b => {
@@ -100,18 +102,115 @@ G.GachaUI = (() => {
 
   const wait = ms => new Promise(r => setTimeout(r, ms));
   let lastUse = 't1';
+  let bulkStop = false;
+
+  function againUse() {
+    return lastUse === 't10' || lastUse === 'tb' ? lastUse : 't1';
+  }
 
   function again() {
-    const use = lastUse === 't10' || lastUse === 'tb' ? lastUse : 't1';
-    pull(10, use);
+    pull(10, againUse());
   }
 
   function showAgain() {
-    const use = lastUse === 't10' || lastUse === 'tb' ? lastUse : 't1';
+    const use = againUse();
     const icon = use === 't10' ? 'ticket10' : use === 'tb' ? 'ticketb' : 'ticket';
     const cost = use === 't1' ? '10' : '1';
+    const can = !!G.Gacha.costOf(G.DB.save, 10, use);
     $('pull-again').innerHTML = 'Tirar ×10 · ' + G.Icons.html(icon, 16) + ' ' + cost;
-    $('pull-again').disabled = !G.Gacha.costOf(G.DB.save, 10, use);
+    $('pull-again').disabled = !can;
+    const all = $('pull-all');
+    all.classList.toggle('hidden', lastUse === 'tg');
+    all.disabled = !can;
+    all.innerHTML = 'Tirar todo · ' + G.Icons.html(icon, 16);
+  }
+
+  /** Suma las tiradas: una entrada por Pokémon (el shiny aparte). */
+  function absorb(bag, r) {
+    const key = r.dex + (r.shiny ? ':s' : '');
+    let g = bag.get(key);
+    if (!g) {
+      g = { dex: r.dex, rarity: r.rarity, shiny: !!r.shiny, frag: 0, refund: 0, unlocked: false, isNew: false };
+      bag.set(key, g);
+    }
+    g.frag += r.fragGain || 0;
+    g.refund += r.refund || 0;
+    if (r.unlocked) g.unlocked = true;
+    if (r.isNew) g.isNew = true;
+    if (r.rarity > g.rarity) g.rarity = r.rarity;
+  }
+
+  function renderGrouped(bag) {
+    const out = $('pull-results');
+    out.innerHTML = '';
+    const list = [...bag.values()].sort((a, b) => b.rarity - a.rarity || b.frag - a.frag);
+    if (!list.length) return;
+    G.Audio.sfx('burst', { rarity: Math.max(...list.map(r => r.rarity)) });
+    for (const r of list) {
+      const mon = G.DEX_BY[r.dex];
+      const c = document.createElement('div');
+      c.className = 'pcard r' + r.rarity + (r.shiny ? ' shiny' : '');
+      c.style.setProperty('--rc', r.shiny ? '#9ae6ff' : G.Gacha.RARITY_COLOR[r.rarity]);
+      c.innerHTML = `<div class="stars">${G.UI.stars(r.rarity, 24)}</div>`;
+      c.appendChild(G.UI.spriteCanvas(r.dex, 132, 120, { lively: r.rarity >= 4 || r.shiny, scale: 2, shiny: r.shiny }));
+      const bits = [];
+      if (r.frag) bits.push(`${G.Icons.html('frag', 18)} +${r.frag}`);
+      if (r.unlocked) bits.push('<span class="new">¡Capturado!</span>');
+      else if (r.shiny && r.isNew) bits.push('<span class="new">¡Shiny!</span>');
+      if (r.refund) bits.push(`<span class="coin"></span> +${G.U.num(r.refund)}`);
+      const tag = bits.join(' ') || 'Repetido';
+      c.insertAdjacentHTML('beforeend', `<b>${r.shiny ? G.Icons.html('shiny', 12) + ' ' : ''}${mon.name}</b><div class="tag">${tag}</div>`);
+      out.appendChild(c);
+    }
+  }
+
+  function ticketsLeft(use) {
+    const t = G.DB.save.tickets || {};
+    if (use === 't10') return t.t10 || 0;
+    if (use === 'tb') return t.tb || 0;
+    return t.t1 || 0;
+  }
+
+  /** De 10 en 10, sin cartas, hasta Parar o hasta quedarse sin tickets. */
+  async function pullAll() {
+    if (busy || lastUse === 'tg') return;
+    const use = againUse();
+    if ((G.DB.save.region || 1) < gen) {
+      G.Audio.sfx('error');
+      G.UI.toast('Esta región está cerrada. Ábrela en Misiones.');
+      return;
+    }
+    if (!G.Gacha.costOf(G.DB.save, 10, use)) {
+      G.Audio.sfx('error');
+      G.UI.toast('No tienes tickets suficientes: consíguelos jugando');
+      return;
+    }
+    busy = true;
+    bulkStop = false;
+    const bag = new Map();
+    let pulls = 0;
+    $('pull-results').innerHTML = '';
+    $('pull-actions').classList.add('hidden');
+    $('slot').style.display = 'none';
+    $('pull-bulk').classList.remove('hidden');
+    $('pull-bulk-n').textContent = 'Tiradas: 0 · Quedan ' + ticketsLeft(use);
+
+    while (!bulkStop && G.Gacha.costOf(G.DB.save, 10, use)) {
+      const res = G.Gacha.pull(G.DB.save, 10, gen, use);
+      if (!res) break;
+      pulls += res.length;
+      for (const r of res) absorb(bag, r);
+      G.DB.commit(true);
+      $('pull-bulk-n').textContent = 'Tiradas: ' + pulls + ' · Quedan ' + ticketsLeft(use);
+      await wait(140);
+    }
+    G.Progress.checkAch();
+    G.DB.commit(true);
+    $('pull-bulk').classList.add('hidden');
+    renderGrouped(bag);
+    showAgain();
+    $('pull-actions').classList.remove('hidden');
+    busy = false;
   }
 
   async function pull(n, use = 't1') {
@@ -164,6 +263,8 @@ G.GachaUI = (() => {
   }
 
   function close() {
+    bulkStop = true;
+    $('pull-bulk').classList.add('hidden');
     $('pull-fx').classList.add('hidden');
     refresh();
   }

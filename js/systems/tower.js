@@ -9,6 +9,10 @@
  * grises. Rayquaza es aparte: 150 oleadas, 100.000 de oro y seis encuentros
  * antes del jefe final.
  *
+ * En torres de Kanto, los Pokémon de oleada dan XP ×2, 3 Pokémonedas y un
+ * 0,01% de un fragmento de su línea. En todas las torres, la tienda abre cada
+ * 10 oleadas (Premio por oleada la adelanta hasta cada 5): 2 mejoras y una baya.
+ *
  * Al superar la torre: 1 ticket dorado, oro ×4 del costo y un 60% de 45 a 100
  * fragmentos de ese jefe. Si no lo tienes, un 25% de atraparlo. El jefe puede
  * salir shiny (1/1024). No cuenta para el récord de tiempo ni para el ranking.
@@ -26,6 +30,8 @@ G.Towers = (() => {
   const PLAN = [25, 50, 75, 100];
   const REGIONS = ['', 'Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Teselia', 'Kalos', 'Alola', 'Galar', 'Paldea'];
   const ONE = { hp: 1, spd: 1, dmg: 1 };
+  // Torres de Kanto: más XP/oro por baja y un fragmento muy raro.
+  const KANTO = { xp: 2, gold: 3, fragPct: 0.01 };
 
   function specFor(p) {
     if (p.dex === 384) return { fee: 100000, tickets: 0, waves: 150, plan: [20, 40, 60, 80, 100, 120, 150] };
@@ -136,7 +142,7 @@ G.Towers = (() => {
     let sum = 0;
     for (const k in levels) sum += +levels[k] || 0;
     let max = 0;
-    for (const u of G.Upgrades.LIST) max += u.max;
+    for (const u of G.Upgrades.LIST) if (u.cat === 'mon') max += u.max;
     if (!max) return 1;
     return 1 + Math.min(1, sum / max);
   }
@@ -144,8 +150,9 @@ G.Towers = (() => {
   function begin(cfg) {
     const tile = ts();
     const plan = (cfg.plan && cfg.plan.length) ? cfg.plan.slice() : PLAN.slice();
+    const gen = (G.DEX_BY[cfg.dex] && G.DEX_BY[cfg.dex].gen) || 1;
     run = {
-      id: cfg.id, dex: cfg.dex, shiny: !!cfg.shiny, waves: cfg.waves || 100,
+      id: cfg.id, dex: cfg.dex, gen, shiny: !!cfg.shiny, waves: cfg.waves || 100,
       plan, phases: plan.length, fee: cfg.fee || 0,
       wave: 0, wait: 0.4, cleared: false, done: false, reward: null,
       bosses: [], finalDown: false, aura: 0, fx: null, duel: !!cfg.duel,
@@ -247,16 +254,22 @@ G.Towers = (() => {
   /** Cada oleada es un 3% más fuerte que la anterior, en vida y en daño. */
   function growOf(k) { return Math.pow(1.03, Math.max(0, k - 1)); }
 
+  function kantoLoot() {
+    return run && !run.duel && run.gen === 1 ? KANTO : null;
+  }
+
   function waveDef(p, k, mul, behavior) {
     const grow = growOf(k);
     const far = (p.types || []).some(t => ['psychic', 'electric', 'fire', 'water', 'ice', 'ghost', 'dragon'].includes(t));
     const beh = behavior || (far ? 'ranged' : 'chase');
+    const loot = kantoLoot();
+    const xp = Math.round((4 + k * 1.4) * (loot ? loot.xp : 1) * G.Upgrades.towerXp());
     return {
       dex: p.dex, name: p.name, behavior: beh,
       hp: Math.round((26 + k * 12) * mul * grow),
       spd: Math.round(G.U.clamp(52 + ((p.spd || 78) - 78) * 0.25, 46, 96)),
       dmg: Math.round((6 + k * 0.85) * mul * grow),
-      xp: Math.round(4 + k * 1.4),
+      xp,
       shotDmg: Math.round((4 + k * 0.55) * mul * grow),
       shotCd: beh === 'healer' ? 3.5 : 2.1,
       range: beh === 'healer' ? 230 : 200
@@ -282,6 +295,33 @@ G.Towers = (() => {
     const hen = G.DEX_BY[CHANSEY];
     if (hen && hens) for (let i = 0; i < hens; i++) place(waveDef(hen, k, mul, 'healer'));
     G.Spawner.say('Oleada ' + k + ' de ' + run.waves, 2.2);
+    if (k % G.Upgrades.shopEvery() === 0) run.wantShop = true;
+  }
+
+  function wantShop() { return !!(run && run.wantShop && !run.duel); }
+  function clearShop() { if (run) run.wantShop = false; }
+
+  /** Botín de oleada: oro extra de la cuenta y, en Kanto, el bono y el fragmento. */
+  function onMinionDown(e) {
+    if (!run || run.duel || !e || e.boss || e.legend || e.towerPhase) return;
+    const loot = kantoLoot();
+    const gold = (loot ? loot.gold : 0) + G.Upgrades.towerGold();
+    if (gold > 0) G.Pickups.drop('coin', e.x + G.U.rand(-8, 8), e.y + G.U.rand(-6, 6), gold);
+    if (loot && Math.random() * 100 < loot.fragPct) grantFrag(e.dex, true);
+  }
+
+  function grantFrag(dex, send) {
+    const save = G.DB.save;
+    if (!save || !dex) return;
+    const key = String(G.Evo.root(dex));
+    save.frags = save.frags || {};
+    save.frags[key] = (save.frags[key] || 0) + 1;
+    G.DB.commit();
+    const name = (G.DEX_BY[dex] && G.DEX_BY[dex].name) || '';
+    const pl = G.Game.player;
+    if (pl) G.FX.dmgText(pl.x, pl.y - pl.bodyH - 10, '+1 fragmento · ' + name, '#c47bff', true);
+    if (name) G.Spawner.say('¡Fragmento de ' + name + '!', 2.2, true);
+    if (send) net(['tw', 'frag', dex]);
   }
 
   function spawnBoss(pl, phase) {
@@ -293,7 +333,7 @@ G.Towers = (() => {
     const def = {
       dex: mon.dex, name: mon.name, behavior: far ? 'ranged' : 'charger',
       hp: Math.round(4200 * mul), spd: Math.round(G.U.clamp(50 + (mon.spd - 78) * 0.45, 48, 100)),
-      dmg: Math.round(34 * mul), xp: 360 + phase * 80,
+      dmg: Math.round(34 * mul), xp: Math.round((360 + phase * 80) * G.Upgrades.towerXp()),
       shotDmg: Math.round(18 * mul), shotCd: 1, range: 280
     };
     const e = new G.Enemy(def, run.ax, run.ay - ts() * 3.2, ONE, true);
@@ -346,7 +386,8 @@ G.Towers = (() => {
     if (!run || authority()) return;
     if (ev[1] === 'fx') {
       run.fx = { id: ev[2], t: 0, dur: ev[2] === 'silence' ? 3.5 : 2.6, hit: false, rad: 0 };
-    } else if (ev[1] === 'bond') grantBond(false);
+    } else if (ev[1] === 'frag') grantFrag(ev[2], false);
+    else if (ev[1] === 'bond') grantBond(false);
     else if (ev[1] === 'sil') {
       const p = G.Game.player;
       if (p) p.silence = Math.max(p.silence || 0, 10);
@@ -754,6 +795,7 @@ G.Towers = (() => {
 
   return {
     LIST, REGIONS, unlocked, due, afford, charge, prepare, peek, arm, claim, reset,
-    begin, active, done, take, markClear, clearReady, finish, hud, update, hold, inAura, draw, drawScreen, onNet
+    begin, active, done, take, markClear, clearReady, finish, hud, update, hold, inAura,
+    draw, drawScreen, onNet, onMinionDown, wantShop, clearShop
   };
 })();

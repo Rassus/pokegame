@@ -24,7 +24,8 @@ G.Pickups = (() => {
     ticketb:  { color: '#4fb4ff', glow: '#1d6cb5', r: 8 },
     ticketg:  { color: '#ffd23f', glow: '#c08a10', r: 8 },
     item:     { color: '#ffd23f', glow: '#c08a10', r: 9 },      // value = id del objeto
-    evostone: { color: '#c47bff', glow: '#6a3a9a', r: 9 }
+    evostone: { color: '#c47bff', glow: '#6a3a9a', r: 9 },
+    candy:    { color: '#c47bff', glow: '#ff8ad8', r: 8 }      // Caramelo Raro: no lo atrae el imán
   };
   // Probabilidad (en %) y cantidad de cada ticket: gris, morado, azul, dorado.
   const TICKET_KINDS = ['ticket', 'ticket10', 'ticketb', 'ticketg'];
@@ -109,11 +110,13 @@ G.Pickups = (() => {
   }
 
   /** Copia de un objeto del anfitrión. */
-  function addRemote(id, kind, x, y, value) {
+  function addRemote(id, kind, x, y, value, noMag) {
     if (list.some(p => p.id === id)) return;
     const o = orb(kind, x, y, value);
     o.id = id;
+    if (noMag) o.noMag = true;
     list.push(o);
+    if (kind === 'candy') G.Audio.sfx('shiny');
   }
 
   function removeId(id) {
@@ -122,8 +125,8 @@ G.Pickups = (() => {
     return list.splice(i, 1)[0];
   }
 
-  /** Imán: todo vuela hacia el jugador más cercano. */
-  function pullAll() { for (const o of list) o.pulled = true; }
+  /** Imán: todo vuela hacia el jugador más cercano (salvo noMag). */
+  function pullAll() { for (const o of list) if (!o.noMag) o.pulled = true; }
 
   function dropXp(x, y, value, boss = false, legend = false, tickets = true) {
     if (boss) {
@@ -152,9 +155,22 @@ G.Pickups = (() => {
     if (Math.random() * 100 < G.Items.DROP.stone) drop('evostone', x, y, 1);
   }
 
-  /** Suelta un objeto suelto: 'heal' | 'magnet' | 'bomb' | 'coin'. */
-  function drop(kind, x, y, value = 0) {
-    push(orb(kind, x, y, value));
+  /** 0,001% (más la mejora de run): Caramelo Raro. El imán no lo atrae. */
+  const CANDY_P = 0.001;
+  function maybeRareCandy(x, y) {
+    if (G.Coop && G.Coop.active && !G.Coop.isHost) return;
+    const add = (G.Upgrades && G.Upgrades.candyAdd) ? G.Upgrades.candyAdd() : 0;
+    if (Math.random() * 100 >= CANDY_P + add) return;
+    drop('candy', x, y, 0, true);
+    G.Audio.sfx('shiny');
+    if (G.Spawner) G.Spawner.say('¡Ha aparecido un Caramelo Raro!', 3.6);
+  }
+
+  /** Suelta un objeto suelto: 'heal' | 'magnet' | 'bomb' | 'coin'. noMag: el imán no lo atrae. */
+  function drop(kind, x, y, value = 0, noMag = false) {
+    const o = orb(kind, x, y, value);
+    if (noMag) o.noMag = true;
+    push(o);
   }
 
   function orb(kind, x, y, value) {
@@ -162,7 +178,7 @@ G.Pickups = (() => {
     return {
       kind, x, y, value,
       vx: Math.cos(a) * G.U.rand(10, 46), vy: Math.sin(a) * G.U.rand(10, 46),
-      t: Math.random() * 6.28, pulled: false
+      t: Math.random() * 6.28, pulled: false, noMag: false
     };
   }
 
@@ -187,7 +203,7 @@ G.Pickups = (() => {
       const dx = pl.x - p.x, dy = pl.y - p.y;
       const mag2 = pl.magnet * pl.magnet;
 
-      if (p.pulled || d2 < mag2) {
+      if (!p.noMag && (p.pulled || d2 < mag2)) {
         p.pulled = true;
         const d = Math.sqrt(d2) || 1;
         const pull = 240 + 1400 / d;
@@ -239,11 +255,11 @@ G.Pickups = (() => {
         ctx.beginPath(); ctx.ellipse(p.x, y, r * sx * 0.5, r * 0.5, 0, 0, 6.2832); ctx.fill();
       } else {
         // Baya, imán y bomba: su icono pixel art.
-        const ICON = { heal: 'berry', magnet: 'magnet', bomb: 'bomb', ticket: 'ticket', ticket10: 'ticket10', ticketb: 'ticketb', ticketg: 'ticketg' };
-        const sz = p.kind === 'ticket' ? 18 : (p.kind === 'item' || p.kind === 'evostone' || p.kind.indexOf('ticket') === 0 ? 24 : 18);
-        if (p.kind === 'item' || p.kind === 'evostone') {
+        const ICON = { heal: 'berry', magnet: 'magnet', bomb: 'bomb', ticket: 'ticket', ticket10: 'ticket10', ticketb: 'ticketb', ticketg: 'ticketg', candy: 'candy' };
+        const sz = p.kind === 'ticket' ? 18 : (p.kind === 'item' || p.kind === 'evostone' || p.kind === 'candy' || p.kind.indexOf('ticket') === 0 ? 24 : 18);
+        if (p.kind === 'item' || p.kind === 'evostone' || p.kind === 'candy') {
           ctx.globalAlpha = 0.35 + Math.sin(p.t * 1.5) * 0.15;
-          ctx.fillStyle = p.kind === 'evostone' ? '#e6d0ff' : '#ffe14d';
+          ctx.fillStyle = p.kind === 'item' ? '#ffe14d' : '#e6d0ff';
           ctx.beginPath(); ctx.arc(p.x, y, 18, 0, 6.2832); ctx.fill();
           ctx.globalAlpha = 1;
         }
@@ -257,5 +273,5 @@ G.Pickups = (() => {
     ctx.globalAlpha = 1;
   }
 
-  return { clear, all, dropXp, drop, dropTickets, maybeEvoStone, update, draw, addRemote, removeId, pullAll, KIND, get count() { return list.length; } };
+  return { clear, all, dropXp, drop, dropTickets, maybeEvoStone, maybeRareCandy, update, draw, addRemote, removeId, pullAll, KIND, get count() { return list.length; } };
 })();

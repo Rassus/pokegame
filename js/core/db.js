@@ -72,6 +72,7 @@ G.DB = (() => {
       personality: null,      // { trait, scores }
       upgrades: {},           // (antiguo) mejoras de la cuenta; ahora van por Pokémon
       pupg: {},               // dex -> { id -> nivel }: mejoras de cada Pokémon
+      gupg: {},               // id -> nivel: run, grieta y torre (de la cuenta)
       tickets: { t1: 0, t10: 0, tb: 0, tg: 0 },   // gris (x1), morado (x10), azul (x10) y dorado (shiny)
       pity: {},               // generación del banner -> tiradas sin ★5
       legends: {},            // dex -> fecha: legendarios vencidos en grietas
@@ -132,6 +133,23 @@ G.DB = (() => {
         s.pupg[s.partner] = Object.assign({}, s.upgrades);
       }
       s.pupgDone = true;
+    }
+    // Fortuna, tickets y rapidez de cofres pasan de cada Pokémon a la cuenta
+    // (se queda el nivel más alto que tuvieras).
+    if (!s.gupgSplit) {
+      s.gupg = s.gupg || {};
+      const move = ['coins', 'tluck', 'chest'];
+      for (const id of move) {
+        let best = s.gupg[id] || 0;
+        if (s.upgrades && s.upgrades[id] > best) best = s.upgrades[id];
+        for (const d of Object.keys(s.pupg || {})) {
+          const u = s.pupg[d];
+          if (u && u[id] > best) best = u[id];
+          if (u) delete u[id];
+        }
+        if (best > 0) s.gupg[id] = best;
+      }
+      s.gupgSplit = true;
     }
     s.tickets = Object.assign({ t1: 0, t10: 0, tb: 0, tg: 0 }, s.tickets);
     if (ticketsGotMissing) {
@@ -213,9 +231,16 @@ G.DB = (() => {
       const u = s.pupg[d];
       if (!u || typeof u !== 'object') { delete s.pupg[d]; continue; }
       for (const id of Object.keys(u)) {
-        if (!G.Upgrades.BY[id]) delete u[id];
-        else u[id] = Math.min(G.Upgrades.BY[id].max, n(u[id]));
+        const def = G.Upgrades.BY[id];
+        if (!def || def.cat !== 'mon') delete u[id];
+        else u[id] = Math.min(def.max, n(u[id]));
       }
+    }
+    s.gupg = s.gupg && typeof s.gupg === 'object' ? s.gupg : {};
+    if (G.Upgrades) for (const id of Object.keys(s.gupg)) {
+      const def = G.Upgrades.BY[id];
+      if (!def || def.cat === 'mon') delete s.gupg[id];
+      else s.gupg[id] = Math.min(def.max, n(s.gupg[id]));
     }
   }
 
@@ -240,8 +265,9 @@ G.DB = (() => {
       }
     }
     for (const k in older.upgrades || {}) r.upgrades[k] = Math.max(r.upgrades[k] || 0, older.upgrades[k]);
+    // Los fragmentos se gastan (vida, ataque, velocidad). Como las monedas,
+    // manda la versión más nueva: el máximo los devolvía al sincronizar.
     r.frags = r.frags || {};
-    for (const k in older.frags || {}) r.frags[k] = Math.max(r.frags[k] || 0, older.frags[k] || 0);
     r.boost = r.boost || {};
     for (const d in older.boost || {}) {
       const mine = r.boost[d] = r.boost[d] || { hp: 0, atk: 0, spd: 0 };
@@ -256,6 +282,9 @@ G.DB = (() => {
       for (const k in older.pupg[d]) mine[k] = Math.max(mine[k] || 0, older.pupg[d][k]);
     }
     r.pupgDone = r.pupgDone || older.pupgDone;
+    r.gupg = r.gupg || {};
+    for (const k in older.gupg || {}) r.gupg[k] = Math.max(r.gupg[k] || 0, older.gupg[k] || 0);
+    r.gupgSplit = r.gupgSplit || older.gupgSplit;
     // Lo conseguido nunca se pierde: unión de legendarios, arenas, objetos, logros...
     for (const coll of ['legends', 'arenas', 'itemsFound', 'evoMoves', 'ach']) {
       r[coll] = r[coll] || {};
@@ -785,6 +814,13 @@ G.DB = (() => {
     return save.pupg[dex] || (save.pupg[dex] = {});
   }
 
+  /** Mejoras de la cuenta (run, grieta y torre): { id -> nivel }. */
+  function globalUpgrades() {
+    if (!save) return {};
+    save.gupg = save.gupg || {};
+    return save.gupg;
+  }
+
   /** Da la versión shiny (y la normal, si no la tenía). Devuelve true si es nueva. */
   function grantShiny(dex, from) {
     grant(dex, from);
@@ -795,7 +831,7 @@ G.DB = (() => {
 
   return {
     ready, register, login, loginWithGoogle, playAsGuest, logout, commit, deleteAccount, flush: pushNow,
-    owns, grant, ownsShiny, grantShiny, merge, setName, upgradesOf,
+    owns, grant, ownsShiny, grantShiny, merge, setName, upgradesOf, globalUpgrades,
     onSync(fn) { listeners.add(fn); },
     onLeave(fn) { leaveHooks.push(fn); },
     /** Acceso de bajo nivel para los módulos de red (sólo en modo nube). */

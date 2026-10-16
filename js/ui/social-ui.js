@@ -153,6 +153,12 @@
       $('lobby-menu').onclick = () => G.MenuUI.open();
       $('lobby-start').onclick = start;
       $('lobby-start').dataset.sfx = 'confirm';
+      $('lobby-ready').onclick = () => {
+        const room = G.Social.room;
+        const mine = room && room.members.find(m => m.uid === G.Social.uid);
+        G.Social.setReady(!(mine && mine.ready));
+        G.Audio.sfx('select');
+      };
       // Conecta / desconecta la red al entrar o salir de una sala.
       G.Social.on(what => {
         const room = G.Social.room;
@@ -208,11 +214,20 @@
           if (m) {
             c.style.setProperty('--pc', G.Coop.COLORS[i]);
             c.appendChild(G.UI.spriteCanvas(m.dex, 120, 96, { scale: 2, lively: true, shiny: !!m.shiny }));
-            c.insertAdjacentHTML('beforeend', `<b translate="no">${esc(m.name)}</b><small>${esc((G.DEX_BY[m.dex] || {}).name || '')}</small><span class="conn" data-u="${m.uid}"></span>`);
+            c.insertAdjacentHTML('beforeend', `<b translate="no">${esc(m.name)}</b><small>${esc((G.DEX_BY[m.dex] || {}).name || '')}</small><span class="rdy" data-u="${m.uid}"></span><span class="conn" data-u="${m.uid}"></span>`);
           } else c.innerHTML = '<span>Libre</span>';
           box.appendChild(c);
         }
       }
+      box.querySelectorAll('.lob-card').forEach((c, i) => {
+        const m = ms[i];
+        c.classList.toggle('ready', !!(m && m.ready));
+      });
+      box.querySelectorAll('.rdy').forEach(el => {
+        const m = ms.find(x => x.uid === el.dataset.u);
+        if (!m) return;
+        el.textContent = m.ready ? 'Listo' : 'Esperando';
+      });
       box.querySelectorAll('.conn').forEach(el => {
         const m = ms.find(x => x.uid === el.dataset.u);
         if (!m) return;
@@ -242,21 +257,30 @@
         }
       }
 
+      const mine = ms.find(m => m.uid === G.Social.uid);
+      const readyBtn = $('lobby-ready');
+      const imReady = !!(mine && mine.ready);
+      readyBtn.textContent = imReady ? 'No estoy listo' : 'Listo';
+      readyBtn.classList.toggle('gold', !imReady);
+      const allReady = ms.length >= 2 && ms.every(m => m.ready);
+      const nReady = ms.filter(m => m.ready).length;
       const btn = $('lobby-start');
       btn.classList.toggle('hidden', !room.isHost);
       const connecting = ms.some(m => m.uid !== room.host && G.Net.mode(m.uid) === 'connecting');
       const failed = ms.some(m => m.uid !== room.host && G.Net.mode(m.uid) === 'failed');
-      btn.disabled = !room.isHost || ms.length < 2 || connecting || failed;
-      btn.textContent = 'Empezar partida (' + ms.length + '/' + G.Social.MAX_PLAYERS + ')';
-      $('lobby-note').textContent = !room.isHost ? 'Cuando el anfitrión empiece, entraréis todos a la vez.'
-        : ms.length < 2 ? 'Necesitas al menos un amigo en la sala.'
+      btn.disabled = !room.isHost || !allReady || connecting || failed;
+      btn.textContent = 'Empezar partida (' + nReady + '/' + ms.length + ')';
+      $('lobby-note').textContent = ms.length < 2 && room.isHost ? 'Necesitas al menos un amigo en la sala.'
         : failed ? 'No se puede conectar con algún amigo: su red (o la tuya) no deja jugar en grupo. Probad con otra wifi o datos móviles; se reintenta solo.'
-        : connecting ? 'Conectando con tus amigos…' : 'La partida empieza para todos a la vez.';
+        : connecting ? 'Conectando con tus amigos…'
+        : !allReady ? 'Poneos listos. La partida empieza cuando lo estéis todos (' + nReady + '/' + ms.length + ').'
+        : room.isHost ? 'Todos listos. La partida empieza para todos a la vez.'
+        : 'Todos listos. El anfitrión puede empezar.';
     }
 
     function start() {
       const room = G.Social.room;
-      if (!room || !room.isHost || room.members.length < 2) return;
+      if (!room || !room.isHost || room.members.length < 2 || !room.members.every(m => m.ready)) return;
       const cfg = {
         k: 'start', seed: Math.floor(Math.random() * 1e6), host: room.host,
         members: room.members.map(m => ({ uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny }))
