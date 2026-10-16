@@ -202,15 +202,82 @@ G.Enemies = (() => {
   }
 
   /**
-   * Tiempo extra (desde 2026-10-12). Hasta el minuto 60 todo sigue igual; desde
-   * ahí la vida (y algo menos el daño) crece cada vez más deprisa, como en otros
-   * "survivors". Antes crecía en línea recta y, con las mejoras ya al máximo,
-   * las mejores builds aguantaban sin fin (runs de 2 a 4 horas).
+   * Desde el minuto 15 las oleadas dejan la curva de antes y caminan de tramo
+   * en tramo. Cada fila es un Pokémon normal del último tramo (250 de vida y
+   * 28 de daño de plantilla). Entre dos filas, vida, daño y ritmo suben en
+   * línea recta. A partir del 150, los tres suman un 1% cada 5 minutos.
+   *   minuto   vida        daño     salen/s
+   *   15       13.100      210      16
+   *   30       24.900      355      40
+   *   45       48.600      640      109
+   *   60       122.500     1.250    197
+   *   90       325.000     2.950    320
+   *   105      425.888     4.236    425
+   *   120      1.000.000   15.000   600
+   *   150      2.500.000   30.000   850
+   */
+  const WAVE_FROM = 15 * 60;
+  const WAVE_MARKS = [
+    [15, 13100, 210, 16],
+    [30, 24900, 355, 40],
+    [45, 48600, 640, 109],
+    [60, 122500, 1250, 197],
+    [90, 325000, 2950, 320],
+    [105, 425888, 4236, 425],
+    [120, 1000000, 15000, 600],
+    [150, 2500000, 30000, 850]
+  ];
+  function waveAt(t) {
+    if (t < WAVE_FROM) return null;
+    const min = t / 60;
+    const last = WAVE_MARKS[WAVE_MARKS.length - 1];
+    if (min >= last[0]) {
+      const k = Math.pow(1.01, Math.floor((min - last[0]) / 5));
+      return { hp: last[1] * k, dmg: last[2] * k, rate: last[3] * k };
+    }
+    let i = 0;
+    while (i < WAVE_MARKS.length - 2 && min >= WAVE_MARKS[i + 1][0]) i++;
+    const a = WAVE_MARKS[i], b = WAVE_MARKS[i + 1];
+    const u = (min - a[0]) / (b[0] - a[0]);
+    return {
+      hp: a[1] + (b[1] - a[1]) * u,
+      dmg: a[2] + (b[2] - a[2]) * u,
+      rate: a[3] + (b[3] - a[3]) * u
+    };
+  }
+
+  /**
+   * Tiempo extra de los legendarios de grieta (las oleadas, desde el minuto 15,
+   * van por waveAt). Hasta el minuto 60 es ×1; desde ahí la vida crece cada
+   * vez más deprisa.
    *   minuto   60    75    90    105   120   150
-   *   vida    ×1   ×1,09 ×1,4  ×2,1  ×3,8  ×21    (además de la subida normal)
+   *   vida    ×1   ×1,09 ×1,4  ×2,1  ×3,8  ×21
    */
   const LATE_FROM = 60, LATE_K = 0.000374;
   function late(t) { const m = Math.max(0, t / 60 - LATE_FROM); return Math.exp(Math.min(30, LATE_K * m * m)); }
+
+  /**
+   * Jefe de después del minuto 15. El primero (n = 0) tiene 150.000 de vida y
+   * 550 de daño; cada uno que sigue toma eso como tope y le suma 15% de vida
+   * y 10% de daño. La vida y el daño ya son los finales: no pasan por bossScale.
+   */
+  function lateBoss(n) {
+    const cap = regionCap();
+    const ok = p => !p.leg && (p.gen || 1) <= cap && G.SPRITE_META[p.dex] && fitsPhase(p.dex, 3);
+    let pool = G.DEX.filter(p => ok(p) && p.bst >= 580 && p.bst <= 700);
+    if (pool.length < 3) pool = G.DEX.filter(ok);
+    if (!pool.length) pool = G.DEX.filter(p => !p.leg && G.SPRITE_META[p.dex]);
+    const p = G.U.pick(pool);
+    const hp = Math.round(150000 * Math.pow(1.15, n));
+    const dmg = Math.round(550 * Math.pow(1.10, n));
+    return {
+      raw: true, dex: p.dex, name: p.name,
+      hp, spd: Math.round(G.U.clamp(40 + baseSpd(p) * 0.5, 40, 100)),
+      dmg, xp: 1800,
+      behavior: behaviorOf(p) === 'ranged' ? 'ranged' : (baseSpd(p) > 90 ? 'charger' : 'chase'),
+      shotDmg: Math.round(dmg * 0.55), shotCd: 1.1, range: 260
+    };
+  }
 
   /**
    * Los jefes ya traen su vida base creciente (1.400 ... 16.000). Encima, el
@@ -276,7 +343,7 @@ G.Enemies = (() => {
   }
 
   return {
-    TIERS, BOSS_SLOTS, LATE_FROM, rollRun, scale, bossScale, late, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, scripted,
+    TIERS, BOSS_SLOTS, LATE_FROM, rollRun, scale, bossScale, late, waveAt, lateBoss, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, scripted,
     get BOSSES() { if (!bosses) rollRun(); return bosses; },
     get cast() { if (!cast) rollRun(); return cast; }
   };

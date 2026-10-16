@@ -26,10 +26,11 @@ G.Rift = (() => {
   let rift = null;          // { x, y, ttl, t }
   let arena = null;         // { tx, ty, r, dex, shiny, x, y, back, biome, t, phase, endT, bossId }
   let checkT = CHECK, asked = false, downT = 0, misses = 0;
+  let seen = 0;             // grietas en las que has entrado esta run, contando la de ahora
   const authority = () => !G.Coop.active || G.Coop.isHost;
   const TS = () => G.Tiles.T * G.Sprites.PX;
 
-  function reset() { rift = null; arena = null; forcedDex = 0; checkT = CHECK; asked = false; downT = 0; misses = 0; }
+  function reset() { rift = null; arena = null; forcedDex = 0; checkT = CHECK; asked = false; downT = 0; misses = 0; seen = 0; }
 
   // ---------------- grieta en el mapa ----------------
 
@@ -175,15 +176,20 @@ G.Rift = (() => {
     const n = G.Game.everyone().length;
     const ts = TS();
     const lk = G.Enemies.late(t);          // tiempo extra (ver data/enemies.js)
+    // Cada grieta de la run, contando esta, suma 10% de vida y 5% de daño.
+    seen++;
+    const hpK = 1 + 0.10 * seen, dmgK = 1 + 0.05 * seen;
     const def = {
       dex: mon.dex, name: mon.name,
-      hp: Math.round((3200 + t * 22) * lk * Math.max(1, n)),
+      hp: Math.round((3200 + t * 22) * lk * Math.max(1, n) * hpK),
       spd: Math.round(G.U.clamp(48 + (mon.spd - 78) * 0.6, 48, 105)),
-      dmg: Math.round((36 + t / 8) * Math.pow(lk, 0.7)), xp: Math.round(500 + t * 1.2),
+      dmg: Math.round((36 + t / 8) * Math.pow(lk, 0.7) * dmgK), xp: Math.round(500 + t * 1.2),
       behavior: mon.types.some(x => ['psychic', 'electric', 'ghost', 'fairy', 'fire', 'water', 'ice', 'dragon'].includes(x)) ? 'ranged' : 'charger',
-      shotDmg: Math.round((18 + t / 16) * Math.pow(lk, 0.7)), shotCd: 0.9, range: 300
+      shotDmg: Math.round((18 + t / 16) * Math.pow(lk, 0.7) * dmgK), shotCd: 0.9, range: 300
     };
     const e = new G.Enemy(def, arena.x, arena.y - ts * 3.5, { hp: 1, spd: 1, dmg: 1 }, true);
+    const minute = Math.floor(t / 60);
+    if (minute >= 30) e.riftGold = minute * seen * 4;
     e.legend = true;
     // Choca con las paredes y columnas como tú: si volara por encima de las
     // rocas, tus disparos no podrían alcanzarle (bug de Celebi).

@@ -23,19 +23,43 @@ G.Spawner = (() => {
   const hpK = t => 3.3 + Math.min(1.7, t / 210);
   const SHINY_RATE = 1 / 4096;
   let acc = 0, bossIdx = 0, surgeT = 32, announce = null, announceT = 0, preloadT = 0;
+  // A partir del minuto 20: un jefe, y el siguiente entre 3 y 12 minutos después.
+  let lateN = 0, lateAt = 20 * 60;
   const scriptedFired = new Set();
   let forceShiny = 0;           // para pruebas: los N próximos salen shiny
 
   function reset() {
     acc = 0; bossIdx = 0; surgeT = 32; announce = null; announceT = 0; preloadT = 0;
+    lateN = 0; lateAt = 20 * 60;
     scriptedFired.clear();
     G.Enemies.rollRun();
     G.Sprites.preload(G.Enemies.upcomingDex(0, 80));
   }
 
-  /** Enemigos por segundo según el minuto de la run. */
+  /** Enemigos por segundo según el minuto de la run. Desde el 15, el tramo. */
   function rate(t) {
+    const wave = G.Enemies.waveAt(t);
+    if (wave) return wave.rate;
     return (1.6 + t * 0.028 + Math.pow(t / 60, 1.6) * 0.5) * DENSITY;
+  }
+
+  /**
+   * Escala de un salvaje. Hasta el minuto 15, la de siempre. Desde ahí, la
+   * vida y el daño del tramo (un Pokémon normal del último tramo da esos
+   * números; el resto queda en proporción).
+   */
+  function wildScale(t) {
+    const wave = G.Enemies.waveAt(t);
+    if (!wave) return { sc: scaled(G.Enemies.scale(t), G.Coop.scaleHp(players.length) * hpK(t)), dmgK: DMG_K };
+    const ref = G.Enemies.TIERS[G.Enemies.TIERS.length - 1];
+    return {
+      sc: {
+        hp: (wave.hp / ref.hp) * G.Coop.scaleHp(players.length),
+        dmg: wave.dmg / ref.dmg,
+        spd: 1 + Math.min(0.35, t / 1400)
+      },
+      dmgK: 1
+    };
   }
 
   function ringPoint(pl, angle) {
@@ -83,8 +107,9 @@ G.Spawner = (() => {
     const pt = freePoint(pl, angle == null ? Math.random() * 6.2832 : angle, isFlyer(def));
     if (!pt) return null;
     const shiny = rollShiny(def.dex);
-    const e = new G.Enemy(def, pt[0], pt[1], scaled(G.Enemies.scale(t), G.Coop.scaleHp(players.length) * hpK(t)));
-    e.dmg *= DMG_K; e.xp = Math.round(e.xp * XP_K);
+    const sc = wildScale(t);
+    const e = new G.Enemy(def, pt[0], pt[1], sc.sc);
+    e.dmg *= sc.dmgK; e.xp = Math.round(e.xp * XP_K);
     if (G.EnemyMgr.count >= CAP * ELITE_FROM) { e.maxHp = e.hp = Math.round(e.maxHp * 1.6); e.dmg *= 1.25; e.xp = Math.round(e.xp * 1.6); }
     if (shiny) e.makeShiny();
     if (G.Events.golden) e.makeGolden();
@@ -98,7 +123,9 @@ G.Spawner = (() => {
 
   function spawnBoss(pl, t, b) {
     const [x, y] = ringPoint(pl, Math.random() * 6.2832);
-    const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), Math.max(1, players.length)), true);
+    const n = Math.max(1, players.length);
+    const sc = b.raw ? { hp: n, dmg: 1, spd: 1 } : scaled(G.Enemies.bossScale(t), n);
+    const e = new G.Enemy(b, x, y, sc, true);
     if (rollShiny(b.dex)) e.makeShiny();
     G.EnemyMgr.add(e);
     say('¡' + e.name + (e.shiny ? ' shiny' : '') + ' salvaje apareció!', 3.2);
@@ -110,8 +137,9 @@ G.Spawner = (() => {
   function spawnKnown(pl, t, def, angle) {
     const pt = freePoint(pl, angle == null ? Math.random() * 6.2832 : angle, isFlyer(def));
     if (!pt) return null;
-    const e = new G.Enemy(def, pt[0], pt[1], scaled(G.Enemies.scale(t), G.Coop.scaleHp(players.length) * hpK(t)));
-    e.dmg *= DMG_K; e.xp = Math.round(e.xp * XP_K);
+    const sc = wildScale(t);
+    const e = new G.Enemy(def, pt[0], pt[1], sc.sc);
+    e.dmg *= sc.dmgK; e.xp = Math.round(e.xp * XP_K);
     G.EnemyMgr.add(e);
     return e;
   }
@@ -149,8 +177,7 @@ G.Spawner = (() => {
     preloadT -= dt;
     if (preloadT <= 0) { preloadT = 10; G.Sprites.preload(G.Enemies.upcomingDex(t, 60)); }
 
-    // Aviso al empezar el tiempo extra (los enemigos se endurecen cada vez más
-    // deprisa, ver data/enemies.js).
+    // Aviso al minuto 60: desde aquí el tramo de las oleadas se empina.
     const lf = G.Enemies.LATE_FROM * 60;
     if (t >= lf && t - dt < lf) { say('¡Los Pokémon salvajes se vuelven cada vez más fuertes!', 3.6); G.Audio.sfx('boss'); }
 
@@ -159,6 +186,11 @@ G.Spawner = (() => {
     // --- jefes ---
     const b = G.Enemies.BOSSES[bossIdx];
     if (b && t >= b.at) { spawnBoss(anchor(), t, b); bossIdx++; }
+    else if (!b && t >= lateAt) {
+      spawnBoss(anchor(), t, G.Enemies.lateBoss(lateN));
+      lateN++;
+      lateAt = t + (3 + Math.floor(Math.random() * 10)) * 60;
+    }
 
     // Combate de jefe: las oleadas bajan al 25% y no hay mareas, para que el
     // jefe sea un momento propio y se le pueda apuntar entre la multitud.

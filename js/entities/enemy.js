@@ -188,6 +188,7 @@
       }
       if (this.legend) {
         for (let i = 0; i < G.Items.coinRolls(10); i++) G.Pickups.drop('coin', this.x + G.U.rand(-50, 50), this.y + G.U.rand(-35, 35), 8);
+        if (this.riftGold > 0) G.Pickups.drop('coin', this.x, this.y - 18, this.riftGold);
       }
       G.Audio.sfx(this.boss ? 'bossDown' : 'faint');
       if (this.shiny) {

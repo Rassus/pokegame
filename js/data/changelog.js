@@ -13,6 +13,13 @@ G.CHANGELOG = [
      'Run upgrade: Willy Wonka is my shepherd, I shall not want, Amen. It adds +0.001% / +0.002% / +0.005% to that chance. It costs 5,000, 45,000 and 450,000.'],
     ['En el gacha, junto a Tirar ×10, está Tirar todo. Sigue de 10 en 10 sin enseñar cada Pokémon, hasta que paras o se acaban los tickets. Al terminar hay una tarjeta por Pokémon, con los fragmentos sumados.',
      'In the gacha, next to Pull ×10, there is Pull all. It keeps pulling 10 at a time without showing each Pokémon, until you stop or the tickets run out. At the end there is one card per Pokémon, with the fragments added up.']
+  ], chg: [
+    ['Desde el minuto 15, las oleadas suben de tramo en tramo. Un Pokémon del tramo final tiene, al 15, 13.100 de vida, 210 de daño y salen 16 por segundo; al 30, 24.900 / 355 / 40; al 45, 48.600 / 640 / 109; al 60, 122.500 / 1.250 / 197; al 90, 325.000 / 2.950 / 320; al 105, 425.888 / 4.236 / 425; al 120, 1.000.000 / 15.000 / 600; al 150, 2.500.000 / 30.000 / 850. Entre un tramo y el siguiente suben poco a poco. A partir del 150, vida, daño y ritmo suman un 1% cada 5 minutos.',
+     'From minute 15, waves climb from one tier to the next. A final-tier Pokémon has, at 15, 13,100 HP, 210 damage and 16 spawn per second; at 30, 24,900 / 355 / 40; at 45, 48,600 / 640 / 109; at 60, 122,500 / 1,250 / 197; at 90, 325,000 / 2,950 / 320; at 105, 425,888 / 4,236 / 425; at 120, 1,000,000 / 15,000 / 600; at 150, 2,500,000 / 30,000 / 850. Between tiers they rise steadily. From 150 on, HP, damage and spawn rate gain 1% every 5 minutes.'],
+    ['A partir del minuto 20, los jefes salen al azar cada 3 a 12 minutos. El primero tiene 150.000 de vida y 550 de daño. Cada uno que sigue suma un 15% de vida y un 10% de daño sobre el anterior.',
+     'From minute 20 on, bosses show up at random every 3 to 12 minutes. The first has 150,000 HP and 550 damage. Each one after adds 15% HP and 10% damage on top of the one before.'],
+    ['El legendario de una grieta gana un 10% de vida y un 5% de daño y de disparo por cada grieta de la partida, contando esta. Desde el minuto 30 suelta oro: el minuto × las grietas × 4.',
+     'A rift legendary gains 10% HP and 5% damage and shot damage for each rift in the run, including this one. From minute 30 it also drops gold: the minute × the rifts × 4.']
   ], fix: [
     ['Al subir vida, ataque o velocidad, los fragmentos que quedan bajan en el momento en las fichas de la pokédex, y ya no vuelven al sincronizar la partida.',
      'After raising HP, attack or speed, the fragments left drop right away on the Pokédex cards, and they no longer come back when the save syncs.']
