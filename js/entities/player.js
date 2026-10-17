@@ -56,6 +56,7 @@ G.Player = class Player {
     this.rerolls = 0;          // veces que ha cambiado las cartas de nivel en esta run
     this.rerollBonus = perks.rerolls || 0;   // cambios comprados en Mejoras (más el gratis)
     this.critChance = perks.crit || 0;       // probabilidad de golpe crítico (Mejoras)
+    this.role = perks.role || 'normal';      // rol de la run (Mejoras)
     this.banned = new Set();                 // movimientos vetados (Mejoras → Veto): no salen en las cartas
     this.bind = {};                          // movimiento -> hueco fijo (0-3), elegido en Mejoras
     this.coins = 0;            // monedas recogidas en esta run
@@ -247,14 +248,23 @@ G.Player = class Player {
   }
 
   // ---------------- daño y curación ----------------
-  /** @param type  tipo del ataque (tabla de tipos y clima); sin tipo, daño tal cual */
-  hurt(amount, type = null) {
+  /**
+   * @param type  tipo del ataque (tabla de tipos y clima); sin tipo, daño tal cual
+   * @param boss  el golpe viene de un jefe: el bloqueo del tanque baja al 30%
+   */
+  hurt(amount, type = null, boss = false) {
     if (this.invuln > 0 || this.dead) return;
     let eff = null;
     if (type) {
       const k = G.Types.mult(type, this.mon.types);
       eff = G.Types.label(k);
       amount *= k * G.Weather.mult(type);
+    }
+    // Tanque: 15% de negar el 80% del golpe (contra un jefe, sólo el 30%).
+    let blocked = false;
+    if (this.role === 'tank' && Math.random() < 0.15) {
+      amount *= boss ? 0.7 : 0.2;
+      blocked = true;
     }
     // Con un ataque cuerpo a cuerpo activo se recibe un 25 % menos: hay que
     // estar encima de los enemigos para pegar (iban muy por detrás).
@@ -272,6 +282,7 @@ G.Player = class Player {
     G.Audio.sfx('hurt');
     G.Camera.kick(0.28);
     G.FX.dmgText(this.x, this.y - this.bodyH - 4, '-' + Math.round(hit), eff === 'super' ? '#ff3048' : eff === 'weak' ? '#c9a0a8' : '#ff6b7a', eff === 'super');
+    if (blocked) G.FX.dmgText(this.x, this.y - this.bodyH - 16, '¡Bloqueo!', '#9ad0ff', true);
     G.FX.burst(this.x, this.y - this.bodyH * 0.5, '#ff5f6d', 6, 90);
     // Banda Focus: aguanta el golpe con 1 de vida (una vez cada 60 s).
     if (this.hp <= 0 && this.hasItem('focussash') && performance.now() - this.sashT > 60000) {
@@ -392,6 +403,25 @@ G.Player = class Player {
     this.hp = Math.min(this.maxHp, this.hp + give);
   }
 
+  /**
+   * DPS: un crítico devuelve un 5% del daño hecho, sin pasar del 3% de la
+   * vida máxima en el mismo segundo.
+   */
+  critHeal(dealt) {
+    if (this.role !== 'dps' || this.dead || this.remote || !(dealt > 0)) return;
+    const now = performance.now();
+    if (now - (this.critSec || 0) >= 1000) { this.critSec = now; this.critGot = 0; }
+    const room = this.maxHp * 0.03 - (this.critGot || 0);
+    const give = Math.min(dealt * 0.05, room);
+    if (give <= 0) return;
+    this.critGot = (this.critGot || 0) + give;
+    const before = this.hp;
+    this.hp = Math.min(this.maxHp, this.hp + give);
+    const got = this.hp - before;
+    if (got < 1) return;
+    G.FX.dmgText(this.x, this.y - this.bodyH - 16, '+' + Math.round(got), '#ff9a3c');
+  }
+
   /** Poder de un altar (ver systems/interact.js): se aplica y se quita solo. */
   addPower(def, dur) {
     if (this.power) this.power.def.off(this);
@@ -449,6 +479,7 @@ G.Player = class Player {
     // Sin Cascabel, el escudo (p. ej. Baya Milagro) se queda hasta que el daño lo gaste.
     if (this.power && (this.power.t -= dt) <= 0) { this.power.def.off(this); this.power = null; }
     if (this.regen > 0) this.hp = Math.min(this.maxHp, this.hp + this.regen * dt);
+    if (G.Roles) G.Roles.pulse(this, dt);
 
     // --- movimiento con colisiones ---
     // (En cooperativo la pausa no para el juego: sólo te quedas quieto.)
@@ -568,6 +599,21 @@ G.Player = class Player {
   }
 
   draw(ctx) {
+    // Aura del sanador: se ve en el suelo para saber quién está dentro.
+    if (this.role === 'healer' && !this.dead && G.Roles) {
+      const rad = G.Roles.AURA;
+      ctx.save();
+      ctx.globalAlpha = 0.14 + Math.sin(performance.now() / 280) * 0.05;
+      ctx.fillStyle = '#7dffb0';
+      ctx.beginPath();
+      ctx.ellipse(this.x, this.y, rad, rad * 0.42, 0, 0, 6.2832);
+      ctx.fill();
+      ctx.globalAlpha = 0.7;
+      ctx.strokeStyle = '#b8ffd4';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
     // Halo del tipo del movimiento activo, en el suelo.
     const m = this.activeMove();
     if (m && !this.dead) {
@@ -627,6 +673,13 @@ G.Player = class Player {
       ctx.strokeText(this.tag, this.x, y);
       ctx.fillStyle = this.dead ? '#ff8a96' : this.tagColor || '#fff';
       ctx.fillText(this.tag, this.x, y);
+      if (!this.dead && this.role && this.role !== 'normal' && G.Roles) {
+        const rn = G.Roles.of(this.role);
+        ctx.font = '700 6px Pixelify,"Segoe UI",sans-serif';
+        ctx.strokeText(rn.name, this.x, y - 8);
+        ctx.fillStyle = rn.color;
+        ctx.fillText(rn.name, this.x, y - 8);
+      }
       if (this.dead) {
         ctx.font = '700 6px Pixelify,"Segoe UI",sans-serif';
         ctx.strokeText(this.revLabel || '', this.x, y - 8);

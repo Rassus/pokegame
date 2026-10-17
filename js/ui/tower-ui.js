@@ -76,9 +76,13 @@ G.TowerUI = (() => {
     if (duel) { cfg.duel = true; cfg.share = 0; cfg.tickets = 0; }
     G.Audio.sfx('confirm');
     if (room && n >= 2) {
+      if (G.Roles.overCap(room.members).size) {
+        G.UI.toast('Hay más de 2 jugadores con el mismo rol. Cambiadlo en Mejoras.');
+        return;
+      }
       const startCfg = {
         k: 'start', seed: Math.floor(Math.random() * 1e6), host: room.host,
-        members: room.members.map(m => ({ uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny })),
+        members: room.members.map(m => G.Roles.pack(m)),
         tower: cfg
       };
       G.Social.setOpen(false);

@@ -46,6 +46,12 @@ G.HUD = (() => {
     ctx.fillStyle = '#eaf2ff';
     ctx.textAlign = 'left';
     ctx.fillText(pl.mon.name, px, py + 10);
+    if (G.Roles) {
+      const role = G.Roles.of(pl.role);
+      ctx.font = F(700, 10);
+      ctx.fillStyle = role.color;
+      ctx.fillText(role.name, px, py - 2);
+    }
 
     ctx.font = F(700, 11);
     ctx.fillStyle = '#ffcb3d';
@@ -274,6 +280,43 @@ G.HUD = (() => {
           ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)';
           ctx.strokeText(label, 0, -18); ctx.fillStyle = '#ffe98a'; ctx.fillText(label, 0, -18);
         }
+        ctx.restore();
+      }
+    }
+
+    // Buscador: una flecha hacia el cofre más cercano.
+    // En el borde si no se ve (apunta hacia allá) y encima si se ve.
+    if (G.Roles && G.Roles.isSeeker(pl)) {
+      const nowC = performance.now() / 1000, beatC = 0.5 + Math.sin(nowC * 7) * 0.5;
+      for (const c of G.Roles.chests(pl)) {
+        const sx = (c.x - cam.left()) * cam.scale, sy = (c.y - 40 - cam.top()) * cam.scale;
+        const off = sx < 0 || sx > w || sy < 0 || sy > h;
+        if (!off) continue;
+        const label = (c.type === 'bigchest' ? 'COFRE GRANDE' : 'COFRE') + ' · ' + Math.round(G.U.dist(pl.x, pl.y, c.x, c.y) / 32) + ' m';
+        const M = 52, ex = G.U.clamp(sx, M, w - M), ey = G.U.clamp(sy, M + 70, h - M - 80);
+        const a = Math.atan2(sy - ey, sx - ex), ca = Math.cos(a), sa = Math.sin(a);
+        ctx.save();
+        ctx.translate(ex, ey);
+        ctx.globalAlpha = 0.2 + beatC * 0.25;
+        ctx.fillStyle = '#ffd23f';
+        ctx.beginPath(); ctx.arc(0, 0, 28 + beatC * 8, 0, 6.2832); ctx.fill();
+        ctx.globalAlpha = 1;
+        const tri = (k) => {
+          ctx.beginPath();
+          ctx.moveTo(ca * 40 * k, sa * 40 * k);
+          ctx.lineTo(Math.cos(a + 2.45) * 20 * k, Math.sin(a + 2.45) * 20 * k);
+          ctx.lineTo(Math.cos(a - 2.45) * 20 * k, Math.sin(a - 2.45) * 20 * k);
+          ctx.closePath();
+        };
+        tri(1.12); ctx.fillStyle = '#1a1204'; ctx.fill();
+        tri(1); ctx.fillStyle = beatC > 0.5 ? '#ffe98a' : '#ffd23f'; ctx.fill();
+        ctx.font = F(800, 12);
+        ctx.textAlign = ca > 0.3 ? 'right' : ca < -0.3 ? 'left' : 'center';
+        const lx = -ca * 34, ly = -sa * 30 + 4;
+        ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)';
+        ctx.strokeText(label, lx, ly);
+        ctx.fillStyle = '#ffe98a';
+        ctx.fillText(label, lx, ly);
         ctx.restore();
       }
     }

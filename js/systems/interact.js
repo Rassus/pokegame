@@ -15,8 +15,27 @@
  */
 G.Interact = (() => {
   const CHEST_TIME = 3.5;
-  /** Segundos reales junto al cofre: 3,5 menos el recorte de la mejora de ese Pokémon. */
+  /** Segundos reales junto al cofre: 3,5 menos el recorte de la mejora de ese Pokémon.
+   *  El buscador no recorta aquí: suma velocidad al canalizar (un 10% más). */
   function chestTime(pl) { return Math.max(0.25, CHEST_TIME - ((pl && pl.chestCut) || 0)); }
+  function inChest(who, p) {
+    return !!who && G.U.dist2(who.x, who.y, p.x, p.y) < Math.max(46, p.r + (who.r || 14) + 24) ** 2;
+  }
+  /** Quién está abriendo este cofre ahora (tú y, en grupo, los compañeros). */
+  function chestOpeners(p) {
+    const all = (G.Coop && G.Coop.active && G.Coop.players) ? G.Coop.players() : [G.Game && G.Game.player];
+    return all.filter(o => o && !o.dead && inChest(o, p));
+  }
+  /** El buscador canaliza un 10% más rápido. Si hay un buscador y alguien más, se suman. */
+  function chestRate(pl, p) {
+    const openers = chestOpeners(p);
+    const share = openers.length > 1 && openers.some(o => o.role === 'seeker');
+    const one = o => (o && o.role === 'seeker' ? 1 / 0.9 : 1);
+    if (!share) return one(pl);
+    let rate = 0;
+    for (const o of openers) rate += one(o);
+    return rate;
+  }
   const POWER_TIME = 25;
   const POWERS = [
     { id: 'dmg', name: 'Furia', desc: 'daño ×2', color: '#ff5f6d', on: p => { p.atkMul *= 2; }, off: p => { p.atkMul /= 2; } },
@@ -40,7 +59,7 @@ G.Interact = (() => {
           if (!p.used && !pl.dead && d2 < Math.max(30, p.r + pl.r + 14) ** 2) usePower(pl, p);
           break;
         case 'bigchest':
-          if (!pl.dead && d2 < Math.max(46, p.r + pl.r + 24) ** 2) {
+          if (!pl.dead && inChest(pl, p)) {
             // Llave Maestra: un cofre, al momento, y el objeto desaparece.
             if (pl.hasItem('masterkey')) {
               pl.equip(null);
@@ -50,8 +69,14 @@ G.Interact = (() => {
               break;
             }
             if (p.open === 0) G.Audio.sfx('select');
-            p.open += dt;
-            if (p.open >= chestTime(pl)) { p.open = 0; G.World.breakProp(p); }
+            p.open += dt * chestRate(pl, p);
+            if (p.open >= chestTime(pl)) {
+              // En grupo sólo abre uno: si no, el botín saldría dos veces.
+              const openers = chestOpeners(p);
+              let leader = pl;
+              for (const o of openers) if (String(o.uid || '') < String(leader.uid || '')) leader = o;
+              if (!G.Coop || !G.Coop.active || leader === pl) { p.open = 0; G.World.breakProp(p); }
+            }
           } else if (p.open > 0) p.open = Math.max(0, p.open - dt * 1.5);
           break;
         case 'trap':

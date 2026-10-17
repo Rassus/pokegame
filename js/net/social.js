@@ -275,7 +275,7 @@ G.Social = (() => {
 
   function memberInfo() {
     const s = G.DB.save;
-    return { name: me.name, dex: s.partner, shiny: !!s.partnerShiny && G.DB.ownsShiny(s.partner), ready: false, at: ts() };
+    return { name: me.name, dex: s.partner, shiny: !!s.partnerShiny && G.DB.ownsShiny(s.partner), role: G.Roles.norm(s.role), ready: false, at: ts() };
   }
 
   /**
@@ -386,9 +386,10 @@ G.Social = (() => {
     if (!room || !me || !G.DB.save) return;
     const dex = G.DB.save.partner;
     const shiny = !!G.DB.save.partnerShiny && G.DB.ownsShiny(dex);
+    const role = G.Roles.norm(G.DB.save.role);
     const mine = room.members.find(m => m.uid === uid);
-    const patch = { dex, shiny };
-    if (mine && (mine.dex !== dex || !!mine.shiny !== shiny)) patch.ready = false;
+    const patch = { dex, shiny, role };
+    if (mine && (mine.dex !== dex || !!mine.shiny !== shiny || G.Roles.norm(mine.role) !== role)) patch.ready = false;
     fb.rtdb.ref('rooms/' + room.id + '/m/' + uid).update(patch).catch(() => {});
   }
 

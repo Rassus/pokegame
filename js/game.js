@@ -125,6 +125,7 @@ G.Game = (() => {
     time = 0; pendingLevels = 0;
 
     pl = new G.Player(mon, perks, !!save.partnerShiny && G.DB.ownsShiny(mon.dex), G.Gacha.grown(mon, save));
+    if (G.Roles) pl.role = G.Roles.norm(save.role);
     banked = { t1: 0, t10: 0, tb: 0, tg: 0 };
     caught = [];
     // Atajos: movimientos con hueco fijo (save.pbind[dex] = [id del 1, id del 2, ...]),

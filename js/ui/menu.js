@@ -438,6 +438,18 @@ G.MenuUI = (() => {
     sel.innerHTML = mons.map(d => `<option value="${d}">${G.DEX_BY[d].name}${d === s.partner ? ' (compañero)' : ''}${lv(d) ? ' · ' + lv(d) + ' niveles' : ''}</option>`).join('');
     sel.value = upgDex;
     sel.onchange = () => { upgDex = +sel.value; G.Audio.sfx('select'); renderUpgrades(); };
+    const roleSel = $('upg-role');
+    roleSel.innerHTML = G.Roles.LIST.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+    roleSel.value = G.Roles.norm(s.role);
+    roleSel.onchange = () => {
+      const id = G.Roles.norm(roleSel.value);
+      if (s.role === id) return;
+      s.role = id;
+      G.DB.commit();
+      if (G.Social && G.Social.room) G.Social.refreshMember();
+      G.Audio.sfx('select');
+      renderUpgrades();
+    };
     const tabs = $('upg-tabs');
     tabs.innerHTML = G.Upgrades.CATS.map(c =>
       '<button type="button" class="gen-tab' + (c.id === upgCat ? ' on' : '') + '" data-cat="' + c.id + '"><b>' + c.name + '</b></button>'
@@ -454,6 +466,9 @@ G.MenuUI = (() => {
     const levels = monTab ? G.DB.upgradesOf(upgDex) : G.DB.globalUpgrades();
     const mon = G.DEX_BY[upgDex];
     $('upg-note').textContent = UPG_NOTE[upgCat] || '';
+    const role = G.Roles.of(s.role);
+    $('upg-role').value = role.id;
+    $('upg-role-desc').textContent = role.text;
     $('upg-stage').style.display = monTab ? '' : 'none';
     $('upg-pick').style.display = monTab ? '' : 'none';
     if (monTab) {
@@ -473,7 +488,7 @@ G.MenuUI = (() => {
       el.innerHTML = `
         <div class="ic">${G.Icons.html(u.icon, 32)}</div>
         <div>
-          <b>${u.name}</b> <span style="color:var(--muted);font-size:13px">${u.unit}</span>
+          <b>${u.name}</b> <span style="color:var(--muted);font-size:13px">${G.Roles.unit(u.id) || u.unit}</span>
           <div class="pips">${Array.from({ length: u.max }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}</div>
         </div>
         <div class="upg-btns">

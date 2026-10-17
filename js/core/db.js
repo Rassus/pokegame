@@ -73,6 +73,7 @@ G.DB = (() => {
       upgrades: {},           // (antiguo) mejoras de la cuenta; ahora van por Pokémon
       pupg: {},               // dex -> { id -> nivel }: mejoras de cada Pokémon
       gupg: {},               // id -> nivel: run, grieta y torre (de la cuenta)
+      role: 'normal',         // rol de la partida: normal, dps, tank, healer, seeker
       tickets: { t1: 0, t10: 0, tb: 0, tg: 0 },   // gris (x1), morado (x10), azul (x10) y dorado (shiny)
       pity: {},               // generación del banner -> tiradas sin ★5
       legends: {},            // dex -> fecha: legendarios vencidos en grietas
@@ -244,6 +245,7 @@ G.DB = (() => {
         s.pban[d] = [...new Set(l.filter(id => typeof id === 'string' && (!G.Moves || G.Moves.BY_ID[id])))].slice(0, banMax);
       }
     } else s.pban = {};
+    s.role = (G.Roles && G.Roles.norm(s.role)) || 'normal';
     if (G.Upgrades) for (const d of Object.keys(s.pupg || {})) {
       const u = s.pupg[d];
       if (!u || typeof u !== 'object') { delete s.pupg[d]; continue; }

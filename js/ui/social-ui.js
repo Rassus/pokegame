@@ -202,7 +202,8 @@
         : 'Estás en la sala de ' + ((ms.find(m => m.uid === room.host) || {}).name || '…') + '. El anfitrión empezará la partida.';
 
       // Las tarjetas sólo se rehacen si cambian los miembros (los sprites no parpadean).
-      const key = ms.map(m => m.uid + ':' + m.dex + ':' + (m.shiny ? 1 : 0)).join('|');
+      const over = G.Roles.overCap(ms);
+      const key = ms.map(m => m.uid + ':' + m.dex + ':' + (m.shiny ? 1 : 0) + ':' + G.Roles.norm(m.role) + ':' + (over.has(m.uid) ? 1 : 0)).join('|');
       const box = $('lobby-members');
       if (key !== membersKey) {
         membersKey = key;
@@ -214,7 +215,9 @@
           if (m) {
             c.style.setProperty('--pc', G.Coop.COLORS[i]);
             c.appendChild(G.UI.spriteCanvas(m.dex, 120, 96, { scale: 2, lively: true, shiny: !!m.shiny }));
-            c.insertAdjacentHTML('beforeend', `<b translate="no">${esc(m.name)}</b><small>${esc((G.DEX_BY[m.dex] || {}).name || '')}</small><span class="rdy" data-u="${m.uid}"></span><span class="conn" data-u="${m.uid}"></span>`);
+            const role = G.Roles.of(m.role);
+            const full = over.has(m.uid);
+            c.insertAdjacentHTML('beforeend', `<b translate="no">${esc(m.name)}</b><small>${esc((G.DEX_BY[m.dex] || {}).name || '')}</small><small class="role" style="color:${role.color}">${role.name}</small>${full ? '<small class="role full">Rol lleno</small>' : ''}<span class="rdy" data-u="${m.uid}"></span><span class="conn" data-u="${m.uid}"></span>`);
           } else c.innerHTML = '<span>Libre</span>';
           box.appendChild(c);
         }
@@ -258,19 +261,24 @@
       }
 
       const mine = ms.find(m => m.uid === G.Social.uid);
+      const mineOver = over.has(G.Social.uid);
+      if (mine && mine.ready && mineOver) G.Social.setReady(false);
       const readyBtn = $('lobby-ready');
-      const imReady = !!(mine && mine.ready);
+      const imReady = !!(mine && mine.ready) && !mineOver;
       readyBtn.textContent = imReady ? 'No estoy listo' : 'Listo';
       readyBtn.classList.toggle('gold', !imReady);
-      const allReady = ms.length >= 2 && ms.every(m => m.ready);
+      readyBtn.disabled = mineOver;
+      const allReady = ms.length >= 2 && ms.every(m => m.ready) && over.size === 0;
       const nReady = ms.filter(m => m.ready).length;
       const btn = $('lobby-start');
       btn.classList.toggle('hidden', !room.isHost);
       const connecting = ms.some(m => m.uid !== room.host && G.Net.mode(m.uid) === 'connecting');
       const failed = ms.some(m => m.uid !== room.host && G.Net.mode(m.uid) === 'failed');
-      btn.disabled = !room.isHost || !allReady || connecting || failed;
+      btn.disabled = !room.isHost || !allReady || connecting || failed || over.size > 0;
       btn.textContent = 'Empezar partida (' + nReady + '/' + ms.length + ')';
-      $('lobby-note').textContent = ms.length < 2 && room.isHost ? 'Necesitas al menos un amigo en la sala.'
+      $('lobby-note').textContent = mineOver ? 'Ese rol ya está lleno (2 por partida). Cámbialo en Mejoras.'
+        : over.size ? 'Hay más de 2 jugadores con el mismo rol. Cambiadlo en Mejoras antes de empezar.'
+        : ms.length < 2 && room.isHost ? 'Necesitas al menos un amigo en la sala.'
         : failed ? 'No se puede conectar con algún amigo: su red (o la tuya) no deja jugar en grupo. Probad con otra wifi o datos móviles; se reintenta solo.'
         : connecting ? 'Conectando con tus amigos…'
         : !allReady ? 'Poneos listos. La partida empieza cuando lo estéis todos (' + nReady + '/' + ms.length + ').'
@@ -281,9 +289,13 @@
     function start() {
       const room = G.Social.room;
       if (!room || !room.isHost || room.members.length < 2 || !room.members.every(m => m.ready)) return;
+      if (G.Roles.overCap(room.members).size) {
+        G.UI.toast('Hay más de 2 jugadores con el mismo rol. Cambiadlo en Mejoras.');
+        return;
+      }
       const cfg = {
         k: 'start', seed: Math.floor(Math.random() * 1e6), host: room.host,
-        members: room.members.map(m => ({ uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny }))
+        members: room.members.map(m => G.Roles.pack(m))
       };
       G.Social.setOpen(false);
       G.Net.broadcast(cfg);

@@ -557,7 +557,7 @@ G.Towers = (() => {
     r.tick -= dt;
     if (r.tick > 0) return;
     r.tick = 0.5;
-    if (inRay(r, pl.x, pl.y, pl.r)) pl.hurt(amount, type);
+    if (inRay(r, pl.x, pl.y, pl.r)) pl.hurt(amount, type, true);
   }
 
   /** Luz, rayo y suelo ardiente de Rayquaza. Lo corren todos: cada uno se quema el suyo. */

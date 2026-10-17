@@ -210,6 +210,13 @@ G.Combat = (() => {
 
   function buff(pl, m) {
     pl.addBuff(m.stat, m.amount, m.dur, m.stacks | 0, m.id);
+    // Sanador: el mismo apoyo llega a quien esté dentro del aura.
+    // En grupo cada uno se lo aplica al ver el ataque (el fantasma no daña).
+    if (ghost && pl.role === 'healer' && G.Roles && G.Game.player) {
+      const me = G.Game.player;
+      if (!me.dead && me !== pl && G.U.dist2(pl.x, pl.y, me.x, me.y) <= G.Roles.AURA * G.Roles.AURA)
+        me.addBuff(m.stat, m.amount, m.dur, m.stacks | 0, m.id);
+    }
     const col = G.U.TYPE_COLOR[m.type];
     G.FX.ring(pl.x, pl.y, pl.r * 2.4, pl.r * 1.1, col, 0.35, 2.5);
     const vis = G.VFX.forMove(m);
@@ -547,6 +554,7 @@ G.Combat = (() => {
     dmg *= k * (crit ? CRIT_MUL : 1);
     e.hurt(dmg, col, dx, dy, knock, crit ? 'crit' : G.Types.label(G.Types.mult(m.type, e.types)));
     if (!ghost) {
+      if (crit) pl.critHeal(dmg);
       pl.onDealt(atk != null ? atk : m.atk);
       pl.dmgDealt += dmg;
       // El 10.º argumento, aunque sea null, es el ataque del momento del golpe
@@ -583,7 +591,7 @@ G.Combat = (() => {
           continue;
         }
         if (G.U.dist2(p.x, p.y, pl.x, pl.y) < (p.r + pl.r) * (p.r + pl.r)) {
-          pl.hurt(p.dmg, p.mtype);
+          pl.hurt(p.dmg, p.mtype, !!p.boss);
           G.FX.burst(p.x, p.y - G.LIFT, p.color, 7, 110);
           projectiles.splice(i, 1);
         }
@@ -664,6 +672,7 @@ G.Combat = (() => {
                crit ? 'crit' : p.mtype ? G.Types.label(G.Types.mult(p.mtype, e.types)) : null);
         if (Math.random() < 0.5) G.FX.sp('impact', p.vis ? p.vis.pal : 'normal', e.x, e.y - e.bodyH * 0.5, { life: 0.12, scale: 1 });
         pl.dmgDealt += p.dmg * k;
+        if (crit) pl.critHeal(p.dmg * k);
         if (p.mid) pl.noteDmg(p.mid, p.dmg * k, p.buff || null);
         pl.onDealt(p.atk);
         if (p.burn) e.applyBurn(p.burn);
@@ -688,7 +697,7 @@ G.Combat = (() => {
       if (e.touchCd > 0 || e.behavior === 'thief') continue;
       e.touchCd = 0.55;
       e.strike(pl);
-      pl.hurt(e.dmg, e.atkType);
+      pl.hurt(e.dmg, e.atkType, !!e.boss);
       if (pl.hasItem('rockyhelmet')) e.hurt(15 + pl.level * 4, '#9aa6b5', e.x - pl.x, e.y - pl.y, 80);
       const [nx, ny] = G.U.norm(e.x - pl.x, e.y - pl.y);
       e.kx += nx * 150; e.ky += ny * 150;

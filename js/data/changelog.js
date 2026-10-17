@@ -20,6 +20,16 @@ G.CHANGELOG = [
      'The tower arena is larger. Waves appear at the edge, away from where you stand, and no longer spawn on top of the players.']
   ], fix: [] },
   { d: '2026-10-16', title: ['Tirar todo', 'Pull all'], new: [
+    ['Roles, en Mejoras: un desplegable con Normal, DPS, Tanque, Sanador y Buscador. Cambian lo que da cada nivel de vida, daño y defensa. Normal no cambia nada. En grupo, como máximo 2 de cada rol: si el tuyo ya está lleno, cámbialo antes de ponerte listo.',
+     'Roles, in Upgrades: a dropdown with Normal, DPS, Tank, Healer and Seeker. They change what each level of HP, damage and defense gives. Normal changes nothing. In a group, at most 2 of each role: if yours is already full, change it before you ready up.'],
+    ['DPS: +6 vida, +6% daño y +1,7% defensa por nivel. Los críticos curan un 5% del daño, hasta un 3% de la vida máxima por segundo.',
+     'DPS: +6 HP, +6% damage and +1.7% defense per level. Critical hits heal 5% of the damage, up to 3% of max HP per second.'],
+    ['Tanque: +12 vida, +3,2% daño y +3,2% defensa por nivel. Un 15% de bloquear el 80% del daño. Contra un jefe, el bloqueo baja al 30%.',
+     'Tank: +12 HP, +3.2% damage and +3.2% defense per level. A 15% chance to block 80% of the damage. Against a boss, the block drops to 30%.'],
+    ['Sanador: +10 vida, +2,8% daño y +2,2% defensa por nivel. Un aura cura un 1% de la vida máxima por segundo a quien esté dentro, y tus ataques de apoyo también les llegan.',
+     'Healer: +10 HP, +2.8% damage and +2.2% defense per level. An aura heals 1% of max HP per second to anyone inside it, and your support moves reach them too.'],
+    ['Buscador: +8 vida, +3,5% daño y +2% defensa por nivel. Una flecha dorada marca el cofre más cercano, pequeño o grande: en el borde si no se ve y encima si se ve. Los abre un 10% más rápido y, si otro jugador abre el mismo, va aún más rápido.',
+     'Seeker: +8 HP, +3.5% damage and +2% defense per level. A gold arrow marks the nearest chest, small or big: on the edge if it is off screen and above it if it is on screen. You open them 10% faster and, if another player opens the same one, it goes even faster.'],
     ['Caramelo Raro: sale en la hierba, en las rocas y al derrotar un Pokémon, con un 0,001% de probabilidad. Cuando sale, se anuncia. El imán no lo atrae: hay que pasar por encima. Sube un nivel.',
      'Rare Candy: it appears in tall grass, in rocks and when you defeat a Pokémon, with a 0.001% chance. When it appears, it is announced. The magnet does not pull it: you have to walk over it. It raises you one level.'],
     ['Mejora de run: Willy Wonka es mi pastor, nada me faltará, Amén. Suma +0,001% / +0,002% / +0,005% a esa probabilidad. Cuesta 5.000, 45.000 y 450.000.',

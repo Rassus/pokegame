@@ -556,6 +556,10 @@ G.World = (() => {
       if (blank) { ctx.globalAlpha = 0.6; ctx.drawImage(blank, x, y, w, h); }
     }
     ctx.restore();
+    // Buscador: la flecha sale del propio cofre (pequeño o con candado), no de una coordenada aparte.
+    if ((p.type === 'chest' || p.type === 'bigchest') && p.hp > 0 && G.Roles && G.Roles.marking(p)) {
+      G.Roles.drawDownArrow(ctx, p.x, p.y - h - 4);
+    }
   }
 
   function update(dt, cam) {
@@ -601,9 +605,63 @@ G.World = (() => {
     ctx.fillRect(0, 0, w, h);
   }
 
+  /** Candidato por el hash, sin mirar el suelo (eso es lo caro). Misma regla que placeProps. */
+  function chestCandidate(tx, ty) {
+    if (broken.has(tx + ',' + ty)) return null;
+    if (arena && arenaDist(tx, ty) < arena_outer() + 2) return null;
+    const far = Math.hypot(tx, ty);
+    if (far < 7) return null;
+    const chestK = (G.Upgrades && G.Upgrades.chestMul) ? G.Upgrades.chestMul() : 1;
+    const hs = H(tx, ty, seed + 909);
+    if (hs < 0.0032) {
+      const bigHi = 0.0008 + 0.0003 * chestK;
+      if (far > 12 && hs >= 0.0008 && hs < bigHi) return 'bigchest';
+      return null;
+    }
+    const h = H(tx, ty, seed + 404);
+    if (h > 0.985 && h <= 0.992 && H(tx, ty, seed + 606) < 0.07 * chestK) return 'chest';
+    return null;
+  }
+  function chestOpen(tx, ty) {
+    for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++)
+      if (terrainRaw(tx + a, ty + b) !== FLOOR) return false;
+    return true;
+  }
+
+  /** Cofres que ya están generados (no crea chunks nuevos). */
+  function loadedChests() {
+    const out = [];
+    for (const c of data.values()) {
+      for (const p of c.props) {
+        if ((p.type === 'chest' || p.type === 'bigchest') && p.hp > 0) out.push(p);
+      }
+    }
+    return out;
+  }
+
+  /** Los n cofres más cercanos (pequeños o con candado), aunque el chunk no esté cargado. */
+  function nearestChests(x, y, n = 3) {
+    const tx0 = tileOf(x), ty0 = tileOf(y), R = 96;
+    const cands = [];
+    for (let ty = ty0 - R; ty <= ty0 + R; ty++) {
+      for (let tx = tx0 - R; tx <= tx0 + R; tx++) {
+        const kind = chestCandidate(tx, ty);
+        if (kind) cands.push({ type: kind, tx, ty, x: tx * TS + TS / 2, y: ty * TS + TS - 4 });
+      }
+    }
+    cands.sort((a, b) => G.U.dist2(x, y, a.x, a.y) - G.U.dist2(x, y, b.x, b.y));
+    const found = [];
+    for (const c of cands) {
+      if (!chestOpen(c.tx, c.ty)) continue;
+      found.push(c);
+      if (found.length >= n) break;
+    }
+    return found;
+  }
+
   return {
     TS, CW, reset, setBiome, biomeName, liquidKind, liquidEffect, walkable,
-    kindAt, isWall, isLiquid, isFree, collide, projectileBlock, propsInCircle, nearestBreakable,
+    kindAt, isWall, isLiquid, isFree, collide, projectileBlock, propsInCircle, nearestBreakable, nearestChests, loadedChests,
     damageProp, breakAt, specialsNear, update,
     breakProp(p) { if (!broken.has(p.tx + ',' + p.ty)) destroyProp(p); },
     /** Coloca un objeto (manantial, etc.) en el tile de esas coordenadas. */
