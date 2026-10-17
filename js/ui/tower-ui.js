@@ -59,6 +59,18 @@ G.TowerUI = (() => {
     if (duel && !G.UI.helpersOn()) return;
     const room = G.Social && G.Social.room;
     const n = (room && room.members.length) || 1;
+    if (room && n >= 2 && !duel) {
+      if (!room.isHost) { G.UI.toast('Entra el anfitrión de la sala'); return; }
+      if (!G.Towers.modeOpen(id, mode)) {
+        G.UI.toast(mode === 'mad' ? 'Supera el modo difícil' : 'Supera el modo normal');
+        return;
+      }
+      G.Social.setPlay({ kind: 'tower', id: String(id), mode });
+      G.Audio.sfx('confirm');
+      G.UI.toast('La torre queda elegida en la sala.');
+      G.LobbyUI.open();
+      return;
+    }
     if (room && n >= 2 && !room.isHost) { G.UI.toast('Entra el anfitrión de la sala'); return; }
     const pay = G.Towers.due(id, duel ? 'normal' : mode);
     if (!pay) return;

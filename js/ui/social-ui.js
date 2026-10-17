@@ -143,6 +143,169 @@
 
   G.LobbyUI = (() => {
     let membersKey = '';
+    let playUiKey = '';
+    let lastTower = { id: '', mode: 'normal' };
+
+    function purse(m) {
+      if (m.uid === G.Social.uid) {
+        const s = G.DB.save;
+        return {
+          known: true,
+          coins: Math.max(0, Math.floor(Number(s && s.coins) || 0)),
+          t1: Math.max(0, Math.floor(Number(s && s.tickets && s.tickets.t1) || 0))
+        };
+      }
+      if (typeof m.coins !== 'number') return { known: false, coins: 0, t1: 0 };
+      return {
+        known: true,
+        coins: Math.max(0, Math.floor(Number(m.coins) || 0)),
+        t1: Math.max(0, Math.floor(Number(m.t1) || 0))
+      };
+    }
+
+    /** ¿Le alcanza la entrada? why: '' | 'wait' | 'coins' | 'tickets' | 'both'. */
+    function affordOf(m, pay) {
+      if (!pay || (!(pay.share > 0) && !(pay.tickets > 0))) return { ok: true, why: '' };
+      const p = purse(m);
+      if (!p.known) return { ok: false, why: 'wait' };
+      const coins = Math.max(0, (pay.share || 0) - p.coins);
+      const tickets = Math.max(0, (pay.tickets || 0) - p.t1);
+      if (coins && tickets) return { ok: false, why: 'both', coins, tickets };
+      if (coins) return { ok: false, why: 'coins', need: coins };
+      if (tickets) return { ok: false, why: 'tickets', need: tickets };
+      return { ok: true, why: '' };
+    }
+
+    function payText(a) {
+      if (!a) return { text: '', cls: '' };
+      if (a.why === 'wait') return { text: 'Comprobando…', cls: 'wait' };
+      if (a.ok) return { text: 'Puede entrar', cls: 'ok' };
+      if (a.why === 'both') return { text: 'Faltan ' + G.U.num(a.coins) + ' y ' + a.tickets + ' tickets', cls: 'no' };
+      if (a.why === 'tickets') return { text: 'Faltan ' + a.need + ' tickets', cls: 'no' };
+      return { text: 'Faltan ' + G.U.num(a.need), cls: 'no' };
+    }
+
+    function costText(pay) {
+      if (!pay) return '';
+      if (pay.tickets) return 'Entrada: ' + G.U.num(pay.share) + ' y ' + pay.tickets + ' tickets grises cada uno';
+      if (pay.share) return 'Entrada: ' + G.U.num(pay.share) + ' cada uno';
+      return 'Entrada gratis';
+    }
+
+    function kindTab(text, on, fn) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'gen-tab' + (on ? ' on' : '');
+      const lab = document.createElement('b');
+      lab.textContent = text;
+      b.appendChild(lab);
+      b.onclick = fn;
+      return b;
+    }
+
+    function buildPlay(box, room, play) {
+      box.classList.toggle('view', !room.isHost);
+      box.replaceChildren();
+      const label = document.createElement('p');
+      label.className = 'lobby-label';
+      label.textContent = 'Tipo de partida';
+      box.appendChild(label);
+
+      const kinds = document.createElement('div');
+      kinds.className = 'gen-tabs';
+      kinds.appendChild(kindTab('Partida normal', play.kind !== 'tower', () => G.Social.setPlay({ kind: 'run' })));
+      kinds.appendChild(kindTab('Torre', play.kind === 'tower', () => {
+        const mode = lastTower.mode || 'normal';
+        const id = lastTower.id && G.Towers.LIST.some(t => t.id === lastTower.id) ? lastTower.id : '';
+        G.Social.setPlay({ kind: 'tower', id, mode });
+      }));
+      box.appendChild(kinds);
+
+      if (play.kind === 'tower') {
+        const modes = document.createElement('div');
+        modes.className = 'gen-tabs';
+        for (const m of G.Towers.MODES) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'gen-tab' + (m.id === (play.mode || 'normal') ? ' on' : '');
+          b.dataset.mode = m.id;
+          const lab = document.createElement('b');
+          lab.textContent = m.name;
+          const hint = document.createElement('small');
+          hint.textContent = m.hint;
+          b.appendChild(lab);
+          b.appendChild(hint);
+          if (room.isHost) b.onclick = () => G.Social.setPlay({ kind: 'tower', id: play.id || '', mode: m.id });
+          modes.appendChild(b);
+        }
+        box.appendChild(modes);
+
+        if (room.isHost) {
+          const open = G.Towers.LIST.filter(t => G.Towers.unlocked(t.dexes[0]));
+          if (!open.length) {
+            const p = document.createElement('p');
+            p.className = 'lobby-pick';
+            p.textContent = 'Aún no has desbloqueado torres. Vence a un jefe en una grieta.';
+            box.appendChild(p);
+          } else {
+            const sel = document.createElement('select');
+            sel.className = 'field';
+            const blank = document.createElement('option');
+            blank.value = '';
+            blank.textContent = 'Elige la torre';
+            sel.appendChild(blank);
+            for (let g = 1; g <= 9; g++) {
+              const list = open.filter(t => t.gen === g);
+              if (!list.length) continue;
+              const og = document.createElement('optgroup');
+              og.label = G.T(G.Towers.REGIONS[g] || String(g));
+              for (const t of list) {
+                const o = document.createElement('option');
+                o.value = t.id;
+                o.textContent = (G.DEX_BY[t.dexes[0]] && G.DEX_BY[t.dexes[0]].name) || t.name;
+                o.setAttribute('translate', 'no');
+                og.appendChild(o);
+              }
+              sel.appendChild(og);
+            }
+            sel.value = play.id && open.some(t => t.id === play.id) ? play.id : '';
+            sel.onchange = () => G.Social.setPlay({ kind: 'tower', id: sel.value, mode: play.mode || 'normal' });
+            box.appendChild(sel);
+          }
+        } else {
+          const p = document.createElement('p');
+          p.className = 'lobby-pick';
+          const t = play.id && G.Towers.LIST.find(x => x.id === play.id);
+          if (!t) p.textContent = 'El anfitrión aún no elige torre.';
+          else {
+            const name = (G.DEX_BY[t.dexes[0]] && G.DEX_BY[t.dexes[0]].name) || t.name;
+            const modeName = (G.Towers.MODES.find(m => m.id === play.mode) || G.Towers.MODES[0]).name;
+            p.textContent = 'Torre de ' + name + ' · ' + modeName;
+          }
+          box.appendChild(p);
+        }
+      }
+
+      const cost = document.createElement('p');
+      cost.className = 'lobby-cost';
+      box.appendChild(cost);
+    }
+
+    /** Dibuja el tipo de partida y devuelve el precio de la torre, si hay una elegida. */
+    function renderPlay(room) {
+      const box = $('lobby-play');
+      const play = room.play && room.play.kind === 'tower' ? room.play : { kind: 'run' };
+      if (play.kind === 'tower') lastTower = { id: play.id || '', mode: play.mode || 'normal' };
+      const key = (room.isHost ? 'h:' : 'g:') + (play.kind === 'tower' ? 'tower:' + (play.id || '') + ':' + (play.mode || 'normal') : 'run');
+      if (box && key !== playUiKey) {
+        playUiKey = key;
+        buildPlay(box, room, play);
+      }
+      const pay = play.kind === 'tower' && play.id ? G.Towers.due(play.id, play.mode) : null;
+      const cost = box && box.querySelector('.lobby-cost');
+      if (cost) cost.textContent = costText(pay);
+      return { play, pay };
+    }
 
     function init() {
       $('lobby-leave').onclick = async () => {
@@ -181,6 +344,7 @@
       G.Social.refreshPresence();
       G.UI.show('scr-lobby', true);
       membersKey = '';
+      playUiKey = '';
       render();
     }
 
@@ -196,7 +360,11 @@
     function render() {
       const room = G.Social.room;
       if (!room) return;
+      G.Social.refreshMember();
       const ms = room.members;
+      const chosen = renderPlay(room);
+      const play = chosen.play;
+      const pay = chosen.pay;
       $('lobby-sub').textContent = room.isHost
         ? 'Eres el anfitrión. Invita a tus amigos (hasta ' + G.Social.MAX_PLAYERS + ') y empezad cuando estéis.'
         : 'Estás en la sala de ' + ((ms.find(m => m.uid === room.host) || {}).name || '…') + '. El anfitrión empezará la partida.';
@@ -214,14 +382,23 @@
           if (m) {
             c.style.setProperty('--pc', G.Coop.COLORS[i]);
             c.appendChild(G.UI.spriteCanvas(m.dex, 120, 96, { scale: 2, lively: true, shiny: !!m.shiny }));
-            c.insertAdjacentHTML('beforeend', `<b translate="no">${esc(m.name)}</b><small>${esc((G.DEX_BY[m.dex] || {}).name || '')}</small><span class="rdy" data-u="${m.uid}"></span><span class="conn" data-u="${m.uid}"></span>`);
+            c.insertAdjacentHTML('beforeend', `<b translate="no">${esc(m.name)}</b><small>${esc((G.DEX_BY[m.dex] || {}).name || '')}</small><span class="pay" data-u="${m.uid}"></span><span class="rdy" data-u="${m.uid}"></span><span class="conn" data-u="${m.uid}"></span>`);
           } else c.innerHTML = '<span>Libre</span>';
           box.appendChild(c);
         }
       }
       box.querySelectorAll('.lob-card').forEach((c, i) => {
         const m = ms[i];
+        const a = m && pay ? affordOf(m, pay) : null;
         c.classList.toggle('ready', !!(m && m.ready));
+        c.classList.toggle('short', !!(a && !a.ok && a.why !== 'wait'));
+      });
+      box.querySelectorAll('.pay').forEach(el => {
+        const m = ms.find(x => x.uid === el.dataset.u);
+        if (!m || !pay) { el.textContent = ''; el.className = 'pay'; return; }
+        const lab = payText(affordOf(m, pay));
+        el.textContent = lab.text;
+        el.className = 'pay' + (lab.cls ? ' ' + lab.cls : '');
       });
       box.querySelectorAll('.rdy').forEach(el => {
         const m = ms.find(x => x.uid === el.dataset.u);
@@ -268,11 +445,21 @@
       btn.classList.toggle('hidden', !room.isHost);
       const connecting = ms.some(m => m.uid !== room.host && G.Net.mode(m.uid) === 'connecting');
       const failed = ms.some(m => m.uid !== room.host && G.Net.mode(m.uid) === 'failed');
-      btn.disabled = !room.isHost || !allReady || connecting || failed;
-      btn.textContent = 'Empezar partida (' + nReady + '/' + ms.length + ')';
+      const towerOn = play.kind === 'tower';
+      const modeOk = !room.isHost || !towerOn || !play.id || G.Towers.modeOpen(play.id, play.mode);
+      const blocked = pay ? ms.map(m => ({ m, a: affordOf(m, pay) })).filter(x => !x.a.ok) : [];
+      const broke = blocked.filter(x => x.a.why !== 'wait');
+      const waitingPurse = blocked.some(x => x.a.why === 'wait');
+      btn.disabled = !room.isHost || !allReady || connecting || failed
+        || (towerOn && !pay) || (towerOn && !modeOk) || broke.length > 0 || waitingPurse;
+      btn.textContent = (towerOn ? 'Empezar torre (' : 'Empezar partida (') + nReady + '/' + ms.length + ')';
       $('lobby-note').textContent = ms.length < 2 && room.isHost ? 'Necesitas al menos un amigo en la sala.'
         : failed ? 'No se puede conectar con algún amigo: su red (o la tuya) no deja jugar en grupo. Probad con otra wifi o datos móviles; se reintenta solo.'
         : connecting ? 'Conectando con tus amigos…'
+        : towerOn && !play.id ? 'Elige una torre para empezar.'
+        : towerOn && !modeOk ? (play.mode === 'mad' ? 'Supera el modo difícil' : 'Supera el modo normal')
+        : broke.length ? 'No pueden entrar: ' + broke.map(x => x.m.name).join(', ') + '.'
+        : waitingPurse ? 'Comprobando el oro de la sala…'
         : !allReady ? 'Poneos listos. La partida empieza cuando lo estéis todos (' + nReady + '/' + ms.length + ').'
         : room.isHost ? 'Todos listos. La partida empieza para todos a la vez.'
         : 'Todos listos. El anfitrión puede empezar.';
@@ -281,10 +468,20 @@
     function start() {
       const room = G.Social.room;
       if (!room || !room.isHost || room.members.length < 2 || !room.members.every(m => m.ready)) return;
+      const play = room.play && room.play.kind === 'tower' ? room.play : { kind: 'run' };
+      let tower = null;
+      if (play.kind === 'tower') {
+        if (!play.id || !G.Towers.modeOpen(play.id, play.mode)) return;
+        const pay = G.Towers.due(play.id, play.mode);
+        if (!pay || room.members.some(m => !affordOf(m, pay).ok)) return;
+        tower = G.Towers.prepare(play.id, play.mode);
+        if (!tower) return;
+      }
       const cfg = {
         k: 'start', seed: Math.floor(Math.random() * 1e6), host: room.host,
         members: room.members.map(m => ({ uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny }))
       };
+      if (tower) cfg.tower = tower;
       G.Social.setOpen(false);
       G.Net.broadcast(cfg);
       G.Flow.startCoop(cfg);

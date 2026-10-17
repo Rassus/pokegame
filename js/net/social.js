@@ -10,8 +10,8 @@
  *     inv/{para_de}                { to, from, room, name, at } invitaciones
  *
  *   Realtime Database: SÓLO mientras estás en una sala o partida en grupo
- *     rooms/{id}          { host, open, at, m: { uid: { name, dex, shiny } }, q: ... }
- *                         la sala; q/ son los mensajes de net.js
+ *     rooms/{id}          { host, open, at, play, m: { uid: { name, dex, shiny, coins, t1 } }, q: ... }
+ *                         la sala; play es la partida elegida (run o torre); q/ son los mensajes de net.js
  *
  * Por qué así: el plan gratuito de Firebase sólo admite 100 conexiones a la
  * vez a la Realtime Database. Si todo el mundo estuviera conectado para el
@@ -36,7 +36,7 @@ G.Social = (() => {
   let beatT = 0, presAt = 0, unInv = null;
   const pres = new Map();           // otherUid -> { online, play, room, seen } (lo último leído)
   const sentInv = new Set();        // a quién invitaste (para retirarlo al salir)
-  let room = null;                  // { id, host, isHost, members: [{ uid, name, dex, shiny }] }
+  let room = null;                  // { id, host, isHost, play, members: [{ uid, name, dex, shiny, coins, t1 }] }
   let roomRefs = [];
   const invites = new Map();        // fromUid -> { from, name, room, at }
   const listeners = new Set();
@@ -273,9 +273,32 @@ G.Social = (() => {
 
   // ---------------- salas ----------------
 
+  /** Oro y tickets grises, para ver en la sala quién puede pagar una torre. */
+  function wallet() {
+    const s = G.DB.save;
+    return {
+      coins: Math.max(0, Math.floor(Number(s && s.coins) || 0)),
+      t1: Math.max(0, Math.floor(Number(s && s.tickets && s.tickets.t1) || 0))
+    };
+  }
+
   function memberInfo() {
     const s = G.DB.save;
-    return { name: me.name, dex: s.partner, shiny: !!s.partnerShiny && G.DB.ownsShiny(s.partner), ready: false, at: ts() };
+    const w = wallet();
+    return { name: me.name, dex: s.partner, shiny: !!s.partnerShiny && G.DB.ownsShiny(s.partner), ready: false, at: ts(), coins: w.coins, t1: w.t1 };
+  }
+
+  function playKey(p) {
+    return p && p.kind === 'tower' ? 'tower:' + (p.id || '') + ':' + (p.mode || 'normal') : 'run';
+  }
+
+  /** Lo que hay guardado en la sala: run, o una torre (id y modo). */
+  function readPlay(v) {
+    if (!v || v.kind !== 'tower') return { kind: 'run' };
+    const mode = v.mode === 'hard' || v.mode === 'mad' ? v.mode : 'normal';
+    const id = String(v.id || '');
+    if (id && !(G.Towers && G.Towers.LIST.some(t => t.id === id))) return { kind: 'run' };
+    return { kind: 'tower', id, mode };
   }
 
   /**
@@ -291,7 +314,7 @@ G.Social = (() => {
     if (room) return room;
     rtOn();
     const id = fb.rtdb.ref('rooms').push().key;
-    await fb.rtdb.ref('rooms/' + id).set({ host: uid, open: true, at: ts(), m: { [uid]: memberInfo() } });
+    await fb.rtdb.ref('rooms/' + id).set({ host: uid, open: true, at: ts(), play: { kind: 'run' }, m: { [uid]: memberInfo() } });
     enterRoom(id, uid);
     return room;
   }
@@ -320,7 +343,7 @@ G.Social = (() => {
   }
 
   function enterRoom(id, host) {
-    room = { id, host, isHost: host === uid, members: [], open: true };
+    room = { id, host, isHost: host === uid, members: [], open: true, play: { kind: 'run' } };
     watchRoomDisconnect();
     const mref = fb.rtdb.ref('rooms/' + id + '/m');
     mref.on('value', s => {
@@ -335,7 +358,24 @@ G.Social = (() => {
     href.on('value', s => { if (room && room.id === id && !s.val()) closedRoom(); }, () => closedRoom());
     const oref = fb.rtdb.ref('rooms/' + id + '/open');
     oref.on('value', s => { if (room && room.id === id) { room.open = s.val() === true; emit('room'); } }, () => {});
-    roomRefs = [mref, href, oref];
+    // La partida elegida (run o torre). Si cambia, cada uno se quita el listo.
+    let playAck = '', seenPlay = false;
+    const pref = fb.rtdb.ref('rooms/' + id + '/play');
+    pref.on('value', s => {
+      if (!room || room.id !== id) return;
+      const next = readPlay(s.val());
+      const key = playKey(next);
+      const changed = seenPlay && playAck !== key;
+      seenPlay = true;
+      playAck = key;
+      room.play = next;
+      if (changed) {
+        const mine = room.members.find(m => m.uid === uid);
+        if (mine && mine.ready) setReady(false);
+      }
+      emit('room');
+    }, () => {});
+    roomRefs = [mref, href, oref, pref];
     writeStatus();
     emit('room');
   }
@@ -381,14 +421,28 @@ G.Social = (() => {
     if (room && room.isHost) fb.rtdb.ref('rooms/' + room.id + '/open').set(!!open).catch(() => {});
   }
 
-  /** Actualiza tu Pokémon en la sala (si cambias de compañero). */
+  /** El anfitrión elige run o torre. Los demás sólo la ven. */
+  function setPlay(play) {
+    if (!room || !room.isHost || !fb) return;
+    const next = readPlay(play && play.kind === 'tower' ? play : { kind: 'run' });
+    room.play = next;
+    const data = next.kind === 'tower'
+      ? { kind: 'tower', id: next.id || '', mode: next.mode || 'normal' }
+      : { kind: 'run' };
+    fb.rtdb.ref('rooms/' + room.id + '/play').set(data).catch(() => {});
+    emit('room');
+  }
+
+  /** Actualiza tu Pokémon y tu oro en la sala (si cambias de compañero o de monedas). */
   function refreshMember() {
     if (!room || !me || !G.DB.save) return;
     const dex = G.DB.save.partner;
     const shiny = !!G.DB.save.partnerShiny && G.DB.ownsShiny(dex);
+    const w = wallet();
     const mine = room.members.find(m => m.uid === uid);
-    const patch = { dex, shiny };
+    const patch = { dex, shiny, coins: w.coins, t1: w.t1 };
     if (mine && (mine.dex !== dex || !!mine.shiny !== shiny)) patch.ready = false;
+    if (mine && mine.dex === dex && !!mine.shiny === shiny && Number(mine.coins) === w.coins && Number(mine.t1) === w.t1 && !('ready' in patch)) return;
     fb.rtdb.ref('rooms/' + room.id + '/m/' + uid).update(patch).catch(() => {});
   }
 
@@ -510,7 +564,7 @@ G.Social = (() => {
 
   return {
     start, stop, claimNick, request, accept, remove, publishProfile, getProfile, profileData,
-    createRoom, joinRoom, leaveRoom, setOpen, refreshMember, setReady, setPlaying, refreshPresence,
+    createRoom, joinRoom, leaveRoom, setOpen, setPlay, refreshMember, setReady, setPlaying, refreshPresence,
     invite, acceptInvite, declineInvite,
     on(fn) { listeners.add(fn); }, off(fn) { listeners.delete(fn); },
     get me() { return me; },
