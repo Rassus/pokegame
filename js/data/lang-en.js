@@ -204,6 +204,7 @@ G.I18n.add({
   'Has caído: un compañero puede levantarte': 'You\'re down: a teammate can revive you', 'Habéis caído todos…': 'Everyone is down…',
   '¡{x} necesita ayuda! · {x} m': '{x} needs help! · {x} m', 'CAÍDO': 'DOWN', 'Quédate a su lado': 'Stay by their side',
   'Grieta · {x} m · {x} s': 'Rift · {x} m · {x} s', 'DERROTADOS ·': 'DEFEATED ·', 'MONEDAS': 'COINS',
+  'y {x} más': 'and {x} more',
   '{x} · {x} DERROTADOS · {x} MONEDAS': '{x} · {x} DEFEATED · {x} COINS',
   'Arrastra el dedo para moverte · toca un ataque para cambiarlo': 'Drag your finger to move · tap a move to switch',
   'WASD moverse · 1-4 / Q / E o clic en un ataque para cambiarlo · Esc pausa': 'WASD move · 1-4 / Q / E or click a move to switch · Esc pause',

@@ -10,7 +10,9 @@ G.CHANGELOG = [
     ['Modo difícil: el doble de Pokémon por oleada, una cada 5 segundos y el jefe en 10 etapas. Cuesta 4 veces más. Se abre al superar esa torre en normal.',
      'Hard mode: twice the Pokémon per wave, one every 5 seconds and the boss in 10 stages. It costs 4 times as much. It opens once you clear that tower on normal.'],
     ['Modo demencial: el cuádruple de Pokémon por oleada, una cada 2 segundos y un jefe en cada oleada. Los jefes se quedan todos a la vez. No cuesta nada. Se abre al superar esa torre en difícil.',
-     'Insane mode: four times the Pokémon per wave, one every 2 seconds and a boss on every wave. The bosses all stay at once. It costs nothing. It opens once you clear that tower on hard.']
+     'Insane mode: four times the Pokémon per wave, one every 2 seconds and a boss on every wave. The bosses all stay at once. It costs nothing. It opens once you clear that tower on hard.'],
+    ['Durante la partida, a la derecha de los movimientos, se ven el oro y los tickets que llevas (gris, morado, azul y dorado) y la lista de shinies que has conseguido.',
+     'During a run, to the right of your moves, you see the gold and the tickets you are carrying (grey, purple, blue and gold) and the list of shinies you have caught.']
   ], chg: [
     ['La tier de una torre es la de su región: Kanto 1, Johto 2… y Paldea 9. El difícil sigue en la 10 y el demencial en la 19. Al ganar, el oro ×4 del costo se multiplica por la tier, los tickets dorados por 0,8 × la tier y los fragmentos por 1,5 × la tier.',
      'A tower\'s tier is its region: Kanto 1, Johto 2… and Paldea 9. Hard continues at 10 and insane at 19. On a clear, gold ×4 the cost is multiplied by the tier, gold tickets by 0.8 × the tier and fragments by 1.5 × the tier.'],
