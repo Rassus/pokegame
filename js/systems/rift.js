@@ -273,6 +273,9 @@ G.Rift = (() => {
     G.Hazards.clear();
     // Cada uno vuelve a SU sitio. Los compañeros los coloca su propio mensaje.
     pl.x = a.back.x; pl.y = a.back.y;
+    // El jefe que tocaba durante la pelea no sale en la arena: espera un minuto
+    // y aparece junto a donde habéis vuelto.
+    if (authority()) G.Spawner.holdBosses(60);
     if (pl.dead) pl.revive(0.3);
     G.EnemyMgr.scatterFrom(pl.x, pl.y, pl.r);
     G.Camera.x = pl.x; G.Camera.y = pl.y;

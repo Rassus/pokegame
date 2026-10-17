@@ -20,7 +20,10 @@ G.CHANGELOG = [
      'In the title, under Mystery Dungeon, Towers appears.'],
     ['La arena de las torres es más grande. Las oleadas aparecen en el borde, lejos de donde estáis, y ya no salen encima de los jugadores.',
      'The tower arena is larger. Waves appear at the edge, away from where you stand, and no longer spawn on top of the players.']
-  ], fix: [] },
+  ], fix: [
+    ['Al salir de una grieta, un jefe no puede aparecer hasta pasados 1 minuto. Antes, si le tocaba durante la pelea, salía en la arena y se quedaba a kilómetros de donde volvíais.',
+     'After leaving a rift, a boss cannot appear for 1 minute. Before, if one was due during the fight, it spawned in the arena and stayed kilometres away from where you returned.']
+  ] },
   { d: '2026-10-16', title: ['Tirar todo', 'Pull all'], new: [
     ['Caramelo Raro: sale en la hierba, en las rocas y al derrotar un Pokémon, con un 0,001% de probabilidad. Cuando sale, se anuncia. El imán no lo atrae: hay que pasar por encima. Sube un nivel.',
      'Rare Candy: it appears in tall grass, in rocks and when you defeat a Pokémon, with a 0.001% chance. When it appears, it is announced. The magnet does not pull it: you have to walk over it. It raises you one level.'],
