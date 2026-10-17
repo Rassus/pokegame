@@ -124,9 +124,11 @@ G.HUD = (() => {
     }
 
     // Potenciadores (ATK, VEL...) y cartas de la run, pegados al borde derecho.
+    // sideY queda justo debajo: ahí abajo, a la derecha de los ataques, van tickets y shinies.
+    let sideY = wx ? 48 : 16;
     {
       const edge = w - 16 - (touch ? 56 : 0);
-      let ry = wx ? 48 : 16;
+      let ry = sideY;
       const COL = { atk: '#ff6b4d', spd: '#7fe0ff', def: '#b0b8c8', regen: '#5fe08a' };
       const LBL = { atk: 'ATK', spd: 'VEL', def: 'DEF', regen: 'REG' };
       const chips = [];
@@ -172,6 +174,7 @@ G.HUD = (() => {
         ctx.fillText(num, x + 26 + lw, ry + 13);
         ry += 20;
       }
+      sideY = ry;
     }
 
     if (G.Coop.active) drawCoop(ctx, w, h, pl, px, py + 40);
@@ -405,16 +408,21 @@ G.HUD = (() => {
     }
 
     // ---------- vínculo guardado (aún no hay dos movimientos sueltos) ----------
+    let bondExtra = 0;
     if (pl.bonds > 0) {
       const bx = sx + totalW + 12, by = sy + S / 2 - 12;
       G.Icons.draw(ctx, 'bond', bx, by, 24);
+      bondExtra = 40;
       if (pl.bonds > 1) {
         ctx.font = F(800, 10);
         ctx.textAlign = 'left';
         ctx.fillStyle = BOND;
         ctx.fillText('×' + pl.bonds, bx + 25, by + 20);
+        bondExtra = 56;
       }
     }
+
+    drawCarry(ctx, w, pl, sx, totalW, sy, S, sideY, touch, bondExtra);
 
     // ---------- objeto equipado (a la izquierda de los movimientos) ----------
     {
@@ -469,6 +477,185 @@ G.HUD = (() => {
                          : 'WASD moverse  ·  1-4 / Q / E o clic en un ataque para cambiarlo  ·  Esc pausa', w / 2, h - 4);
     }
 
+    ctx.restore();
+  }
+
+  // ---------------- tickets y shinies de la run ----------------
+
+  const TICKETS = [
+    ['ticket', 't1', '#c9cedb'],
+    ['ticket10', 't10', '#c47bff'],
+    ['ticketb', 'tb', '#4fb4ff'],
+    ['ticketg', 'tg', '#ffd23f']
+  ];
+  const shinyAnim = new Map();
+  let shinyClock = 0;
+
+  function animFor(dex) {
+    let a = shinyAnim.get(dex);
+    if (!a) {
+      a = new G.Sprites.Animator(dex, 1, true);
+      a.dir = 0;
+      shinyAnim.set(dex, a);
+      G.Sprites.preload([dex], 4000, true);
+    }
+    return a;
+  }
+
+  function tickAnims() {
+    const now = performance.now();
+    const dt = shinyClock ? Math.min(0.05, (now - shinyClock) / 1000) : 0;
+    shinyClock = now;
+    if (!dt) return;
+    for (const a of shinyAnim.values()) a.update(dt);
+  }
+
+  /** Shinies de esta run, en el orden en que cayeron. Los repetidos se agrupan. */
+  function carryShinies() {
+    const src = (G.Game && G.Game.caught) || [];
+    const rows = [];
+    const ix = new Map();
+    for (const c of src) {
+      let i = ix.get(c.dex);
+      if (i == null) {
+        ix.set(c.dex, rows.length);
+        const mon = G.DEX_BY[c.dex];
+        rows.push({ dex: c.dex, name: (mon && mon.name) || '???', n: 1 });
+      } else rows[i].n++;
+    }
+    return rows;
+  }
+
+  function fitLabel(ctx, label, maxW) {
+    if (ctx.measureText(label).width <= maxW) return label;
+    let s = label;
+    while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+    return s + '…';
+  }
+
+  /**
+   * Recuadro a la derecha de los movimientos: el oro y los cuatro tickets de la run
+   * y, encima, los shinies conseguidos. Si no cabe al lado, sube al borde derecho.
+   */
+  function drawCarry(ctx, w, pl, sx, totalW, sy, S, sideY, touch, bondExtra) {
+    tickAnims();
+    const list = carryShinies();
+    const saR = touch ? Math.min(28, G.Touch.safeArea().right || 0) : 0;
+    const edgeR = w - 8 - saR;
+    const beside = sx + totalW + 12 + (bondExtra || 0);
+    const PAD = 5, TROW = 17, SROW = 22;
+    const wideW = 156, slimW = 64;
+    const topLimit = sideY + 4;
+
+    const measure = shown => {
+      const extra = list.length > shown && shown > 0 ? 13 : 0;
+      const shinyH = shown ? 4 + shown * SROW + extra : 0;
+      return PAD * 2 + (TICKETS.length + 1) * TROW + shinyH;
+    };
+    // El fondo del recuadro se apoya en `bottom` y crece hacia arriba, sin pasar de las mejoras.
+    function place(bottom) {
+      let nShow = list.length;
+      let h = measure(nShow);
+      while (nShow > 0 && bottom - h < topLimit) { nShow--; h = measure(nShow); }
+      return { nShow, h, y: bottom - h };
+    }
+
+    let mode, x, width, shown, boxH, y;
+    const slotBottom = sy + S;
+    if (beside + wideW <= edgeR + 1) {
+      mode = 'wide'; width = wideW; x = beside;
+      ({ nShow: shown, h: boxH, y } = place(slotBottom));
+    } else if (beside + slimW <= edgeR + 1) {
+      mode = 'slim'; width = slimW; x = beside;
+      ({ nShow: shown, h: boxH, y } = place(slotBottom));
+    } else if (edgeR - wideW >= sx + totalW - 6) {
+      mode = 'wide'; width = wideW; x = edgeR - wideW;
+      ({ nShow: shown, h: boxH, y } = place(sy - 22));
+    } else {
+      mode = 'slim'; width = slimW;
+      x = Math.max(8, Math.min(beside, edgeR - slimW));
+      ({ nShow: shown, h: boxH, y } = place(sy - 22));
+    }
+
+    const hidden = list.length - shown;
+    const vis = hidden > 0 ? list.slice(list.length - shown) : list;
+
+    ctx.save();
+    roundRect(ctx, x, y, width, boxH, 10);
+    ctx.fillStyle = 'rgba(10,16,28,.82)';
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+
+    const rowsTop = y + boxH - PAD - (TICKETS.length + 1) * TROW;
+    const ticketTop = rowsTop + TROW;
+    if (vis.length) {
+      let ry = rowsTop - 4 - vis.length * SROW;
+      if (hidden > 0) {
+        ctx.font = F(700, 9);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#9ae6ff';
+        const more = mode === 'wide' ? 'y ' + hidden + ' más' : '+' + hidden;
+        ctx.fillText(more, x + PAD, ry - 2);
+      }
+      vis.forEach((row, i) => {
+        const ry0 = ry + i * SROW;
+        const a = animFor(row.dex);
+        const bh = Math.max(14, G.Sprites.bodyHeight(row.dex, 1));
+        a.scale = Math.min(1, 18 / bh);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x + 2, ry0, mode === 'wide' ? 26 : width - 4, SROW);
+        ctx.clip();
+        a.draw(ctx, x + 14, ry0 + SROW - 2);
+        ctx.restore();
+        ctx.font = F(700, 10);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        if (mode === 'wide') {
+          const count = row.n > 1 ? ' ×' + row.n : '';
+          const name = fitLabel(ctx, row.name, width - 34 - ctx.measureText(count).width);
+          ctx.fillStyle = '#d7f6ff';
+          ctx.fillText(name, x + 28, ry0 + 15);
+          if (count) {
+            ctx.fillStyle = '#ffd23f';
+            ctx.fillText(count, x + 28 + ctx.measureText(name).width, ry0 + 15);
+          }
+        } else if (row.n > 1) {
+          ctx.fillStyle = '#ffd23f';
+          ctx.fillText('×' + row.n, x + 28, ry0 + 15);
+        }
+      });
+      ctx.strokeStyle = 'rgba(255,255,255,.14)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + 6, rowsTop - 2);
+      ctx.lineTo(x + width - 6, rowsTop - 2);
+      ctx.stroke();
+    }
+
+    G.Icons.draw(ctx, 'coin', x + PAD, rowsTop + (TROW - 14) / 2, 14);
+    ctx.font = F(800, 11);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillText(G.U.num(pl.coins || 0), x + PAD + 18, rowsTop + 13);
+
+    TICKETS.forEach((t, i) => {
+      const ty = ticketTop + i * TROW;
+      G.Icons.draw(ctx, t[0], x + PAD, ty + (TROW - 14) / 2, 14);
+      ctx.font = F(800, 11);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = t[2];
+      ctx.fillText(G.U.num(pl[t[1]] || 0), x + PAD + 18, ty + 13);
+    });
+
+    ctx.restore();
+    roundRect(ctx, x, y, width, boxH, 10);
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(180,210,235,.32)';
+    ctx.stroke();
     ctx.restore();
   }
 

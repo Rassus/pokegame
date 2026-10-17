@@ -1051,7 +1051,10 @@ G.Game = (() => {
     /** Para grabar vídeos: abre las cartas de subir de nivel. */
     debugLevelUp() { pl.level++; pendingLevels++; },
     toUI() { state = 'ui'; Backdrop.restore(); },
-    get state() { return state; }, get player() { return pl; }, queueGoldWheel, st
+    get state() { return state; }, get player() { return pl; },
+    /** Shinies conseguidos en esta run: { dex, isNew }. */
+    get caught() { return caught; },
+    queueGoldWheel, st
   };
 })();
 

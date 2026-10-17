@@ -25,12 +25,15 @@ G.Spawner = (() => {
   let acc = 0, bossIdx = 0, surgeT = 32, announce = null, announceT = 0, preloadT = 0;
   // A partir del minuto 20: un jefe, y el siguiente entre 3 y 12 minutos después.
   let lateN = 0, lateAt = 20 * 60;
+  // Tras salir de una grieta, ningún jefe puede salir hasta que pase esto.
+  // Si no, el que tocaba durante la pelea aparece en la arena (a kilómetros).
+  let bossWait = 0;
   const scriptedFired = new Set();
   let forceShiny = 0;           // para pruebas: los N próximos salen shiny
 
   function reset() {
     acc = 0; bossIdx = 0; surgeT = 32; announce = null; announceT = 0; preloadT = 0;
-    lateN = 0; lateAt = 20 * 60;
+    lateN = 0; lateAt = 20 * 60; bossWait = 0;
     scriptedFired.clear();
     G.Enemies.rollRun();
     G.Sprites.preload(G.Enemies.upcomingDex(0, 80));
@@ -151,6 +154,8 @@ G.Spawner = (() => {
       if (ev.kind === 'rift') {
         if (!G.Rift.openScripted(ev.dex)) continue;
         say('¡Se abre una grieta!', 3);
+      } else if (ev.kind === 'boss' && bossWait > 0) {
+        continue;
       } else {
         const def = G.Enemies.scripted(ev.dex, ev.kind === 'boss');
         if (!def) { scriptedFired.add(ev); continue; }
@@ -170,8 +175,10 @@ G.Spawner = (() => {
   function update(dt, who, t) {
     players = Array.isArray(who) ? who : [who];
     if (announceT > 0) announceT -= dt;
-    // En la arena de la grieta no sale nada más (y el reloj de jefes espera).
+    // En la arena de la grieta no sale nada más (el reloj de la run sigue,
+    // pero los jefes esperan: al salir hay un minuto de margen).
     if (G.Rift.inArena) return;
+    if (bossWait > 0) bossWait -= dt;
 
     // Precarga lo que va a salir en el próximo minuto.
     preloadT -= dt;
@@ -183,10 +190,10 @@ G.Spawner = (() => {
 
     runScripted(t);
 
-    // --- jefes ---
-    const b = G.Enemies.BOSSES[bossIdx];
+    // --- jefes (no justo al salir de una grieta: saldrían en la arena) ---
+    const b = bossWait > 0 ? null : G.Enemies.BOSSES[bossIdx];
     if (b && t >= b.at) { spawnBoss(anchor(), t, b); bossIdx++; }
-    else if (!b && t >= lateAt) {
+    else if (!b && bossWait <= 0 && t >= lateAt) {
       spawnBoss(anchor(), t, G.Enemies.lateBoss(lateN));
       lateN++;
       lateAt = t + (3 + Math.floor(Math.random() * 10)) * 60;
@@ -250,6 +257,9 @@ G.Spawner = (() => {
   /** Invitado en cooperativo: sólo corre el reloj del aviso. */
   function tickBanner(dt) { if (announceT > 0) announceT -= dt; }
 
-  return { reset, update, ahead, burst, tickBanner, banner, say, rate, SHINY_RATE, CAP,
+  /** Ningún jefe hasta dentro de `secs` (al volver de una grieta). */
+  function holdBosses(secs) { if (secs > bossWait) bossWait = secs; }
+
+  return { reset, update, ahead, burst, tickBanner, banner, say, rate, holdBosses, SHINY_RATE, CAP,
            debugForceShiny(n = 1) { forceShiny = n; } };
 })();
