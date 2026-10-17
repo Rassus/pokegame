@@ -1,8 +1,12 @@
 /* ============ tower.js — torres en una grieta ============
  * Cada jefe vencido en una grieta tiene su torre. La primera oleada sale al
- * entrar; las siguientes, cada 10 s, aunque queden vivos. Se juega en una
- * arena de grieta. La dificultad sube con las mejoras del compañero (en
- * grupo, las del anfitrión, que es quien genera las oleadas).
+ * entrar; las siguientes, cada 10 s, aunque queden vivos. Difícil duplica
+ * los Pokémon, baja a 5 s y parte al jefe en 10 etapas. Demencial los
+ * cuadruplica, una oleada cada 2 s y un jefe en cada una: se quedan todos.
+ * Se juega en una arena de grieta más ancha que la del legendario: las
+ * oleadas salen en el borde, lejos de los jugadores. La dificultad sube con
+ * las mejoras del compañero (en grupo, las del anfitrión, que es quien
+ * genera las oleadas).
  *
  * Entrada, en oro y a partes iguales: Kanto 3.000, Johto 10.000, Hoenn y
  * las de después 50.000. Desde Hoenn, cada jugador paga además 10 tickets
@@ -13,12 +17,22 @@
  * 0,01% de un fragmento de su línea. En todas las torres, la tienda abre cada
  * 10 oleadas (Premio por oleada la adelanta hasta cada 5): 2 mejoras y una baya.
  *
- * Al superar la torre: 1 ticket dorado, oro ×4 del costo y un 60% de 45 a 100
- * fragmentos de ese jefe. Si no lo tienes, un 25% de atraparlo. El jefe puede
- * salir shiny (1/1024). No cuenta para el récord de tiempo ni para el ranking.
+ * Al superar la torre el premio sigue la tier: Kanto es 1 y cada región
+ * suma una; el difícil empieza en 10 y el demencial en 19. El oro es ×4 del
+ * costo × la tier, los tickets dorados ×0,8 × la tier y los fragmentos
+ * (60 % de 45 a 100) ×1,5 × la tier. Si no lo tienes, un 25% de atraparlo.
+ * El jefe puede salir shiny (1/1024). No cuenta para el récord de tiempo
+ * ni para el ranking.
  */
 G.Towers = (() => {
   const EVERY = 10;
+  // La del legendario es 11. Aquí cabe un anillo de aparición fuera de la vista.
+  const ARENA_R = 16;
+  const MODES = [
+    { id: 'normal', name: 'Normal', hint: '10 s', pack: 1, every: 10, stages: 0, stack: false },
+    { id: 'hard', name: 'Difícil', hint: '×4 precio', detail: '×4 de precio · ×2 Pokémon · 5 s · jefe en 10 etapas', pack: 2, every: 5, stages: 10, stack: false },
+    { id: 'mad', name: 'Demencial', hint: 'sin costo', detail: 'sin costo · ×4 Pokémon · 2 s · jefe en cada oleada', pack: 4, every: 2, stages: 0, stack: true }
+  ];
   const CHANSEY = 113;
   const RAYQUAZA = 384;
   // Cinco luces: la primera tarda 1,5 s y cada una va más rápida. Luego el rayo.
@@ -72,10 +86,23 @@ G.Towers = (() => {
     return Math.max(1, room && room.members ? room.members.length : 1);
   }
 
-  function due(id) {
+  function due(id, modeId) {
     const t = LIST.find(x => x.id === id);
     if (!t) return null;
-    return { share: Math.ceil(t.fee / party()), tickets: t.tickets || 0, fee: t.fee };
+    const mode = modeOf(modeId);
+    const k = mode.id === 'mad' ? 0 : mode.id === 'hard' ? 4 : 1;
+    const fee = t.fee * k, tickets = (t.tickets || 0) * k;
+    return { share: fee ? Math.ceil(fee / party()) : 0, tickets, fee: t.fee };
+  }
+
+  /** La difícil pide esa torre en normal; la demencial, en difícil. */
+  function modeOpen(id, modeId) {
+    const mode = modeOf(modeId).id;
+    if (mode === 'normal') return true;
+    const s = G.DB.save;
+    const row = (s && s.towerMode && s.towerMode[id]) || {};
+    if (mode === 'hard') return !!((s && s.tower100 && s.tower100[id] > 0) || row.normal > 0);
+    return (row.hard || 0) > 0;
   }
 
   /** '' si puede pagar; si no, 'coins' o 'tickets'. */
@@ -110,19 +137,53 @@ G.Towers = (() => {
   function claim() { const a = armed; armed = null; return a; }
   function reset() { run = null; }
 
+  function modeOf(id) { return MODES.find(m => m.id === id) || MODES[0]; }
+
+  /** Kanto es 1. El difícil sigue tras Paldea (10) y el demencial tras el difícil (19). */
+  function tierOf(gen, modeId) {
+    const g = Math.max(1, Math.min(9, gen || 1));
+    const mode = modeOf(modeId).id;
+    const block = mode === 'hard' ? 9 : mode === 'mad' ? 18 : 0;
+    return g + block;
+  }
+
+  /** Etapas repartidas por la torre; la última cae en la oleada final. */
+  function stagePlan(waves, stages) {
+    const plan = [];
+    for (let i = 1; i <= stages; i++) {
+      const prev = plan.length ? plan[plan.length - 1] : 0;
+      plan.push(Math.min(waves, Math.max(prev + 1, Math.round(waves * i / stages))));
+    }
+    plan[plan.length - 1] = waves;
+    return plan;
+  }
+
+  function planFor(t, mode) {
+    if (mode.stack) {
+      const plan = [];
+      for (let i = 1; i <= t.waves; i++) plan.push(i);
+      return plan;
+    }
+    if (mode.stages) return stagePlan(t.waves, mode.stages);
+    return t.plan.slice();
+  }
+
   /** Qué jefe y en qué arena. La llama quien entra. */
-  function prepare(id) {
+  function prepare(id, modeId) {
     const t = LIST.find(x => x.id === id);
     if (!t) return null;
     const dex = t.dexes[0];
     if (!unlocked(dex)) return null;
-    const pay = due(id);
+    const mode = modeOf(modeId);
+    if (!modeOpen(id, mode.id)) return null;
+    const pay = due(id, mode.id);
     return {
-      id, dex, fee: t.fee, tickets: pay.tickets, waves: t.waves, plan: t.plan.slice(),
-      share: pay.share,
+      id, dex, fee: t.fee, tickets: pay.tickets, waves: t.waves, plan: planFor(t, mode),
+      share: pay.share, every: mode.every, pack: mode.pack, stack: mode.stack, mode: mode.id,
+      tier: tierOf(t.gen, mode.id),
       arena: {
         tx: 5000 + G.U.randInt(0, 2999), ty: 5000 + G.U.randInt(0, 2999),
-        r: 11, type: arenaType(dex)
+        r: ARENA_R, type: arenaType(dex)
       },
       shiny: G.Sprites.hasShiny(dex) && Math.random() < 1 / 1024,
       duel: false
@@ -154,6 +215,8 @@ G.Towers = (() => {
     run = {
       id: cfg.id, dex: cfg.dex, gen, shiny: !!cfg.shiny, waves: cfg.waves || 100,
       plan, phases: plan.length, fee: cfg.fee || 0,
+      every: cfg.every || EVERY, pack: cfg.pack || 1, stack: !!cfg.stack, mode: cfg.mode || 'normal',
+      tier: cfg.tier || tierOf(gen, cfg.mode),
       wave: 0, wait: 0.4, cleared: false, done: false, reward: null,
       bosses: [], finalDown: false, aura: 0, fx: null, duel: !!cfg.duel,
       ax: cfg.arena.tx * tile + tile / 2, ay: cfg.arena.ty * tile + tile / 2, ar: cfg.arena.r
@@ -170,7 +233,8 @@ G.Towers = (() => {
     const pl = G.Game.player;
     if (pl) { G.Camera.x = pl.x; G.Camera.y = pl.y; }
     G.Audio.sfx('rift');
-    G.Spawner.say('Has entrado en la grieta…', 2.4, true);
+    const hi = run.mode === 'hard' ? 'Modo difícil…' : run.mode === 'mad' ? 'Modo demencial…' : 'Has entrado en la grieta…';
+    G.Spawner.say(hi, 2.4, true);
     const pool = minionPool(cfg.dex);
     const dexes = pool.typed.concat(pool.rest).map(p => p.dex);
     G.Sprites.preload(dexes.concat(cfg.dex, CHANSEY), 8000, cfg.shiny);
@@ -187,6 +251,12 @@ G.Towers = (() => {
     if (!s) return;
     s.stats = s.stats || {};
     s.stats.towerClears = (s.stats.towerClears || 0) + 1;
+    if (!run.id) return;
+    s.towerMode = s.towerMode || {};
+    const row = Object.assign({ normal: 0, hard: 0, mad: 0 }, s.towerMode[run.id]);
+    const key = run.mode === 'hard' ? 'hard' : run.mode === 'mad' ? 'mad' : 'normal';
+    row[key] = (row[key] || 0) + 1;
+    s.towerMode[run.id] = row;
   }
 
   function markClear() {
@@ -202,9 +272,10 @@ G.Towers = (() => {
       const name = (G.DEX_BY[run.dex] && G.DEX_BY[run.dex].name) || '';
       return name ? '¡Jefe: ' + name + '!' : 'Jefe directo';
     }
-    if (!run.wave) return 'Torre · ' + run.waves + ' oleadas';
+    const tag = run.mode === 'hard' ? 'Difícil · ' : run.mode === 'mad' ? 'Demencial · ' : '';
+    if (!run.wave) return tag + 'Torre · ' + run.waves + ' oleadas';
     const left = run.wave < run.waves && run.wait > 0 ? ' · ' + Math.ceil(run.wait) + ' s' : '';
-    return 'Oleada ' + run.wave + '/' + run.waves + left;
+    return tag + 'Oleada ' + run.wave + '/' + run.waves + left;
   }
 
   function minionPool(dex) {
@@ -236,14 +307,22 @@ G.Towers = (() => {
     return 16 + Math.floor((wave - 13) / 6) * 4;
   }
 
+  /** Borde de la arena, nunca encima de un jugador. */
   function spot() {
-    const max = (run.ar - 2) * ts();
-    for (let i = 0; i < 16; i++) {
-      const a = Math.random() * 6.2832, d = G.U.rand(70, max * 0.82);
+    const tile = ts();
+    const outer = (run.ar - 2.2) * tile;
+    const inner = Math.max(tile * 6, outer * 0.62);
+    const gap = tile * 3.5;
+    const players = G.Game.everyone().filter(p => p && !p.dead);
+    for (let i = 0; i < 24; i++) {
+      const a = Math.random() * 6.2832, d = G.U.rand(inner, outer);
       const x = run.ax + Math.cos(a) * d, y = run.ay + Math.sin(a) * d;
-      if (G.World.isFree(x, y, 16)) return [x, y];
+      if (!G.World.isFree(x, y, 16)) continue;
+      if (players.some(p => G.U.dist2(p.x, p.y, x, y) < gap * gap)) continue;
+      return [x, y];
     }
-    return [run.ax, run.ay - 60];
+    const x = run.ax, y = run.ay - outer;
+    return G.World.isFree(x, y, 16) ? [x, y] : [run.ax, run.ay - tile * 4];
   }
 
   function scale() {
@@ -284,7 +363,7 @@ G.Towers = (() => {
   function spawnPack(pl) {
     const k = run.wave;
     const mul = scale();
-    const n = packSize(k);
+    const n = packSize(k) * Math.max(1, run.pack || 1);
     const pool = minionPool(run.dex);
     const preferN = pool.typed.length ? Math.ceil(n * 0.6) : 0;
     for (let i = 0; i < n; i++) {
@@ -324,6 +403,22 @@ G.Towers = (() => {
     if (send) net(['tw', 'frag', dex]);
   }
 
+  /** En demencial se abren en abanico al norte para no pisarse. */
+  function bossSpot() {
+    const tile = ts();
+    const home = [run.ax, run.ay - tile * 3.2];
+    if (!run.stack) return home;
+    const n = run.bosses.length;
+    for (let i = 0; i < 8; i++) {
+      const k = n + i;
+      const a = -1.5708 + ((k % 8) - 3.5) * 0.32;
+      const d = tile * (2.6 + Math.floor(k / 8) * 0.85);
+      const x = run.ax + Math.cos(a) * d, y = run.ay + Math.sin(a) * d;
+      if (G.World.isFree(x, y, 16)) return [x, y];
+    }
+    return home;
+  }
+
   function spawnBoss(pl, phase) {
     const mon = G.DEX_BY[run.dex];
     const n = G.Game.everyone().length;
@@ -336,7 +431,8 @@ G.Towers = (() => {
       dmg: Math.round(34 * mul), xp: Math.round((360 + phase * 80) * G.Upgrades.towerXp()),
       shotDmg: Math.round(18 * mul), shotCd: 1, range: 280
     };
-    const e = new G.Enemy(def, run.ax, run.ay - ts() * 3.2, ONE, true);
+    const [bx, by] = bossSpot();
+    const e = new G.Enemy(def, bx, by, ONE, true);
     e.flying = false;
     e.legend = true;
     e.towerPhase = phase;
@@ -357,8 +453,7 @@ G.Towers = (() => {
 
   function inAura(pl) {
     if (!run || run.aura <= 0 || !pl) return false;
-    const e = bossOf();
-    return !!(e && G.U.dist(pl.x, pl.y, e.x, e.y) < 340);
+    return G.EnemyMgr.all().some(e => e.towerPhase && !e.dead && G.U.dist(pl.x, pl.y, e.x, e.y) < 340);
   }
 
   function coverRadius(e) {
@@ -396,12 +491,12 @@ G.Towers = (() => {
     else if (ev[1] === 'ray' && ev[2] === 'off') {
       if (run.ray && run.ray.phase === 'ring') run.ray = null;
     } else if (ev[1] === 'ray' && ev[2] === 'go') {
-      run.ray = { phase: 'ring', n: 0, t: 0, dur: RAY_PULSE[0], tick: 0 };
+      run.ray = { phase: 'ring', n: 0, t: 0, dur: RAY_PULSE[0], tick: 0, owner: ev[3] || 0 };
       G.Audio.sfx('boss');
     } else if (ev[1] === 'ray' && ev[2] === 'beam') {
       run.ray = {
         phase: 'beam', t: 0, tick: 0.2,
-        x: ev[3], y: ev[4], ang: ev[5] / 1000, len: ev[6], w: ev[7], dmg: ev[8], burn: ev[9]
+        x: ev[3], y: ev[4], ang: ev[5] / 1000, len: ev[6], w: ev[7], dmg: ev[8], burn: ev[9], owner: ev[10] || 0
       };
       G.Camera.kick(0.85);
       G.Audio.sfx('shot', { kind: 'beam', type: 'dragon' });
@@ -422,9 +517,16 @@ G.Towers = (() => {
     return Math.abs(-px * sa + py * ca) <= r.w / 2 + rad * 0.45;
   }
 
-  function startRay() {
-    run.ray = { phase: 'ring', n: 0, t: 0, dur: RAY_PULSE[0], tick: 0 };
-    net(['tw', 'ray', 'go']);
+  function rayBoss() {
+    const id = run.ray && run.ray.owner;
+    const e = id && G.EnemyMgr.get(id);
+    if (e && !e.dead) return e;
+    return bossOf();
+  }
+
+  function startRay(e) {
+    run.ray = { phase: 'ring', n: 0, t: 0, dur: RAY_PULSE[0], tick: 0, owner: e.id };
+    net(['tw', 'ray', 'go', e.id]);
     G.Spawner.say('¡Rayquaza concentra la luz!', 2.2);
     G.Audio.sfx('boss');
   }
@@ -441,9 +543,9 @@ G.Towers = (() => {
     const len = Math.round((run.ar || 11) * ts() * 2.8);
     const dmg = Math.max(8, Math.round(e.shotDmg()));
     const burn = Math.max(5, Math.round(dmg * 0.45));
-    run.ray = { phase: 'beam', t: 0, tick: 0.2, x: e.x, y: e.y, ang, len, w, dmg, burn };
+    run.ray = { phase: 'beam', t: 0, tick: 0.2, x: e.x, y: e.y, ang, len, w, dmg, burn, owner: e.id };
     e.look = ang;
-    net(['tw', 'ray', 'beam', Math.round(e.x), Math.round(e.y), Math.round(ang * 1000), len, w, dmg, burn]);
+    net(['tw', 'ray', 'beam', Math.round(e.x), Math.round(e.y), Math.round(ang * 1000), len, w, dmg, burn, e.id]);
     G.Camera.kick(0.85);
     G.Audio.sfx('shot', { kind: 'beam', type: 'dragon' });
     G.Spawner.say('¡Rayo!', 1.8);
@@ -463,8 +565,8 @@ G.Towers = (() => {
     const r = run && run.ray;
     if (!r) return;
     if (r.phase === 'ring') {
-      const e = bossOf();
-      if (authority() && !e) { run.ray = null; return; }
+      const e = rayBoss();
+      if (authority() && (!e || (r.owner && e.id !== r.owner))) { run.ray = null; net(['tw', 'ray', 'off']); return; }
       r.t += dt;
       if (r.t < r.dur) return;
       if (r.n >= RAY_PULSE.length - 1) {
@@ -486,8 +588,8 @@ G.Towers = (() => {
       r.phase = 'scorch';
       r.t = 0;
       r.tick = 0.35;
-      const e = bossOf();
-      if (e && e.tower) { e.tower.rayCd = RAY_CD; e.look = null; }
+      const e = rayBoss();
+      if (e && e.tower && (!r.owner || e.id === r.owner)) { e.tower.rayCd = RAY_CD; e.look = null; }
       if (authority()) G.Spawner.say('El suelo arde', 2);
       return;
     }
@@ -536,6 +638,7 @@ G.Towers = (() => {
     const t = e.tower;
     if (!t || !run) return null;
     const rayOn = run.ray && (run.ray.phase === 'ring' || run.ray.phase === 'beam');
+    const mine = rayOn && (!run.ray.owner || run.ray.owner === e.id);
     if (e.dex === RAYQUAZA && !rayOn && t.rayCd > 0) t.rayCd -= dt;
     if (t.med > 0) {
       t.med -= dt;
@@ -568,15 +671,15 @@ G.Towers = (() => {
       }
       return [0, 0, 'Charge'];
     }
-    if (rayOn) {
+    if (mine) {
       if (e.ai) e.ai.cast = null;
       e.guard = 0;
       e.look = run.ray.phase === 'beam' ? run.ray.ang : null;
       return [0, 0, run.ray.phase === 'beam' ? 'Shoot' : 'Charge'];
     }
     e.look = null;
-    if (e.dex === RAYQUAZA && t.rayCd <= 0) {
-      startRay();
+    if (e.dex === RAYQUAZA && t.rayCd <= 0 && !rayOn) {
+      startRay(e);
       return [0, 0, 'Charge'];
     }
     e.guard = 0;
@@ -621,10 +724,13 @@ G.Towers = (() => {
       b.down = true;
       run.aura = 0;
       run.fx = null;
-      if (run.ray && run.ray.phase === 'ring') { run.ray = null; net(['tw', 'ray', 'off']); }
+      if (run.ray && run.ray.phase === 'ring' && (!run.ray.owner || run.ray.owner === b.id)) {
+        run.ray = null; net(['tw', 'ray', 'off']);
+      }
       grantBond(true);
-      if (b.phase < run.phases) G.Spawner.say('Se retira… volverá más adelante', 2.4);
-      else run.finalDown = true;
+      if (b.phase < run.phases) {
+        if (!run.stack) G.Spawner.say('Se retira… volverá más adelante', 2.4);
+      } else run.finalDown = true;
     }
   }
 
@@ -639,8 +745,10 @@ G.Towers = (() => {
     if (!own && Math.random() < 0.25) { caught = true; caughtShiny = !!run.shiny; }
     else if (wantShiny && Math.random() < 0.25) caughtShiny = true;
     if (run.duel) return { frags: 0, caught, caughtShiny, gold: 0, ticket: 0 };
-    const frags = Math.random() < 0.6 ? G.U.randInt(45, 100) : 0;
-    return { frags, caught, caughtShiny, gold: (run.fee || 0) * 4, ticket: 1 };
+    const tier = run.tier || 1;
+    const frags = Math.random() < 0.6 ? Math.round(G.U.randInt(45, 100) * 1.5 * tier) : 0;
+    const ticket = Math.round(0.8 * tier);
+    return { frags, caught, caughtShiny, gold: Math.round((run.fee || 0) * 4 * tier), ticket };
   }
 
   function finish() {
@@ -651,7 +759,8 @@ G.Towers = (() => {
     const r = run.reward;
     const bits = [];
     if (r.caught || r.caughtShiny) bits.push('¡Lo has atrapado!');
-    if (r.ticket) bits.push('1 ticket dorado');
+    if (r.ticket === 1) bits.push('1 ticket dorado');
+    else if (r.ticket) bits.push(r.ticket + ' tickets dorados');
     if (r.frags) bits.push('+' + r.frags + ' fragmentos');
     if (r.gold) bits.push('+' + G.U.num(r.gold) + ' Pokémonedas');
     G.Spawner.say(bits.join(' · ') || '¡Torre superada!', 2.4, true);
@@ -670,7 +779,7 @@ G.Towers = (() => {
       keepInside(false);
       if (!run.duel && run.wave < run.waves) {
         run.wait -= dt;
-        if (run.wait <= 0) { run.wave++; run.wait = EVERY; }
+        if (run.wait <= 0) { run.wave++; run.wait = run.every || EVERY; }
       }
       return;
     }
@@ -690,7 +799,7 @@ G.Towers = (() => {
       spawnPack(me);
       const at = run.plan.indexOf(run.wave);
       if (at >= 0) spawnBoss(me, at + 1);
-      run.wait = EVERY;
+      run.wait = run.every || EVERY;
     }
   }
 
@@ -741,7 +850,7 @@ G.Towers = (() => {
     const r = run.ray;
     if (!r) return;
     if (r.phase === 'ring') {
-      const e = bossOf();
+      const e = rayBoss();
       if (!e) return;
       const endR = spriteW(e.dex) / 2;
       const startR = Math.max(260, endR * 3.4);
@@ -794,7 +903,7 @@ G.Towers = (() => {
   }
 
   return {
-    LIST, REGIONS, unlocked, due, afford, charge, prepare, peek, arm, claim, reset,
+    LIST, REGIONS, MODES, unlocked, modeOpen, tierOf, due, afford, charge, prepare, peek, arm, claim, reset,
     begin, active, done, take, markClear, clearReady, finish, hud, update, hold, inAura,
     draw, drawScreen, onNet, onMinionDown, wantShop, clearShop
   };
