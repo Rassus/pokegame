@@ -84,7 +84,8 @@ G.DB = (() => {
       missions: {},           // misiones del día / semana (systems/progress.js)
       region: 1,              // última generación abierta (1 = Kanto … 9 = Paldea)
       regionProg: 0,          // (antiguo) la lista nueva se lee de la cuenta
-      tower100: {},           // id de torre -> veces que llegaste a la oleada 100
+      tower100: {},           // id de torre -> veces que la superaste
+      towerMode: {},          // id -> { normal, hard, mad }: veces por modo
       profile: { favs: [], title: '' },   // perfil público: 3 favoritos y título
       stats: { runs: 0, bestTime: 0, bestLevel: 0, totalKills: 0, pulls: 0, coinsEarned: 0, shinies: 0,
                bossesTotal: 0, riftWins: 0, evolutions: 0, missionsDone: 0, groupRuns: 0, bestGroupTime: 0,
@@ -124,6 +125,7 @@ G.DB = (() => {
     // Quien ya superó una torre llegó a la oleada 100, aunque no se guardara el piso.
     if ((s.stats.towerClears || 0) > 0) s.stats.towerBest = Math.max(s.stats.towerBest || 0, 100);
     if (!s.tower100 || typeof s.tower100 !== 'object') s.tower100 = {};
+    if (!s.towerMode || typeof s.towerMode !== 'object') s.towerMode = {};
     if (!s.achRank) s.achRank = {};
     // v1 -> v2: había un único banner (Kanto) con el pity como número.
     if (typeof s.pity === 'number') s.pity = { 1: s.pity };
@@ -167,6 +169,20 @@ G.DB = (() => {
    * máximo y Pokémon que no existen. Lo que sí sea posible lo frena el
    * servidor (firestore.rules, saves).
    */
+  function cleanTowerMode(raw) {
+    const n = v => (Number.isFinite(+v) && +v > 0 ? Math.floor(+v) : 0);
+    const clean = {};
+    if (!raw || typeof raw !== 'object') return clean;
+    for (const id of Object.keys(raw)) {
+      if (!/^[a-z0-9]+$/i.test(id)) continue;
+      const row = raw[id];
+      if (!row || typeof row !== 'object') continue;
+      const normal = n(row.normal), hard = n(row.hard), mad = n(row.mad);
+      if (normal || hard || mad) clean[id] = { normal, hard, mad };
+    }
+    return clean;
+  }
+
   function sanitize(s) {
     const n = v => (Number.isFinite(+v) && +v > 0 ? Math.floor(+v) : 0);
     s.region = Math.max(1, Math.min(9, n(s.region) || 1));
@@ -181,6 +197,7 @@ G.DB = (() => {
       }
       s.tower100 = clean;
     } else s.tower100 = {};
+    s.towerMode = cleanTowerMode(s.towerMode);
     s.coins = n(s.coins);
     s.tickets.t1 = n(s.tickets.t1);
     s.tickets.t10 = n(s.tickets.t10);
@@ -307,6 +324,15 @@ G.DB = (() => {
     for (const k in older.stats || {}) r.stats[k] = Math.max(r.stats[k] || 0, older.stats[k] || 0);
     r.tower100 = r.tower100 || {};
     for (const id in older.tower100 || {}) r.tower100[id] = Math.max(r.tower100[id] || 0, older.tower100[id] || 0);
+    r.towerMode = r.towerMode || {};
+    for (const id in older.towerMode || {}) {
+      const o = older.towerMode[id] || {}, mine = r.towerMode[id] || {};
+      r.towerMode[id] = {
+        normal: Math.max(mine.normal || 0, o.normal || 0),
+        hard: Math.max(mine.hard || 0, o.hard || 0),
+        mad: Math.max(mine.mad || 0, o.mad || 0)
+      };
+    }
     const nr = r.region || 1, orr = older.region || 1;
     if (orr > nr) { r.region = orr; r.regionProg = older.regionProg || 0; r.regionTold = older.regionTold; }
     else if (orr === nr) r.regionProg = Math.max(r.regionProg || 0, older.regionProg || 0);

@@ -442,7 +442,7 @@ G.Game = (() => {
         save.tickets = Object.assign({ t1: 0, t10: 0, tb: 0, tg: 0 }, save.tickets);
         save.tickets.tg += rw.ticket;
         save.stats.ticketsGot = (save.stats.ticketsGot || 0) + rw.ticket;
-        towerExtra += ' · 1 ticket dorado';
+        towerExtra += rw.ticket === 1 ? ' · 1 ticket dorado' : ' · ' + rw.ticket + ' tickets dorados';
       }
     }
     const record = !tower && time > save.stats.bestTime;
