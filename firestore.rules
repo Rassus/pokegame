@@ -8,6 +8,8 @@ rules_version = '2';
 //   runs/{uid}             (antiguo) sólo se deja borrar al borrar la cuenta
 //   lb/{tabla}/e/{id}      ranking de tiempo aguantado
 //   lbs/{tabla}            resumen con el top 50 de cada tabla
+//   lbs/gold               top 50 con más oro ahora
+//   lbs/tickets            top 50 con más tickets en total ahora
 //   pres/{uid}             en línea (aproximado) · inv/{para_de} invitaciones
 // Todo lo demás está cerrado.
 service cloud.firestore {
@@ -90,16 +92,36 @@ service cloud.firestore {
       allow read, delete: if signedIn() && me() == uid;
     }
 
+    // Mejoras del Pokémon al hacer la marca (Vitalidad, Fuerza…). Una por compañero.
+    function lvl(s, k, max) {
+      return !(k in s) || (s[k] is int && s[k] >= 1 && s[k] <= max);
+    }
+    function validSheet(s) {
+      return s == null || (s is map && s.size() <= 12
+        && s.keys().hasOnly(['hp', 'atk', 'spd', 'cd', 'def', 'regen', 'magnet', 'xp', 'moves', 'crit', 'reroll', 'ban'])
+        && lvl(s, 'hp', 40) && lvl(s, 'atk', 40) && lvl(s, 'spd', 8) && lvl(s, 'cd', 8)
+        && lvl(s, 'def', 40) && lvl(s, 'regen', 10) && lvl(s, 'magnet', 12) && lvl(s, 'xp', 40)
+        && lvl(s, 'moves', 1) && lvl(s, 'crit', 40) && lvl(s, 'reroll', 6) && lvl(s, 'ban', 3));
+    }
+    function validSheets(st, n) {
+      return st is list && st.size() == n && st.size() <= 4
+        && (st.size() < 1 || validSheet(st[0]))
+        && (st.size() < 2 || validSheet(st[1]))
+        && (st.size() < 3 || validSheet(st[2]))
+        && (st.size() < 4 || validSheet(st[3]));
+    }
+
     // Una entrada sólo se puede mejorar, nunca empeorar.
     function validEntry(board, id) {
       let d = request.resource.data;
-      return d.keys().hasOnly(['t', 'uids', 'names', 'dex', 'shiny', 'lv', 'kills', 'at'])
+      return d.keys().hasOnly(['t', 'uids', 'names', 'dex', 'shiny', 'lv', 'kills', 'at', 'st'])
         && d.t is int && d.t > 0
         && d.lv is int && d.kills is int
         && d.uids is list && me() in d.uids
         && d.names is list && d.names.size() == d.uids.size()
         && d.dex is list && d.dex.size() == d.uids.size()
         && d.shiny is list && d.shiny.size() == d.uids.size()
+        && (!('st' in d) || validSheets(d.st, d.uids.size()))
         && d.at == request.time
         && (board.matches('s_.*')
               ? (d.uids.size() == 1 && id == me())
@@ -114,12 +136,50 @@ service cloud.firestore {
     }
 
     // Resumen con el top 50 de cada tabla (lo que se lee al mirar el ranking).
-    //   top: { id: { t, uids, names, dex, shiny, lv, kills } }
+    //   top: { id: { t, uids, names, dex, shiny, lv, kills, st } }
     //   me:  la fila que añades o mejoras (debe coincidir con tu marca validada,
     //        escrita en la misma transacción)
     //   ev:  la fila que sale del top (sólo si tiene menos tiempo que la tuya)
     // Al borrar la cuenta: me = '' y ev = una fila tuya que se quita.
+    // lbs/gold y lbs/tickets: top 50 de lo que tienes ahora. La clave del mapa
+    // es tu uid. Puedes entrar si superas al último, cambiar tu cifra (aunque
+    // baje) o quitarte.
+    function wealthRow(board, row) {
+      return row is map
+        && row.keys().hasOnly(['n', 'name', 'dex', 'shiny', 't1', 't10', 'tb', 'tg'])
+        && row.n is int && row.n > 0 && row.n < 100000000000
+        && row.name is string && row.name.size() >= 3 && row.name.size() <= 16
+        && row.dex is int && row.dex >= 0 && row.dex < 2000
+        && row.shiny is bool
+        && row.t1 is int && row.t1 >= 0 && row.t1 < 1000000000
+        && row.t10 is int && row.t10 >= 0 && row.t10 < 1000000000
+        && row.tb is int && row.tb >= 0 && row.tb < 1000000000
+        && row.tg is int && row.tg >= 0 && row.tg < 1000000000
+        && (board == 'tickets'
+            ? row.n == row.t1 + row.t10 + row.tb + row.tg
+            : (row.t1 == 0 && row.t10 == 0 && row.tb == 0 && row.tg == 0));
+    }
+    function validWealth(board) {
+      let d = request.resource.data;
+      let old = resource == null || !('top' in resource.data) ? {} : resource.data.top;
+      let changed = d.top.diff(old).affectedKeys();
+      return d.keys().hasOnly(['top', 'me', 'ev'])
+        && d.top is map && d.top.size() <= 50
+        && d.me is string && d.ev is string
+        && ((d.me == '' && d.ev == me() && d.ev in old && !(d.ev in d.top) && changed.hasOnly([d.ev]))
+          || (d.me == me() && d.me in d.top && wealthRow(board, d.top[d.me])
+            && (d.me in old
+                ? (d.ev == '' && changed.hasOnly([d.me]))
+                : (old.size() < 50
+                    ? (d.ev == '' && changed.hasOnly([d.me]))
+                    : (d.ev != me() && d.ev in old && !(d.ev in d.top)
+                        && old[d.ev].n < d.top[d.me].n && changed.hasOnly([d.me, d.ev]))))));
+    }
+
     function validTop(board) {
+      return board == 'gold' || board == 'tickets' ? validWealth(board) : validBoard(board);
+    }
+    function validBoard(board) {
       let d = request.resource.data;
       let old = resource == null ? {} : resource.data.top;
       let changed = d.top.diff(old).affectedKeys();
@@ -134,6 +194,7 @@ service cloud.firestore {
       return me() in e.uids
         && changed.hasOnly([d.me, d.ev])
         && row.t == e.t && row.uids == e.uids && row.names == e.names && row.dex == e.dex
+        && row.st == e.st
         && (d.ev == '' || (!(d.ev in d.top) && d.ev in old && old[d.ev].t <= e.t));
     }
     function removeMine(d, old, changed) {

@@ -533,9 +533,25 @@ G.HUD = (() => {
     return s + '…';
   }
 
+  /** En el móvil el recuadro nace cerrado: un botón del tamaño de un ataque. */
+  let carryOpen = false;
+
+  /** Botón cuadrado, igual que las ranuras de ataque, con la moneda. */
+  function drawCarryTab(ctx, x, y, S) {
+    roundRect(ctx, x, y, S, S, 12);
+    ctx.fillStyle = 'rgba(10,16,28,.8)';
+    ctx.fill();
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(140,170,210,.55)';
+    ctx.stroke();
+    G.Icons.draw(ctx, 'coin', x + (S - 32) / 2, y + (S - 32) / 2, 32);
+  }
+
   /**
    * Recuadro a la derecha de los movimientos: el oro y los cuatro tickets de la run
    * y, encima, los shinies conseguidos. Si no cabe al lado, sube al borde derecho.
+   * En el móvil web empieza plegado, del mismo tamaño que un ataque; al tocarlo se abre
+   * y otro toque en esa misma esquina lo cierra.
    */
   function drawCarry(ctx, w, pl, sx, totalW, sy, S, sideY, touch, bondExtra) {
     tickAnims();
@@ -543,6 +559,16 @@ G.HUD = (() => {
     const saR = touch ? Math.min(28, G.Touch.safeArea().right || 0) : 0;
     const edgeR = w - 8 - saR;
     const beside = sx + totalW + 12 + (bondExtra || 0);
+    if (touch && !carryOpen) {
+      let x = beside, y = sy;
+      if (x + S > edgeR) {
+        x = Math.max(8, edgeR - S);
+        if (x < sx + totalW + 4) y = Math.max(8, sy - S - 8);
+      }
+      drawCarryTab(ctx, x, y, S);
+      G.Touch.addButton(x, y, S, S, () => { carryOpen = true; G.Audio.sfx('click'); }, 6);
+      return;
+    }
     const PAD = 5, TROW = 17, SROW = 22;
     const wideW = 156, slimW = 64;
     const topLimit = sideY + 4;
@@ -656,6 +682,10 @@ G.HUD = (() => {
     ctx.lineWidth = 1.2;
     ctx.strokeStyle = 'rgba(180,210,235,.32)';
     ctx.stroke();
+    if (touch) {
+      const tx = x, ty = y + boxH - S;
+      G.Touch.addButton(tx, ty, S, S, () => { carryOpen = false; G.Audio.sfx('click'); }, 4);
+    }
     ctx.restore();
   }
 

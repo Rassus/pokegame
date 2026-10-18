@@ -231,7 +231,7 @@ G.Rift = (() => {
   function won() {
     if (!arena || arena.phase !== 'fight') return;
     arena.phase = 'won'; arena.endT = 5;
-    G.Progress.event('rift', { type: arena.type });
+    G.Progress.event('rift', { type: arena.type, dex: arena.dex });
     G.Pickups.pullAll();
     G.Spawner.say('¡Has vencido a ' + G.DEX_BY[arena.dex].name + '! Recoge el premio…', 3.4, true);
     G.Audio.sfx('legend');

@@ -120,7 +120,7 @@ G.Ranking = (() => {
 
   // ---------------- guardar ----------------
 
-  const rowOf = (id, v) => ({ id, t: v.t, uids: v.uids || [], names: v.names || [], dex: v.dex || [], shiny: v.shiny || [], lv: v.lv, kills: v.kills });
+  const rowOf = (id, v) => ({ id, t: v.t, uids: v.uids || [], names: v.names || [], dex: v.dex || [], shiny: v.shiny || [], lv: v.lv, kills: v.kills, st: Array.isArray(v.st) ? v.st : null });
   const sorted = top => Object.entries(top || {}).map(([id, v]) => rowOf(id, v)).sort((a, b) => b.t - a.t);
 
   /** Guarda la entrada en cada tabla donde mejore. → periodos mejorados */
@@ -160,7 +160,7 @@ G.Ranking = (() => {
           await fb.fs.runTransaction(async tx => {
             const s = await tx.get(sumRef(b));
             const top = Object.assign({}, s.exists ? s.data().top : {});
-            const mine = { t: entry.t, uids: entry.uids, names: entry.names, dex: entry.dex, shiny: entry.shiny, lv: entry.lv, kills: entry.kills };
+            const mine = { t: entry.t, uids: entry.uids, names: entry.names, dex: entry.dex, shiny: entry.shiny, lv: entry.lv, kills: entry.kills, st: entry.st || null };
             let ev = '';
             // Ya estabas con una marca mejor (otro ordenador): nada que escribir.
             if (id in top && top[id].t >= entry.t) { entered = false; newTop = top; return; }
@@ -197,11 +197,17 @@ G.Ranking = (() => {
     G.UI.toast('¡Nueva mejor marca ' + names[best] + ' en el ranking!', 3400);
   }
 
+  /** Mejoras de ese Pokémon en la marca. null si la partida no las guardó. */
+  function sheetOf(r) {
+    if (!r || r.st == null) return null;
+    return G.Upgrades.sheet(r.st);
+  }
+
   async function submitSolo(r) {
     const fb = fbx();
     if (!fb || !G.Social.me || r.t < MIN_T) return [];
     const ids = periodIds();
-    const entry = { t: r.t, uids: [fb.uid], names: [G.Social.me.name], dex: [r.dex], shiny: [!!r.shiny], lv: r.lv, kills: r.kills };
+    const entry = { t: r.t, uids: [fb.uid], names: [G.Social.me.name], dex: [r.dex], shiny: [!!r.shiny], lv: r.lv, kills: r.kills, st: [sheetOf(r)] };
     const boards = PERIODS.map(([p]) => ['s_' + ids[p], p]);
     boards.push(['s_all_p' + r.dex, 'p']);
     const better = await store(boards, fb.uid, entry);
@@ -234,7 +240,7 @@ G.Ranking = (() => {
     const entry = {
       t: packWave(r.wave, r.cleared, r.time),
       uids: [fb.uid], names: [G.Social.me.name], dex: [r.dex | 0], shiny: [!!r.shiny],
-      lv: r.lv | 0, kills: r.kills | 0
+      lv: r.lv | 0, kills: r.kills | 0, st: [sheetOf(r)]
     };
     const ids = periodIds();
     const stem = 's_tw' + r.id + towerLetter(r.mode) + '_';
@@ -251,7 +257,8 @@ G.Ranking = (() => {
     const ms = r.members.slice().sort((a, b) => (a.uid < b.uid ? -1 : 1));
     const id = ms.map(m => m.uid).join('_');
     const entry = { t: r.t, uids: ms.map(m => m.uid), names: ms.map(m => m.name), dex: ms.map(m => m.dex),
-                    shiny: ms.map(m => !!m.shiny), lv: r.lv, kills: r.kills };
+                    shiny: ms.map(m => !!m.shiny), lv: r.lv, kills: r.kills,
+                    st: ms.map(m => (m.st ? G.Upgrades.sheet(m.st) : null)) };
     const ids = periodIds();
     const boards = PERIODS.map(([p]) => ['g_' + ids[p], p]);
     for (const d of new Set(entry.dex)) boards.push(['g_all_p' + d, 'p']);
@@ -370,6 +377,108 @@ G.Ranking = (() => {
     }
   }
 
+  // ---------------- oro y tickets (top 50 de lo que tienes ahora) ----------------
+  // Un documento por tabla (lbs/gold, lbs/tickets). Sólo se escribe si entras,
+  // si ya estabas y la cifra cambió, o si te quedas en 0 y sales.
+
+  function wallet() {
+    const s = (G.DB && G.DB.save) || {};
+    const t = s.tickets || {};
+    const n = k => Math.max(0, Math.floor(Number(t[k]) || 0));
+    const t1 = n('t1'), t10 = n('t10'), tb = n('tb'), tg = n('tg');
+    return { coins: Math.max(0, Math.floor(Number(s.coins) || 0)), t1, t10, tb, tg, tickets: t1 + t10 + tb + tg };
+  }
+
+  function wealthRow(kind, w) {
+    const s = G.DB.save;
+    const dex = s.partner | 0;
+    const tickets = kind === 'tickets';
+    return {
+      n: tickets ? w.tickets : w.coins,
+      name: G.Social.me.name,
+      dex, shiny: !!(s.partnerShiny && G.DB.ownsShiny(dex)),
+      t1: tickets ? w.t1 : 0, t10: tickets ? w.t10 : 0, tb: tickets ? w.tb : 0, tg: tickets ? w.tg : 0
+    };
+  }
+
+  function sameWealth(a, b) {
+    return a && b && a.n === b.n && a.name === b.name && (a.dex | 0) === (b.dex | 0) && !!a.shiny === !!b.shiny
+      && (a.t1 | 0) === b.t1 && (a.t10 | 0) === b.t10 && (a.tb | 0) === b.tb && (a.tg | 0) === b.tg;
+  }
+
+  /** ¿Hay que tocar la tabla? Con la copia en memoria no gasta lecturas. */
+  function needsWealth(top, uid, row) {
+    const mine = top[uid];
+    if (mine && sameWealth(mine, row)) return false;
+    if (mine) return true;
+    if (row.n <= 0) return false;
+    const ids = Object.keys(top);
+    if (ids.length < TOP) return true;
+    let min = Infinity;
+    for (const k of ids) if (top[k].n < min) min = top[k].n;
+    return row.n > min;
+  }
+
+  /** Las filas del top, de más a menos. 1 lectura, o 0 si se miró hace menos de 30 min. */
+  async function wealthTop(kind) {
+    const board = kind === 'tickets' ? 'tickets' : 'gold';
+    const top = await summary(board);
+    return Object.entries(top).map(([id, v]) => ({ id, n: v.n | 0, name: v.name || '', dex: v.dex | 0, shiny: !!v.shiny, t1: v.t1 | 0, t10: v.t10 | 0, tb: v.tb | 0, tg: v.tg | 0 }))
+      .sort((a, b) => b.n - a.n || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  }
+
+  async function syncWealth(kind, row) {
+    const fb = fbx();
+    const board = kind === 'tickets' ? 'tickets' : 'gold';
+    const uid = fb.uid;
+    const known = await summary(board);
+    if (!needsWealth(known, uid, row)) return;
+    const next = await fb.fs.runTransaction(async tx => {
+      const snap = await tx.get(sumRef(board));
+      const top = Object.assign({}, snap.exists ? (snap.data().top || {}) : {});
+      if (row.n <= 0) {
+        if (!top[uid]) return top;
+        delete top[uid];
+        tx.set(sumRef(board), { top, me: '', ev: uid });
+        return top;
+      }
+      if (sameWealth(top[uid], row)) return top;
+      let ev = '';
+      if (!top[uid]) {
+        const ids = Object.keys(top);
+        if (ids.length >= TOP) {
+          let low = ids[0];
+          for (const k of ids) if (top[k].n < top[low].n) low = k;
+          if (row.n <= top[low].n) return top;
+          ev = low;
+          delete top[low];
+        }
+      }
+      top[uid] = row;
+      tx.set(sumRef(board), { top, me: uid, ev });
+      return top;
+    });
+    cacheSet('s:' + board, next);
+  }
+
+  let purseBusy = null;
+  /** Sube tu oro y tus tickets al top 50 si la cifra cambia el puesto. */
+  function touchPurse() {
+    const fb = fbx();
+    if (!fb || !G.Social.me || !G.DB.save) return Promise.resolve();
+    if (purseBusy) return purseBusy;
+    const w = wallet();
+    purseBusy = (async () => {
+      await syncWealth('gold', wealthRow('gold', w));
+      await syncWealth('tickets', wealthRow('tickets', w));
+    })().catch(e => { console.warn('[Ranking] oro/tickets:', e.code || e.message); }).finally(() => {
+      purseBusy = null;
+      const now = wallet();
+      if (now.coins !== w.coins || now.tickets !== w.tickets) touchPurse();
+    });
+    return purseBusy;
+  }
+
   /** Al borrar la cuenta: quita tus filas de los resúmenes que conoce este navegador. */
   async function removeMine() {
     const fb = fbx();
@@ -390,8 +499,16 @@ G.Ranking = (() => {
         return;
       }
     }).catch(() => {})));
+    await Promise.all(['gold', 'tickets'].map(b => fb.fs.runTransaction(async tx => {
+      const s = await tx.get(sumRef(b));
+      if (!s.exists) return;
+      const top = Object.assign({}, s.data().top || {});
+      if (!top[fb.uid]) return;
+      delete top[fb.uid];
+      tx.set(sumRef(b), { top, me: '', ev: fb.uid });
+    }).catch(() => {})));
     try { localStorage.removeItem(bestKey()); } catch (e) { /* nada */ }
   }
 
-  return { PERIODS, periodIds, board, submitSolo, submitGroup, submitTower, waveOf, clearedOf, top, myRank, removeMine };
+  return { PERIODS, periodIds, board, submitSolo, submitGroup, submitTower, waveOf, clearedOf, top, myRank, removeMine, wealthTop, touchPurse, wallet };
 })();

@@ -128,6 +128,10 @@ G.Towers = (() => {
       save.tickets = Object.assign({ t1: 0, t10: 0, tb: 0, tg: 0 }, save.tickets);
       save.tickets.t1 -= tickets;
     }
+    if (G.Pass) {
+      if (cost > 0) G.Pass.goldSpend(cost);
+      if (tickets > 0) G.Pass.ticketsSpent({ t1: tickets });
+    }
     G.DB.commit();
     return true;
   }
@@ -826,7 +830,7 @@ G.Towers = (() => {
       keepInside(false);
       if (!run.duel && run.wave < run.waves) {
         run.wait -= dt;
-        if (run.wait <= 0) { run.wave++; run.wait = run.every || EVERY; }
+        if (run.wait <= 0) { run.wave++; run.wait = run.every || EVERY; if (G.Pass) G.Pass.floor(run.wave); }
       }
       return;
     }
@@ -843,6 +847,7 @@ G.Towers = (() => {
       run.wait -= dt;
       if (run.wait > 0) return;
       run.wave++;
+      if (G.Pass) G.Pass.floor(run.wave);
       spawnPack(me);
       const at = run.plan.indexOf(run.wave);
       if (at >= 0) spawnBoss(me, at + 1);

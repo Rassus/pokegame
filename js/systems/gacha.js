@@ -236,10 +236,15 @@ G.Gacha = (() => {
         }
       }
       save.coins += refund;
+      if (refund && G.Pass) G.Pass.goldEarn(refund);
       out.push({ dex: mon.dex, rarity: mon.rarity, shiny, isNew, refund, frags, fragGain, need: had || unlocked ? 0 : need, unlocked });
     }
     save.stats.pulls = (save.stats.pulls || 0) + n;
     if (gold) save.stats.goldPulls = (save.stats.goldPulls || 0) + 1;
+    if (G.Pass) {
+      G.Pass.ticketsSpent(cost);
+      for (const c of out) if (c && c.dex) G.Pass.gacha(c.dex);
+    }
     return out;
   }
 

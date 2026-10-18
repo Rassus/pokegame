@@ -9,12 +9,36 @@ G.CHANGELOG = [
   { d: '2026-10-18', title: ['Ranking de torres', 'Tower leaderboard'], new: [
     ['Al terminar una torre se ve tu resultado: la torre, el modo, la oleada y si es tu mejor. El premio y el daño son los tuyos.',
      'When a tower ends you see your own result: the tower, the mode, the wave and whether it is your best. The reward and the damage are yours.'],
+    ['Pase 1, a la izquierda del menú. 100 niveles: las misiones del mes dan puntos solas y los premios se recogen en el pase. Al pulsar la cabecera se esconde.',
+     'Pass 1, on the left of the menu. 100 levels: the month\'s missions add points on their own and the rewards are claimed on the pass. Tap the header to hide it.'],
     ['El ranking tiene la pestaña Torre. Hay una tabla por torre y por modo (normal, difícil y demencial). Gana quien llega más lejos; si la superáis, el más rápido queda delante.',
      'The leaderboard has a Tower tab. There is a board for each tower and mode (normal, hard and insane). Whoever gets further wins; if you clear it, the faster time ranks higher.']
   ], chg: [
     ['En Ajustes ya no está el interruptor de herramientas de prueba. Quedan apagadas.',
-     'Settings no longer has the test-tools switch. They stay off.']
+     'Settings no longer has the test-tools switch. They stay off.'],
+    ['El ranking tiene la pestaña Riqueza: los 50 con más oro y los 50 con más tickets en total.',
+     'The leaderboard has a Wealth tab: the 50 with the most gold and the 50 with the most tickets in total.'],
+    ['En el ranking, al pulsar un Pokémon se ve su nivel y sus mejoras (Vitalidad, Fuerza y el resto).',
+     'On the leaderboard, tapping a Pokémon shows its level and its upgrades (Vitality, Strength and the rest).'],
+    ['En el pase, el Pokémon del premio se ve junto a su nombre y la pokéball es la de su rareza. Jugar runs solo cuenta si la partida dura 1 minuto o más.',
+     'On the pass, a Pokémon reward shows next to its name and the Poké Ball matches its tier. Playing runs only counts if the run lasts 1 minute or more.'],
+    ['Al recoger oro, tickets o un Pokémon del pase gira la tragaperras del gacha y se ven los premios que podían salir.',
+     'Claiming gold, tickets or a Pokémon from the pass spins the gacha machine and shows the prizes that could have landed.'],
+    ['El pase 1 incluye las misiones diarias desde el día 1 del mes. Plegado mide igual que abierto y dice cuántos días le quedan al mes.',
+     'Pass 1 includes the daily missions from day 1 of the month. Folded, it is as wide as when open and shows how many days the month has left.'],
+    ['En Misiones hay un filtro para ver todas, solo las diarias, solo las semanales o solo las mensuales.',
+     'Missions has a filter to see all of them, or only the daily, weekly or monthly ones.'],
+    ['Las misiones del pase van en dos grupos, incompletas y completas, en cápsulas como los logros y con etiqueta de diaria, semanal o mensual. La de región tiene su pestaña y se ve igual.',
+     'Pass missions are split into incomplete and complete, in capsules like achievements, tagged daily, weekly or monthly. The region quest has its own tab and looks the same.'],
+    ['En el pase, el oro y los tickets se muestran sin cantidad. Al recogerlos se ve cuánto tocó.',
+     'On the pass, gold and tickets hide the amount. Claiming them shows what you rolled.'],
+    ['En el móvil, el menú es una sola lista: se desplaza y, con Menú, se esconde. En la partida, el oro, los tickets y los shinies caben en un botón del tamaño de un ataque hasta que lo abres.',
+     'On mobile, the menu is a single list: it scrolls and Menú hides it. In a run, gold, tickets and shinies fit in a button the size of a move until you open it.']
   ], fix: [
+    ['Abrir Misiones ya no falla al leer el progreso del pase.',
+     'Opening Missions no longer fails when reading pass progress.'],
+    ['Al abrir el oro, los tickets y los shinies en el móvil ya no se queda el marco blanco del botón.',
+     'Opening gold, tickets and shinies on mobile no longer leaves the button\'s white frame.'],
     ['Si el navegador se cuelga a mitad de una run, al volver a entrar se guardan el tiempo, las monedas, los récords y el ranking hasta el último punto (como mucho 15 segundos antes). Durante la partida se cierra el tubo de amigos, que es lo que Chrome cortaba.',
      'If the browser hangs mid-run, coming back saves the time, coins, records and leaderboard up to the last point (at most 15 seconds earlier). During a run the friends channel is closed, which is what Chrome was cutting.']
   ] },

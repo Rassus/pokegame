@@ -57,7 +57,7 @@ G.GachaUI = (() => {
     $('banner-title').textContent = banner.name + ' Misterioso';
     $('banner-desc').textContent = openRegion
       ? `Los ${all.length} Pokémon de la generación ${gen}. ¡Los legendarios esperan!`
-      : 'Región cerrada. Completa la misión en Misiones para abrir ' + banner.name + '.';
+      : 'Región cerrada. Completa la misión en Región para abrir ' + banner.name + '.';
     $('gacha-owned').innerHTML = `Tienes ${owned} de ${all.length}` +
       (shinies ? ` · ${G.Icons.html('shiny', 12)} ${shinies} shiny` : '');
 
@@ -177,7 +177,7 @@ G.GachaUI = (() => {
     const use = againUse();
     if ((G.DB.save.region || 1) < gen) {
       G.Audio.sfx('error');
-      G.UI.toast('Esta región está cerrada. Ábrela en Misiones.');
+      G.UI.toast('Esta región está cerrada. Ábrela en Región.');
       return;
     }
     if (!G.Gacha.costOf(G.DB.save, 10, use)) {
@@ -217,7 +217,7 @@ G.GachaUI = (() => {
     if (busy) return;
     if ((G.DB.save.region || 1) < gen) {
       G.Audio.sfx('error');
-      G.UI.toast('Esta región está cerrada. Ábrela en Misiones.');
+      G.UI.toast('Esta región está cerrada. Ábrela en Región.');
       return;
     }
     lastUse = use;
