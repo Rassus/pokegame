@@ -145,6 +145,7 @@
     let membersKey = '';
     let playUiKey = '';
     let lastTower = { id: '', mode: 'normal' };
+    let pickGen = 1;
 
     function purse(m) {
       if (m.uid === G.Social.uid) {
@@ -218,6 +219,7 @@
         const mode = lastTower.mode || 'normal';
         const id = lastTower.id && G.Towers.LIST.some(t => t.id === lastTower.id) ? lastTower.id : '';
         G.Social.setPlay({ kind: 'tower', id, mode });
+        if (room.isHost) openPick();
       }));
       box.appendChild(kinds);
 
@@ -240,55 +242,102 @@
         }
         box.appendChild(modes);
 
+        const chosen = play.id && G.Towers.LIST.find(x => x.id === play.id);
+        const nameLine = document.createElement('p');
+        nameLine.className = 'lobby-pick';
+        if (!chosen) nameLine.textContent = room.isHost ? 'Elige una torre para empezar.' : 'El anfitrión aún no elige torre.';
+        else {
+          const name = (G.DEX_BY[chosen.dexes[0]] && G.DEX_BY[chosen.dexes[0]].name) || chosen.name;
+          const modeName = (G.Towers.MODES.find(m => m.id === play.mode) || G.Towers.MODES[0]).name;
+          nameLine.textContent = 'Torre de ' + name + ' · ' + modeName;
+        }
+        box.appendChild(nameLine);
         if (room.isHost) {
-          const open = G.Towers.LIST.filter(t => G.Towers.unlocked(t.dexes[0]));
-          if (!open.length) {
-            const p = document.createElement('p');
-            p.className = 'lobby-pick';
-            p.textContent = 'Aún no has desbloqueado torres. Vence a un jefe en una grieta.';
-            box.appendChild(p);
-          } else {
-            const sel = document.createElement('select');
-            sel.className = 'field';
-            const blank = document.createElement('option');
-            blank.value = '';
-            blank.textContent = 'Elige la torre';
-            sel.appendChild(blank);
-            for (let g = 1; g <= 9; g++) {
-              const list = open.filter(t => t.gen === g);
-              if (!list.length) continue;
-              const og = document.createElement('optgroup');
-              og.label = G.T(G.Towers.REGIONS[g] || String(g));
-              for (const t of list) {
-                const o = document.createElement('option');
-                o.value = t.id;
-                o.textContent = (G.DEX_BY[t.dexes[0]] && G.DEX_BY[t.dexes[0]].name) || t.name;
-                o.setAttribute('translate', 'no');
-                og.appendChild(o);
-              }
-              sel.appendChild(og);
-            }
-            sel.value = play.id && open.some(t => t.id === play.id) ? play.id : '';
-            sel.onchange = () => G.Social.setPlay({ kind: 'tower', id: sel.value, mode: play.mode || 'normal' });
-            box.appendChild(sel);
-          }
-        } else {
-          const p = document.createElement('p');
-          p.className = 'lobby-pick';
-          const t = play.id && G.Towers.LIST.find(x => x.id === play.id);
-          if (!t) p.textContent = 'El anfitrión aún no elige torre.';
-          else {
-            const name = (G.DEX_BY[t.dexes[0]] && G.DEX_BY[t.dexes[0]].name) || t.name;
-            const modeName = (G.Towers.MODES.find(m => m.id === play.mode) || G.Towers.MODES[0]).name;
-            p.textContent = 'Torre de ' + name + ' · ' + modeName;
-          }
-          box.appendChild(p);
+          const pick = document.createElement('button');
+          pick.type = 'button';
+          pick.className = 'btn gold';
+          pick.style.marginTop = '6px';
+          pick.style.width = '100%';
+          pick.textContent = chosen ? 'Cambiar torre' : 'Elegir torre';
+          pick.onclick = () => openPick();
+          box.appendChild(pick);
         }
       }
 
       const cost = document.createElement('p');
       cost.className = 'lobby-cost';
       box.appendChild(cost);
+    }
+
+    function towerName(t) {
+      return (G.DEX_BY[t.dexes[0]] && G.DEX_BY[t.dexes[0]].name) || t.name;
+    }
+
+    /** Ventana para escoger la torre. La dificultad es la que está marcada en la sala. */
+    function openPick() {
+      const room = G.Social.room;
+      if (!room || !room.isHost) return;
+      const play = room.play && room.play.kind === 'tower' ? room.play : { kind: 'tower', id: '', mode: lastTower.mode || 'normal' };
+      const mode = play.mode || 'normal';
+      const cur = play.id && G.Towers.LIST.find(t => t.id === play.id);
+      if (cur) pickGen = cur.gen;
+      const gens = [];
+      for (let g = 1; g <= 9; g++) if (G.Towers.LIST.some(t => t.gen === g)) gens.push(g);
+      if (!gens.includes(pickGen)) pickGen = gens[0] || 1;
+      G.UI.show('scr-lobby-tower');
+      const modeName = (G.Towers.MODES.find(m => m.id === mode) || G.Towers.MODES[0]).name;
+      const sub = $('lobby-tower-sub');
+      if (sub) sub.textContent = 'Modo ' + modeName + '. La entrada se reparte entre la sala.';
+      const box = $('lobby-tower-list');
+      if (!box) return;
+      const tabs = gens.map(g =>
+        '<button type="button" class="gen-tab' + (g === pickGen ? ' on' : '') + '" data-gen="' + g + '"><b>' + (G.Towers.REGIONS[g] || g) + '</b></button>'
+      ).join('');
+      box.innerHTML = '<div class="gen-tabs">' + tabs + '</div><div id="lobby-tower-rows"></div>';
+      box.querySelectorAll('[data-gen]').forEach(b => { b.onclick = () => { pickGen = +b.dataset.gen; openPick(); }; });
+      const rows = $('lobby-tower-rows');
+      for (const t of G.Towers.LIST.filter(x => x.gen === pickGen)) {
+        const el = document.createElement('div');
+        el.className = 'tower-row';
+        const name = towerName(t);
+        const title = document.createElement('b');
+        title.textContent = name;
+        title.setAttribute('translate', 'no');
+        el.appendChild(title);
+        const info = document.createElement('span');
+        info.className = 'ds';
+        const open = G.Towers.unlocked(t.dexes[0]);
+        const modeOk = open && G.Towers.modeOpen(t.id, mode);
+        if (!open) info.textContent = 'Vence a ' + name + ' en una grieta';
+        else if (!modeOk) info.textContent = mode === 'mad' ? 'Supera el modo difícil' : 'Supera el modo normal';
+        else info.textContent = costText(G.Towers.due(t.id, mode));
+        el.appendChild(info);
+        if (open) {
+          const bestN = G.Towers.bestWave(t.id, mode);
+          if (bestN) {
+            const best = document.createElement('span');
+            best.className = 'ds';
+            best.textContent = 'Tu mejor: oleada ' + bestN;
+            el.appendChild(best);
+          }
+        }
+        if (modeOk) {
+          const go = document.createElement('span');
+          go.className = 'tower-go';
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn small' + (t.id === play.id ? '' : ' gold');
+          btn.textContent = t.id === play.id ? 'Elegida' : 'Elegir';
+          btn.onclick = () => {
+            G.Social.setPlay({ kind: 'tower', id: t.id, mode });
+            G.Audio.sfx('confirm');
+            G.LobbyUI.open();
+          };
+          go.appendChild(btn);
+          el.appendChild(go);
+        }
+        rows.appendChild(el);
+      }
     }
 
     /** Dibuja el tipo de partida y devuelve el precio de la torre, si hay una elegida. */
@@ -316,6 +365,8 @@
       $('lobby-menu').onclick = () => G.MenuUI.open();
       $('lobby-start').onclick = start;
       $('lobby-start').dataset.sfx = 'confirm';
+      const towerBack = $('lobby-tower-back');
+      if (towerBack) towerBack.onclick = () => open();
       $('lobby-ready').onclick = () => {
         const room = G.Social.room;
         const mine = room && room.members.find(m => m.uid === G.Social.uid);
@@ -331,7 +382,11 @@
         } else if (G.Net.open_) G.Net.close();
         if (what === 'room-closed') {
           G.UI.toast('La sala se ha cerrado', 2600);
-          if (G.UI.isOpen('scr-lobby')) G.MenuUI.open();
+          if (G.UI.isOpen('scr-lobby') || G.UI.isOpen('scr-lobby-tower')) G.MenuUI.open();
+        }
+        if (what === 'kicked') {
+          G.UI.toast('Te han sacado de la sala', 2800);
+          if (G.Game.state === 'ui') G.MenuUI.open();
         }
         if (G.UI.isOpen('scr-lobby')) render();
       });
@@ -349,6 +404,12 @@
     }
 
     function close() { G.UI.hide('scr-lobby'); }
+
+    async function removeMember(uid, name) {
+      if (!confirm('¿Sacar a ' + name + ' de la sala?')) return;
+      const r = await G.Social.kick(uid);
+      G.UI.toast(r.ok ? name + ' ha salido de la sala' : (r.error || 'No se pudo sacar de la sala.'));
+    }
 
     function connText(m, room) {
       if (m.uid === room.host) return 'Anfitrión';
@@ -383,6 +444,14 @@
             c.style.setProperty('--pc', G.Coop.COLORS[i]);
             c.appendChild(G.UI.spriteCanvas(m.dex, 120, 96, { scale: 2, lively: true, shiny: !!m.shiny }));
             c.insertAdjacentHTML('beforeend', `<b translate="no">${esc(m.name)}</b><small>${esc((G.DEX_BY[m.dex] || {}).name || '')}</small><span class="pay" data-u="${m.uid}"></span><span class="rdy" data-u="${m.uid}"></span><span class="conn" data-u="${m.uid}"></span>`);
+            if (room.isHost && m.uid !== room.host) {
+              const b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'btn small ghost';
+              b.textContent = 'Sacar';
+              b.onclick = () => removeMember(m.uid, m.name);
+              c.appendChild(b);
+            }
           } else c.innerHTML = '<span>Libre</span>';
           box.appendChild(c);
         }

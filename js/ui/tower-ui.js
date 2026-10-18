@@ -37,16 +37,18 @@ G.TowerUI = (() => {
         const picked = G.Towers.MODES.find(x => x.id === mode) || G.Towers.MODES[0];
         const tier = G.Towers.tierOf(t.gen, mode);
         const extra = (picked.detail ? ' · ' + picked.detail : (t.waves > 100 ? ' · 6 encuentros antes del jefe final' : ' · jefe en la 25, 50, 75 y 100')) + ' · tier ' + tier;
+        const bestN = G.Towers.bestWave(t.id, mode);
+        const bestHtml = bestN ? '<span class="ds">Tu mejor: oleada ' + bestN + '</span>' : '';
         if (!G.Towers.modeOpen(t.id, mode)) {
           const need = mode === 'mad' ? 'Supera el modo difícil' : 'Supera el modo normal';
-          el.innerHTML = '<b>' + name + '</b><span class="ds">' + t.waves + ' oleadas' + extra + '</span><span class="ds">' + need + '</span>';
+          el.innerHTML = '<b>' + name + '</b><span class="ds">' + t.waves + ' oleadas' + extra + '</span>' + bestHtml + '<span class="ds">' + need + '</span>';
         } else {
         const label = pay.tickets
           ? 'Entrar · ' + G.U.num(pay.share) + ' y ' + pay.tickets + ' tickets grises'
           : pay.share ? 'Entrar · ' + G.U.num(pay.share) : 'Entrar · gratis';
         const duel = G.UI.helpersOn()
           ? '<button class="btn small" data-id="' + t.id + '" data-duel="1">Jefe directo</button>' : '';
-        el.innerHTML = '<b>' + name + '</b><span class="ds">' + t.waves + ' oleadas' + extra + own + '</span>' +
+        el.innerHTML = '<b>' + name + '</b><span class="ds">' + t.waves + ' oleadas' + extra + own + '</span>' + bestHtml +
           '<span class="tower-go"><button class="btn small gold" data-id="' + t.id + '">' + label + '</button>' + duel + '</span>';
         el.querySelectorAll('button').forEach(b => { b.onclick = () => start(b.dataset.id, b.dataset.duel === '1'); });
         }

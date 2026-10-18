@@ -209,8 +209,13 @@ G.Sprites = (() => {
       const m = animMeta(this.dex, this.cur, this.shiny);
       if (!m || this.done) return;
       this.t += dt * 60 * this.speed;
-      while (this.t >= m.d[this.frame]) {
-        this.t -= m.d[this.frame];
+      // Un fotograma de duración 0 (o sin duración) no restaría tiempo y este
+      // bucle no acabaría nunca: la pestaña se queda muerta y hay que matar el navegador.
+      let guard = 0;
+      while (this.t >= m.d[this.frame] && guard++ < 40) {
+        const dur = m.d[this.frame];
+        if (!(dur > 0)) { this.t = 0; break; }
+        this.t -= dur;
         this.frame++;
         if (this.frame >= m.n) {
           if (this.once) {

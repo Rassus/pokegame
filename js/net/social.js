@@ -10,8 +10,9 @@
  *     inv/{para_de}                { to, from, room, name, at } invitaciones
  *
  *   Realtime Database: SÓLO mientras estás en una sala o partida en grupo
- *     rooms/{id}          { host, open, at, play, m: { uid: { name, dex, shiny, coins, t1 } }, q: ... }
- *                         la sala; play es la partida elegida (run o torre); q/ son los mensajes de net.js
+ *     rooms/{id}          { host, open, at, play, bye, m: { uid: { name, dex, shiny, coins, t1 } }, q: ... }
+ *                         la sala; play es la partida elegida (run o torre);
+ *                         bye/{uid} avisa a quien el anfitrión saca; q/ son los mensajes de net.js
  *
  * Por qué así: el plan gratuito de Firebase sólo admite 100 conexiones a la
  * vez a la Realtime Database. Si todo el mundo estuviera conectado para el
@@ -53,7 +54,10 @@ G.Social = (() => {
   /** Tras iniciar sesión. → 'ok' | 'need-nick' | 'off' (sin nube) */
   async function start() {
     if (!G.DB.online) return 'off';
-    if (started) return me ? 'ok' : 'need-nick';
+    if (started) {
+      if (me && G.Game && G.Game.flushRank) G.Game.flushRank();
+      return me ? 'ok' : 'need-nick';
+    }
     fb = G.DB.fb; uid = fb.uid;
     started = true;
     // El apodo no cambia nunca: se recuerda en este navegador y así no se lee
@@ -74,7 +78,22 @@ G.Social = (() => {
       if (!r.ok) return 'need-nick';
     } else return 'need-nick';
     online();
+    if (G.Game && G.Game.flushRank) G.Game.flushRank();
     return 'ok';
+  }
+
+  /**
+   * Cierra los escuchas de amigos e invitaciones. Durante una run no hacen
+   * falta, y ese tubo (Listen) es el que Chrome corta por QUIC
+   * (QUIC_PEER_GOING_AWAY): a veces el navegador entero se queda colgado.
+   */
+  function pauseWatch() {
+    if (unFriends) { unFriends(); unFriends = null; }
+    if (unInv) { unInv(); unInv = null; }
+  }
+  function resumeWatch() {
+    if (!started || !fb || unFriends) return;
+    listenFriends();
   }
 
   /** Reserva un apodo único y crea el perfil público. */
@@ -100,6 +119,7 @@ G.Social = (() => {
     G.DB.setName(name);
     if (started && !beatT) online();
     publishProfile(true);
+    if (G.Game && G.Game.flushRank) G.Game.flushRank();
     return { ok: true };
   }
 
@@ -348,7 +368,11 @@ G.Social = (() => {
     const mref = fb.rtdb.ref('rooms/' + id + '/m');
     mref.on('value', s => {
       if (!room || room.id !== id) return;
-      const m = s.val() || {};
+      const m = s.val();
+      if (!m) return;
+      // La plaza ya no está: el anfitrión nos sacó. Si la sala entera desaparece, m llega vacío
+      // y lo cierra el listener del anfitrión.
+      if (uid && !m[uid]) { kickedOut(); return; }
       // El anfitrión siempre primero; el resto por orden de llegada.
       room.members = Object.keys(m).map(k => Object.assign({ uid: k }, m[k]))
         .sort((a, b) => (a.uid === room.host ? -1 : b.uid === room.host ? 1 : (a.at || 0) - (b.at || 0)));
@@ -375,7 +399,17 @@ G.Social = (() => {
       }
       emit('room');
     }, () => {});
-    roomRefs = [mref, href, oref, pref];
+    // Aviso de expulsión. El primer valor es el de una visita anterior: se ignora.
+    // Uno nuevo (antes de borrar la plaza) sí cuenta, aunque luego ya no se pueda leer la sala.
+    let byeSeen;
+    const bref = fb.rtdb.ref('rooms/' + id + '/bye/' + uid);
+    bref.on('value', s => {
+      if (!room || room.id !== id) return;
+      const v = s.val();
+      if (byeSeen === undefined) { byeSeen = v; return; }
+      if (v && v !== byeSeen) kickedOut();
+    }, () => {});
+    roomRefs = [mref, href, oref, pref, bref];
     writeStatus();
     emit('room');
   }
@@ -392,15 +426,23 @@ G.Social = (() => {
     roomRefs = [];
   }
 
-  function closedRoom() {
+  function dropRoom(why) {
     if (!room) return;
+    const r = room;
     detachRoom();
     room = null;
+    const ref = r.isHost ? fb.rtdb.ref('rooms/' + r.id) : fb.rtdb.ref('rooms/' + r.id + '/m/' + uid);
+    ref.onDisconnect().cancel().catch(() => {});
     retractInvites();
     writeStatus();
     rtOff();
-    emit('room-closed');
+    emit(why);
   }
+
+  function closedRoom() { dropRoom('room-closed'); }
+
+  /** El anfitrión borró nuestra plaza. */
+  function kickedOut() { dropRoom('kicked'); }
 
   async function leaveRoom() {
     if (!room) return;
@@ -414,6 +456,18 @@ G.Social = (() => {
     writeStatus();
     rtOff();
     emit('room');
+  }
+
+  /** El anfitrión saca a otra persona. Primero el aviso, luego la plaza. */
+  async function kick(other) {
+    if (!room || !room.isHost || !fb || !other || other === uid || other === room.host) return { ok: false, error: 'No se pudo sacar de la sala.' };
+    if (!room.members.some(m => m.uid === other)) return { ok: false, error: 'Esa persona ya no está en la sala.' };
+    const id = room.id;
+    try {
+      await fb.rtdb.ref('rooms/' + id + '/bye/' + other).set(ts());
+      await fb.rtdb.ref('rooms/' + id + '/m/' + other).remove();
+      return { ok: true };
+    } catch (e) { return { ok: false, error: 'No se pudo sacar de la sala.' }; }
   }
 
   /** El anfitrión cierra la sala a nuevos jugadores al empezar la partida. */
@@ -564,7 +618,8 @@ G.Social = (() => {
 
   return {
     start, stop, claimNick, request, accept, remove, publishProfile, getProfile, profileData,
-    createRoom, joinRoom, leaveRoom, setOpen, setPlay, refreshMember, setReady, setPlaying, refreshPresence,
+    createRoom, joinRoom, leaveRoom, kick, setOpen, setPlay, refreshMember, setReady, setPlaying, refreshPresence,
+    pauseWatch, resumeWatch,
     invite, acceptInvite, declineInvite,
     on(fn) { listeners.add(fn); }, off(fn) { listeners.delete(fn); },
     get me() { return me; },
