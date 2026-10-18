@@ -389,6 +389,7 @@ G.World = (() => {
       return;
     }
     if (p.type === 'rock') {
+      if (G.Pass) G.Pass.rock();
       G.FX.burst(p.x, p.y - 10, B.rock[1], 14, 140);
       G.FX.ring(p.x, p.y - 8, 4, 26, B.rock[2], 0.3, 3);
       G.Pickups.maybeRareCandy(p.x, p.y);
@@ -399,6 +400,7 @@ G.World = (() => {
       return;
     }
     if (p.type === 'chest') {
+      if (G.Pass) G.Pass.chest();
       G.FX.burst(p.x, p.y - 10, '#f2c443', 22, 180);
       G.FX.ring(p.x, p.y - 8, 6, 46, '#f2c443', 0.45, 4);
       G.Camera.kick(0.25);
@@ -412,6 +414,7 @@ G.World = (() => {
       return;
     }
     if (p.type === 'bigchest') {
+      if (G.Pass) G.Pass.chest();
       // Botín grande: monedas, tickets y experiencia para subir un nivel.
       G.FX.burst(p.x, p.y - 12, '#f2c443', 34, 220);
       G.FX.ring(p.x, p.y - 8, 6, 80, '#f2c443', 0.6, 5);

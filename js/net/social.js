@@ -305,7 +305,8 @@ G.Social = (() => {
   function memberInfo() {
     const s = G.DB.save;
     const w = wallet();
-    return { name: me.name, dex: s.partner, shiny: !!s.partnerShiny && G.DB.ownsShiny(s.partner), ready: false, at: ts(), coins: w.coins, t1: w.t1 };
+    const st = G.Upgrades ? G.Upgrades.sheet(s.pupg && s.pupg[s.partner]) : {};
+    return { name: me.name, dex: s.partner, shiny: !!s.partnerShiny && G.DB.ownsShiny(s.partner), ready: false, at: ts(), coins: w.coins, t1: w.t1, st };
   }
 
   function playKey(p) {

@@ -1,6 +1,7 @@
-/* ============ goals-ui.js — misiones, logros y perfil ============
- * Una pantalla con tres pestañas:
- *   Misiones  3 diarias + 2 semanales, con barra, premio y botón de recoger
+/* ============ goals-ui.js — misiones, región, logros y perfil ============
+ * Una pantalla con cuatro pestañas:
+ *   Misiones  las del pase, en incompletas y completas, con su etiqueta
+ *   Región    la misión que abre la siguiente, en cuadros como los logros
  *   Logros    medallas por categoría; los legendarios, uno a uno con su sprite
  *   Perfil    tus 3 favoritos y tu título; vista previa del perfil público
  * y la ventana del perfil público de cualquier jugador (G.ProfileUI.show).
@@ -13,7 +14,7 @@
   // ======================= PANTALLA =======================
 
   G.GoalsUI = (() => {
-    let tab = 'missions', cat = 'coleccion';
+    let tab = 'missions', cat = 'coleccion', period = 'all';
 
     function init() {
       document.querySelectorAll('#goals-tabs .tab').forEach(t => {
@@ -34,85 +35,103 @@
       const box = $('goals-body');
       box.innerHTML = '';
       if (tab === 'missions') missions(box);
+      else if (tab === 'region') region(box);
       else if (tab === 'ach') achievements(box);
       else profile(box);
     }
 
     // ---------------- misiones ----------------
 
-    function untilText(kind) {
-      const now = new Date();
-      // Medianoche (diarias) o lunes (semanales), hora de España aproximada por la del navegador.
-      const end = new Date(now);
-      end.setHours(24, 0, 0, 0);
-      if (kind === 'w') { const add = (8 - (now.getDay() || 7)) % 7; end.setDate(end.getDate() + add); }
-      const mins = Math.max(1, Math.round((end - now) / 60000));
-      return mins >= 1440 ? Math.floor(mins / 1440) + ' d ' + Math.floor(mins % 1440 / 60) + ' h'
-                          : Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min';
+    const PERIOD = { day: ['Diaria', 'day'], week: ['Semanal', 'week'], month: ['Mensual', 'month'] };
+
+    function passRow(m, kind) {
+      const v = G.Pass.value(m);
+      const pct = Math.min(100, v / (m.goal || 1) * 100);
+      const tag = PERIOD[kind];
+      const pts = '+' + G.Pass.points(m.tier);
+      const el = document.createElement('div');
+      el.className = 'ach pass-cap ' + tag[1] + (m.awarded ? ' ok' : '');
+      el.innerHTML = `<div class="a-txt"><span class="m-tag ${tag[1]}">${tag[0]}</span><b>${esc(G.Pass.text(m))}</b>
+          ${m.awarded ? '' : `<div class="bar"><i style="width:${pct}%"></i></div>`}
+          <div class="a-rw">${m.awarded ? 'Hecha' : G.U.num(Math.min(v, m.goal)) + ' / ' + G.U.num(m.goal)} · ${pts}</div></div>`;
+      return el;
     }
 
     function missions(box) {
-      const M = G.DB.save.missions;
-      const q = G.Progress.regionMission();
+      box.insertAdjacentHTML('beforeend', '<p class="sub">Se completan solas y suman puntos del pase. Duran hasta que acaba el mes.</p>');
+      const B = G.Pass.boards();
+      const items = [];
+      const push = (list, kind) => { for (const m of list || []) items.push({ m, kind }); };
+      push(B.month, 'month');
+      B.weeks.forEach(w => push(w.list, 'week'));
+      B.days.forEach(d => push(d.list, 'day'));
+      const chips = document.createElement('div');
+      chips.className = 'filters';
+      for (const [k, label] of [['all', 'Todas'], ['day', 'Diarias'], ['week', 'Semanales'], ['month', 'Mensuales']]) {
+        const n = k === 'all' ? items.length : items.filter(x => x.kind === k).length;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'chip' + (k === 'all' ? '' : ' ' + k) + (period === k ? ' on' : '');
+        b.textContent = label + ' ' + n;
+        b.onclick = () => { period = k; render(); };
+        chips.appendChild(b);
+      }
+      box.appendChild(chips);
+      const shown = period === 'all' ? items : items.filter(x => x.kind === period);
+      const groups = [
+        ['Incompletas', shown.filter(x => !x.m.awarded)],
+        ['Completas', shown.filter(x => x.m.awarded)]
+      ];
+      for (const [title, list] of groups) {
+        box.insertAdjacentHTML('beforeend', `<div class="row between goals-h"><h3>${title}</h3></div>`);
+        if (!list.length) {
+          box.insertAdjacentHTML('beforeend', '<p class="sub">Ninguna por ahora.</p>');
+          continue;
+        }
+        const grid = document.createElement('div');
+        grid.className = 'ach-grid';
+        for (const it of list) grid.appendChild(passRow(it.m, it.kind));
+        box.appendChild(grid);
+      }
+    }
+
+    function region(box) {
       box.insertAdjacentHTML('beforeend', `<div class="row between goals-h"><h3>Regiones</h3>
         <span class="sub">${G.Progress.region()} / 9 abiertas</span></div>`);
-      if (!q) box.insertAdjacentHTML('beforeend', '<p class="sub">Las 9 regiones están abiertas.</p>');
-      else {
-        const ready = q.rows.filter(r => r.met).length;
-        const el = document.createElement('div');
-        el.className = 'mission region-m' + (q.done ? ' ready' : '');
-        const list = q.rows.map(r => {
-          const pct = Math.min(100, r.v / (r.req.goal || 1) * 100);
-          return `<li class="${r.met ? 'ok' : ''}"><span>${esc(r.req.text)}</span><b>${G.U.num(Math.min(r.v, r.req.goal))} / ${G.U.num(r.req.goal)}</b>${r.met ? '' : `<div class="bar"><i style="width:${pct}%"></i></div>`}</li>`;
-        }).join('');
-        el.innerHTML = `
-          <div class="m-txt"><div class="row between"><b>${esc(q.def.name)}</b><small>${ready} / ${q.rows.length}</small></div>
-            <small>Abre ${esc(q.def.name)}</small>
-            <ul class="req-list">${list}</ul></div>`;
-        const btn = document.createElement('button');
-        if (q.done) {
-          const pays = q.rows.some(r => r.req.kind === 'pay');
-          btn.className = 'btn small gold'; btn.textContent = 'Abrir ' + q.def.name; btn.dataset.sfx = 'none';
-          btn.onclick = () => {
-            if (pays && !confirm('¿Pagar y abrir ' + q.def.name + '?')) return;
-            const def = G.Progress.claimRegion();
-            if (def) { G.Audio.sfx('buy'); G.UI.toast(def.name + ' está abierta'); render(); }
-            else { G.Audio.sfx('error'); G.UI.toast('Aún te falta algo para abrirla.'); render(); }
-          };
-        } else { btn.className = 'btn small ghost'; btn.disabled = true; btn.textContent = 'En curso'; }
-        el.appendChild(btn);
-        box.appendChild(el);
+      const q = G.Progress.regionMission();
+      if (!q) {
+        box.insertAdjacentHTML('beforeend', '<p class="sub">Las 9 regiones están abiertas.</p>');
+        return;
       }
-      const section = (title, list, weekly) => {
-        box.insertAdjacentHTML('beforeend', `<div class="row between goals-h"><h3>${title}</h3>
-          <span class="sub">Se renuevan en ${untilText(weekly ? 'w' : 'd')}</span></div>`);
-        list.forEach((m, i) => {
-          const d = G.MissionDefs.BY[m.id];
-          const done = G.Progress.done(m);
-          const el = document.createElement('div');
-          el.className = 'mission' + (m.claimed ? ' claimed' : done ? ' ready' : '');
-          const pct = Math.min(100, m.prog / m.goal * 100);
-          el.innerHTML = `
-            <div class="m-txt"><b>${esc(G.Progress.text(m))}</b>
-              <div class="bar"><i style="width:${pct}%"></i></div>
-              <small>${G.U.num(Math.min(m.prog, m.goal))} / ${G.U.num(m.goal)}</small></div>
-            <div class="m-rw">${G.Progress.rewardText(d.reward)}</div>`;
-          const btn = document.createElement('button');
-          if (m.claimed) { btn.className = 'btn small'; btn.disabled = true; btn.textContent = 'Recogido'; }
-          else if (done) {
-            btn.className = 'btn small gold'; btn.textContent = 'Recoger'; btn.dataset.sfx = 'none';
-            btn.onclick = () => { if (G.Progress.claim(m, weekly)) { G.Audio.sfx('buy'); G.UI.toast('¡Premio recogido!'); render(); } };
-          } else if (!weekly && !M.rerolled) {
-            btn.className = 'btn small ghost'; btn.textContent = 'Cambiar';
-            btn.title = 'Cambia esta misión por otra (una vez al día)';
-            btn.onclick = () => { if (G.Progress.reroll(i)) render(); };
-          } else { btn.className = 'btn small ghost'; btn.disabled = true; btn.textContent = 'En curso'; }
-          el.appendChild(btn);
-          box.appendChild(el);
-        });
+      const ready = q.rows.filter(r => r.met).length;
+      box.insertAdjacentHTML('beforeend', `<p class="sub">Abre ${esc(q.def.name)} · ${ready} / ${q.rows.length}</p>`);
+      const grid = document.createElement('div');
+      grid.className = 'ach-grid';
+      for (const r of q.rows) {
+        const pct = Math.min(100, r.v / (r.req.goal || 1) * 100);
+        const el = document.createElement('div');
+        el.className = 'ach' + (r.met ? ' ok' : '');
+        el.innerHTML = `${G.Icons.html(r.met ? 'medal3' : 'medalOff', 36)}
+          <div class="a-txt"><b>${esc(r.req.text)}</b>
+            ${r.met ? '' : `<div class="bar"><i style="width:${pct}%"></i></div>`}
+            <div class="a-rw">${r.met ? 'Hecha' : G.U.num(Math.min(r.v, r.req.goal)) + ' / ' + G.U.num(r.req.goal)}</div></div>`;
+        grid.appendChild(el);
+      }
+      box.appendChild(grid);
+      if (!q.done) return;
+      const pays = q.rows.some(r => r.req.kind === 'pay');
+      const btn = document.createElement('button');
+      btn.className = 'btn small gold';
+      btn.style.marginTop = '10px';
+      btn.textContent = 'Abrir ' + q.def.name;
+      btn.dataset.sfx = 'none';
+      btn.onclick = () => {
+        if (pays && !confirm('¿Pagar y abrir ' + q.def.name + '?')) return;
+        const def = G.Progress.claimRegion();
+        if (def) { G.Audio.sfx('buy'); G.UI.toast(def.name + ' está abierta'); render(); }
+        else { G.Audio.sfx('error'); G.UI.toast('Aún te falta algo para abrirla.'); render(); }
       };
-      section('Diarias', M.daily, false);
-      section('Semanales', M.weekly, true);
+      box.appendChild(btn);
     }
 
     // ---------------- logros ----------------

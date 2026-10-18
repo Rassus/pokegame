@@ -23,8 +23,15 @@ G.Slots = (() => {
 
   let cv = null, ctx = null, st = null, raf = 0, last = 0, fast = false;
 
-  const symOf = r => (r.shiny ? 'shiny' : SYM[r.rarity]);
-  const colOf = r => (r.shiny ? '#9ae6ff' : G.Gacha.RARITY_COLOR[r.rarity]);
+  const faceKey = f => !f ? '' : (typeof f === 'string' ? f : f.dex ? 'd' + f.dex + (f.shiny ? 's' : '') : (f.icon || '') + ':' + (f.text || ''));
+  const symOf = r => r.hit || (r.shiny ? 'shiny' : SYM[r.rarity]);
+  const colOf = r => r.col || (r.shiny ? '#9ae6ff' : G.Gacha.RARITY_COLOR[r.rarity]);
+  const traySym = f => {
+    if (!f || typeof f === 'string') return f || 'ball';
+    if (f.icon) return f.icon;
+    if (f.dex) return f.shiny ? 'shiny' : (SYM[f.rarity] || 'ball');
+    return 'ball';
+  };
 
   function wait(s) {
     return new Promise(res => {
@@ -49,6 +56,7 @@ G.Slots = (() => {
     const ten = results.length === 10;
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
+      st.strip = r.faces && r.faces.length ? r.faces : null;
       if (ten) st.led = 'TIRADA ' + (i + 1) + '/10';
       // Palanca.
       G.Audio.sfx('ball');
@@ -57,12 +65,12 @@ G.Slots = (() => {
       await tween(v => { st.lever = v; }, 1, 0, ten ? 0.1 : 0.2);
       st.win = null;
       await wait(ten ? 0.18 : 0.6);
-      const big = r.rarity >= 4 || r.shiny;
+      const big = !!(r.big || r.rarity >= 4 || r.shiny);
       for (let k = 0; k < 3; k++) {
         if (k === 2 && big) {
           // Suspense: el último rodillo frena despacio y las luces parpadean.
           st.frenzy = 1;
-          st.led = r.shiny ? '¡¿SHINY?!' : r.rarity === 5 ? '¡¿LEGENDARIO?!' : '¡¿ÉPICO?!';
+          st.led = r.frenzy || (r.shiny ? '¡¿SHINY?!' : r.rarity === 5 ? '¡¿LEGENDARIO?!' : '¡¿ÉPICO?!');
           st.ledCol = colOf(r);
           await tween(v => { st.reels[2].speed = v; }, 520, 120, ten ? 0.5 : 1.1);
         }
@@ -73,13 +81,13 @@ G.Slots = (() => {
       st.frenzy = 0;
       // Premio.
       st.win = { col: colOf(r), t: 0 };
-      st.led = (r.shiny ? 'SHINY · ' : '') + G.Gacha.RARITY_NAME[r.rarity].toUpperCase();
+      st.led = r.led || ((r.shiny ? 'SHINY · ' : '') + G.Gacha.RARITY_NAME[r.rarity].toUpperCase());
       st.ledCol = colOf(r);
       G.Audio.sfx('reveal', { rarity: r.rarity });
       if (r.rarity === 5) G.Audio.sfx('legend');
       if (r.shiny) G.Audio.sfx('shiny');
       if (big) burst(colOf(r), r.rarity === 5 || r.shiny ? 60 : 30);
-      st.tray.push({ sym: symOf(r), y: 104, vy: 0, done: false });
+      st.tray.push({ sym: traySym(symOf(r)), y: 104, vy: 0, done: false });
       await wait(ten ? (big ? 0.7 : 0.28) : 1.0);
     }
     await wait(0.4);
@@ -123,6 +131,7 @@ G.Slots = (() => {
     }
     if (tick && Math.random() < 0.5) G.Audio.sfx('hover');
     if (st.win) st.win.t += dt;
+    if (st.strip) for (const f of st.strip) if (f && f.anim) f.anim.update(dt);
     for (const b of st.tray) if (!b.done) { b.vy += 400 * dt; b.y += b.vy * dt; if (b.y >= 132) { b.y = 132; b.vy *= -0.35; if (Math.abs(b.vy) < 20) b.done = true; } }
     for (const p of st.sparks) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 120 * dt; }
     st.sparks = st.sparks.filter(p => p.t < p.life);
@@ -219,28 +228,54 @@ G.Slots = (() => {
     }
   }
 
+  function drawFace(face, x, y, size) {
+    if (face == null) return;
+    if (typeof face === 'string') { G.Icons.draw(ctx, face, x, y, size); return; }
+    if (face.dex && G.Sprites) {
+      if (!face.anim) {
+        const bh = Math.max(8, G.Sprites.bodyHeight(face.dex, 1));
+        face.anim = new G.Sprites.Animator(face.dex, Math.min(1, 22 / bh), !!face.shiny);
+        face.anim.dir = 0;
+      }
+      face.anim.draw(ctx, x + size / 2, y + size - 2);
+      return;
+    }
+    if (face.icon) G.Icons.draw(ctx, face.icon, x + 4, y - 2, 16);
+    if (face.text) {
+      ctx.font = '700 8px Pixelify,"Segoe UI",sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#20160a';
+      ctx.fillText(face.text, x + size / 2, y + size - 1);
+    }
+  }
+
   function drawReel(rl, x) {
+    const strip = st.strip || STRIP;
+    const at = i => strip[((i % strip.length) + strip.length) % strip.length];
     ctx.save();
     ctx.beginPath(); ctx.rect(x, REEL_Y, REEL_W, REEL_H); ctx.clip();
     R(x, REEL_Y, REEL_W, REEL_H, C.reel);
     if (rl.spin) {
       const base = rl.off % CELL, i0 = Math.floor(rl.off / CELL);
       for (let k = -2; k <= 2; k++) {
-        const name = STRIP[((i0 - k) % STRIP.length + STRIP.length) % STRIP.length];
+        const face = at(i0 - k);
         const y = Math.round(MID - 12 + k * CELL + base);
         ctx.globalAlpha = rl.speed > 300 ? 0.75 : 1;
-        G.Icons.draw(ctx, name, x + 6, y, 24);
-        if (rl.speed > 300) { ctx.globalAlpha = 0.25; G.Icons.draw(ctx, name, x + 6, y - 6, 24); }
+        drawFace(face, x + 6, y, 24);
+        if (rl.speed > 300) { ctx.globalAlpha = 0.25; drawFace(face, x + 6, y - 6, 24); }
         ctx.globalAlpha = 1;
       }
     } else {
       const by = Math.round(Math.sin(rl.bounce * Math.PI) * 5);
-      const n = STRIP.indexOf(rl.sym);
+      const key = faceKey(rl.sym);
+      let n = strip.findIndex(f => faceKey(f) === key);
+      if (n < 0) n = 0;
       ctx.globalAlpha = 0.35;
-      G.Icons.draw(ctx, STRIP[(n + 3) % STRIP.length], x + 6, MID - 12 - CELL + by, 24);
-      G.Icons.draw(ctx, STRIP[(n + 5) % STRIP.length], x + 6, MID - 12 + CELL + by, 24);
+      drawFace(at(n + 3), x + 6, MID - 12 - CELL + by, 24);
+      drawFace(at(n + 5), x + 6, MID - 12 + CELL + by, 24);
       ctx.globalAlpha = 1;
-      G.Icons.draw(ctx, rl.sym, x + 6, MID - 12 + by, 24);
+      drawFace(rl.sym, x + 6, MID - 12 + by, 24);
     }
     // Sombra curva del rodillo (arriba y abajo más oscuro).
     ctx.globalAlpha = 0.28;

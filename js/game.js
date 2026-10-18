@@ -100,6 +100,11 @@ G.Game = (() => {
       if (coop && G.Social.room) G.LobbyUI.open();
       return;
     }
+    if (G.Pass) {
+      const mon0 = G.DEX_BY[G.DB.save.partner];
+      G.Pass.beginRun(mon0 && mon0.dex, mon0 && mon0.types);
+      if (towerCfg) G.Pass.towerPlayed(towerCfg, !!coop);
+    }
     holdBy = []; awayBy = null;
     openItem = null; laterItems.length = 0;
     G.Towers.reset();
@@ -214,6 +219,7 @@ G.Game = (() => {
     sv.tickets.t1 += d.t1; sv.tickets.t10 += d.t10; sv.tickets.tb += d.tb; sv.tickets.tg += d.tg;
     sv.stats = sv.stats || {};
     sv.stats.ticketsGot = (sv.stats.ticketsGot || 0) + d.t1 + d.t10 + d.tb + d.tg;
+    if (G.Pass) G.Pass.ticketsEarn(d);
     banked = { t1: pl.t1, t10: pl.t10, tb: pl.tb, tg: pl.tg };
     if (save_) G.DB.commit();
   }
@@ -430,7 +436,8 @@ G.Game = (() => {
       mul: pl.coinMul || 1, dex: pl.dex, shiny: !!pl.shiny,
       coop: !!pl.uid, host: !!pl.coopHost,
       types: (pl.mon && pl.mon.types) || [],
-      team: G.Coop.active ? G.Coop.members.map(m => ({ uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny })) : null,
+      st: G.Upgrades.sheet((G.DB.save.pupg || {})[pl.dex]),
+      team: G.Coop.active ? G.Coop.members.map(m => ({ uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny, st: m.st || null })) : null,
       tower: tower && !tower.duel ? {
         id: tower.id, mode: tower.mode || 'normal', dex: tower.dex,
         wave: tower.cleared ? (tower.waves || 100) : (tower.wave || 0),
@@ -471,7 +478,7 @@ G.Game = (() => {
           kind: 'tower',
           r: {
             id: tower.id, mode: tower.mode || 'normal', wave, cleared: !!tower.cleared,
-            time: Math.floor(s.t || 0), dex: s.dex, shiny: !!s.shiny, lv: s.lv | 0, kills: s.ki | 0
+            time: Math.floor(s.t || 0), dex: s.dex, shiny: !!s.shiny, lv: s.lv | 0, kills: s.ki | 0, st: s.st || null
           }
         };
       }
@@ -489,12 +496,13 @@ G.Game = (() => {
           save.tickets = Object.assign({ t1: 0, t10: 0, tb: 0, tg: 0 }, save.tickets);
           save.tickets.tg += rw.ticket;
           save.stats.ticketsGot = (save.stats.ticketsGot || 0) + rw.ticket;
+          if (G.Pass) G.Pass.ticketsEarn({ tg: rw.ticket });
         }
       }
     } else if (s.coop && s.host && s.team && s.team.length >= 2) {
       save.rankPending = { kind: 'group', r: { t: Math.floor(s.t || 0), lv: s.lv | 0, kills: s.ki | 0, members: s.team } };
     } else if (!s.coop) {
-      save.rankPending = { kind: 'solo', r: { t: Math.floor(s.t || 0), lv: s.lv | 0, kills: s.ki | 0, dex: s.dex, shiny: !!s.shiny } };
+      save.rankPending = { kind: 'solo', r: { t: Math.floor(s.t || 0), lv: s.lv | 0, kills: s.ki | 0, dex: s.dex, shiny: !!s.shiny, st: s.st || null } };
     }
     save.coins += coins;
     save.stats.runs = (save.stats.runs || 0) + 1;
@@ -506,7 +514,7 @@ G.Game = (() => {
     save.stats.bestBosses = Math.max(save.stats.bestBosses || 0, s.bo || 0);
     save.stats.coinsEarned = (save.stats.coinsEarned || 0) + coins;
     save.salvagedRun = s.id;
-    G.Progress.event('runEnd', { time: s.t || 0, level: s.lv || 1, coins: s.co || 0, types: s.types || [], group: !!s.coop });
+    G.Progress.event('runEnd', { time: s.t || 0, level: s.lv || 1, coins: s.co || 0, types: s.types || [], group: !!s.coop, dex: s.dex || 0, kills: s.ki || 0, bosses: s.bo || 0, tower: !!(s.tower && s.tower.id), gain: coins });
     G.Progress.checkAch();
     G.DB.commit();
     if (G.Social.me) G.Social.publishProfile();
@@ -565,7 +573,8 @@ G.Game = (() => {
       };
       if (wave >= 1) G.Ranking.submitTower({
         id: tower.id, mode: tower.mode || 'normal', wave, cleared: !!tower.cleared,
-        time: Math.floor(time), dex: pl.dex, shiny: !!pl.shiny, lv: pl.level | 0, kills: pl.kills | 0
+        time: Math.floor(time), dex: pl.dex, shiny: !!pl.shiny, lv: pl.level | 0, kills: pl.kills | 0,
+        st: G.Upgrades.sheet((save.pupg || {})[pl.dex])
       });
     }
     let caughtName = '';
@@ -594,6 +603,7 @@ G.Game = (() => {
         save.tickets = Object.assign({ t1: 0, t10: 0, tb: 0, tg: 0 }, save.tickets);
         save.tickets.tg += rw.ticket;
         save.stats.ticketsGot = (save.stats.ticketsGot || 0) + rw.ticket;
+        if (G.Pass) G.Pass.ticketsEarn({ tg: rw.ticket });
         towerExtra += rw.ticket === 1 ? ' · 1 ticket dorado' : ' · ' + rw.ticket + ' tickets dorados';
       }
     }
@@ -609,7 +619,7 @@ G.Game = (() => {
     save.stats.bestKills = Math.max(save.stats.bestKills || 0, pl.kills || 0);
     save.stats.bestBosses = Math.max(save.stats.bestBosses || 0, pl.bosses || 0);
     save.stats.coinsEarned += coins;
-    G.Progress.event('runEnd', { time, level: pl.level, coins: pl.coins, types: pl.mon.types, group: coop });
+    G.Progress.event('runEnd', { time, level: pl.level, coins: pl.coins, types: pl.mon.types, group: coop, dex: pl.dex, kills: pl.kills || 0, bosses: pl.bosses || 0, tower: !!tower, gain: coins });
     G.Progress.checkAch();
     if (ckptId) save.salvagedRun = ckptId;
     G.DB.commit();
@@ -618,7 +628,7 @@ G.Game = (() => {
 
     // Ranking: en solitario cada uno lo suyo; en grupo lo sube el anfitrión.
     // La torre ya se apuntó arriba, una fila por jugador.
-    const mark = { t: Math.floor(time), lv: pl.level, kills: pl.kills };
+    const mark = { t: Math.floor(time), lv: pl.level, kills: pl.kills, st: G.Upgrades.sheet((save.pupg || {})[pl.dex]) };
     if (!tower && !coop) G.Ranking.submitSolo(Object.assign(mark, { dex: pl.dex, shiny: pl.shiny }));
     else if (!tower && wasHost) G.Ranking.submitGroup(Object.assign(mark, { members: team }));
 
@@ -1223,7 +1233,7 @@ G.Flow = {
   boot() {
     G.UI.initChrome();
     G.LoginUI.init(); G.TestUI.init(); G.MenuUI.init(); G.GachaUI.init();
-    G.SocialUI.init(); G.RankingUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init(); G.SupportUI.init(); G.NewsUI.init(); G.Updater.init();
+    G.SocialUI.init(); G.RankingUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init(); G.SupportUI.init(); G.NewsUI.init(); G.PassUI.init(); G.Updater.init();
     // Tu nombre arriba a la derecha abre tu perfil.
     document.getElementById('user-pill').onclick = () => G.GoalsUI.open('profile');
     G.Audio.music('village');     // suena tras el primer clic (lo exige el navegador)

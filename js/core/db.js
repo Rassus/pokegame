@@ -773,6 +773,7 @@ G.DB = (() => {
   function commit(urgent = false) {
     if (guest || !key || !save) return false;
     save.updated = Date.now();
+    if (G.Ranking && G.Ranking.touchPurse) G.Ranking.touchPurse();
     if (mode === 'local') return write(K_SAVE + key, save);
     write(K_CLOUD + uid, save);
     pending = true;

@@ -7,7 +7,7 @@
 G.RankingUI = (() => {
   const $ = G.UI.$;
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  let mode = 's', period = 'w', scope = 'all', dex = null, towerId = '', towerMode = 'normal';
+  let mode = 's', period = 'w', scope = 'all', dex = null, towerId = '', towerMode = 'normal', purseKind = 'gold';
   let token = 0;
 
   function init() {
@@ -53,7 +53,8 @@ G.RankingUI = (() => {
     mk($('rk-mode'), [
       ['s', `<b>${G.Icons.html('user', 16)} Solo</b>`],
       ['g', `<b>${G.Icons.html('friends', 16)} Grupo</b>`],
-      ['tw', `<b>${G.Icons.html('tower', 16)} Torre</b>`]
+      ['tw', `<b>${G.Icons.html('tower', 16)} Torre</b>`],
+      ['pu', `<b>${G.Icons.html('coin', 16)} Riqueza</b>`]
     ], mode, k => { mode = k; }, 'gen-tab');
     mk($('rk-period'), G.Ranking.PERIODS, period, k => {
       period = k;
@@ -65,12 +66,27 @@ G.RankingUI = (() => {
 
   function towerTools() {
     const on = mode === 'tw';
+    const purse = mode === 'pu';
     const poke = $('rk-poke'), clr = $('rk-clear'), sel = $('rk-tower'), tm = $('rk-tmode'), sub = $('rk-sub');
-    if (poke) poke.classList.toggle('hidden', on);
-    if (clr) clr.classList.toggle('hidden', on || !dex);
+    if (poke) poke.classList.toggle('hidden', on || purse);
+    if (clr) clr.classList.toggle('hidden', on || purse || !dex);
     if (sel) sel.classList.toggle('hidden', !on);
-    if (tm) tm.classList.toggle('hidden', !on);
-    if (sub) sub.textContent = on ? '· oleada alcanzada' : '· tiempo aguantado';
+    if ($('rk-period')) $('rk-period').classList.toggle('hidden', purse);
+    if ($('rk-scope')) $('rk-scope').classList.toggle('hidden', purse);
+    if (tm) tm.classList.toggle('hidden', !on && !purse);
+    if (sub) sub.textContent = purse ? (purseKind === 'tickets' ? '· top 50 de tickets' : '· top 50 de oro') : on ? '· oleada alcanzada' : '· tiempo aguantado';
+    if (purse && tm) {
+      tm.innerHTML = '';
+      for (const [id, name] of [['gold', 'Oro'], ['tickets', 'Tickets']]) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'chip' + (id === purseKind ? ' on' : '');
+        b.textContent = name;
+        b.onclick = () => { purseKind = id; tabs(); load(); };
+        tm.appendChild(b);
+      }
+      return;
+    }
     if (!on || !sel || !tm) return;
     if (!sel.dataset.ready) {
       for (let g = 1; g <= 9; g++) {
@@ -125,6 +141,9 @@ G.RankingUI = (() => {
     const list = $('rk-list');
     list.innerHTML = '<p class="sub">Cargando…</p>';
     $('rk-me').innerHTML = '';
+    const sheet = $('rk-sheet');
+    if (sheet) sheet.classList.add('hidden');
+    if (mode === 'pu') { loadPurse(my); return; }
     let rows = [], me = null;
     try {
       const tower = mode === 'tw' ? { id: towerId, mode: towerMode } : null;
@@ -172,19 +191,107 @@ G.RankingUI = (() => {
       : (en ? `<span translate="no">You don't have a ${where} record ${pn} yet.</span>` : `Aún no tienes marca ${pn} ${where}.`);
   }
 
+  function purseRow(kind, r, pos) {
+    const el = document.createElement('div');
+    const mine = r.id === G.Social.uid;
+    el.className = 'rk-row rk-purse' + (mine ? ' mine' : '') + (pos <= 3 ? ' top' + pos : '');
+    el.insertAdjacentHTML('beforeend', `<span class="pos">${pos <= 3 ? G.Icons.html('trophy', 20) : ''}${pos}</span>`);
+    const mons = document.createElement('span');
+    mons.className = 'mons';
+    if (G.DEX_BY[r.dex]) mons.appendChild(G.UI.spriteCanvas(r.dex, 44, 40, { scale: 1, shiny: !!r.shiny }));
+    el.appendChild(mons);
+    const split = kind === 'tickets'
+      ? `${G.Icons.html('ticket', 14)} ${G.U.num(r.t1 || 0)} · ${G.Icons.html('ticket10', 14)} ${G.U.num(r.t10 || 0)} · ${G.Icons.html('ticketb', 14)} ${G.U.num(r.tb || 0)} · ${G.Icons.html('ticketg', 14)} ${G.U.num(r.tg || 0)}`
+      : (kind === 'gold' ? 'Oro' : 'Tickets');
+    el.insertAdjacentHTML('beforeend',
+      `<span class="who"><b translate="no"><a href="#" class="plink" data-u="${esc(r.id)}">${esc(r.name)}</a></b><small>${split}</small></span>
+       <span class="time">${G.U.num(r.n || 0)}</span>`);
+    el.querySelector('.plink').onclick = e => { e.preventDefault(); G.ProfileUI.show(r.id); };
+    return el;
+  }
+
+  async function loadPurse(my) {
+    const list = $('rk-list');
+    let rows = [];
+    try {
+      await G.Ranking.touchPurse();
+      rows = await G.Ranking.wealthTop(purseKind);
+    } catch (e) {
+      if (my !== token) return;
+      list.innerHTML = '<p class="sub">No se pudo cargar el ranking (' + esc(e.code || e.message) + ').</p>';
+      return;
+    }
+    if (my !== token) return;
+    list.innerHTML = '';
+    if (!rows.length) list.innerHTML = '<p class="sub">Todavía no hay marcas aquí. ¡Sé el primero!</p>';
+    rows.forEach((r, i) => list.appendChild(purseRow(purseKind, r, i + 1)));
+    const en = G.I18n.lang === 'en';
+    if (!G.Social.me) {
+      $('rk-me').textContent = 'Elige un apodo (en Amigos) para salir en el ranking.';
+      return;
+    }
+    const w = G.Ranking.wallet();
+    const mine = rows.findIndex(r => r.id === G.Social.uid);
+    const n = purseKind === 'tickets' ? w.tickets : w.coins;
+    const what = purseKind === 'tickets' ? 'tickets' : 'oro';
+    $('rk-me').innerHTML = mine >= 0
+      ? (en ? `<span translate="no">Your rank: <b class="gold">#${mine + 1}</b> · ${G.U.num(n)} ${what === 'oro' ? 'gold' : 'tickets'}</span>`
+            : `Tu puesto: <b class="gold">#${mine + 1}</b> · ${G.U.num(n)} ${what === 'oro' ? 'de oro' : 'tickets'}`)
+      : (en ? `<span translate="no">You're not in the top 50 yet. You carry ${G.U.num(n)} ${what === 'oro' ? 'gold' : 'tickets'}.</span>`
+            : `Aún no estás en el top 50. Tú llevas ${G.U.num(n)} ${what === 'oro' ? 'de oro' : 'tickets'}.`);
+  }
+
   function rowEl(r, pos, mine) {
     const el = document.createElement('div');
     el.className = 'rk-row' + (mine ? ' mine' : '') + (pos <= 3 ? ' top' + pos : '');
     el.insertAdjacentHTML('beforeend', `<span class="pos">${pos <= 3 ? G.Icons.html('trophy', 20) : ''}${pos}</span>`);
     const mons = document.createElement('span');
     mons.className = 'mons';
-    r.dex.forEach((d, i) => { if (G.DEX_BY[d]) mons.appendChild(G.UI.spriteCanvas(d, 44, 40, { scale: 1, shiny: !!r.shiny[i] })); });
+    r.dex.forEach((d, i) => {
+      if (!G.DEX_BY[d]) return;
+      const cv = G.UI.spriteCanvas(d, 44, 40, { scale: 1, shiny: !!r.shiny[i] });
+      cv.className = 'rk-mon';
+      cv.title = G.DEX_BY[d].name;
+      cv.onclick = () => openSheet(r, i);
+      mons.appendChild(cv);
+    });
     el.appendChild(mons);
     el.insertAdjacentHTML('beforeend',
       `<span class="who"><b translate="no">${r.names.map((n, i) => `<a href="#" class="plink" data-u="${esc(r.uids[i] || '')}">${esc(n)}</a>`).join(' · ')}</b><small>Nv. ${r.lv || 1} · ${G.U.num(r.kills || 0)} derrotados</small></span>
        <span class="time${mode === 'tw' ? ' wave' : ''}">${mode === 'tw' ? waveText(r.t) : fmt(r.t)}</span>`);
     el.querySelectorAll('.plink').forEach(a => { a.onclick = e => { e.preventDefault(); G.ProfileUI.show(a.dataset.u); }; });
     return el;
+  }
+
+  function openSheet(r, i) {
+    const dex = r.dex[i];
+    const mon = G.DEX_BY[dex];
+    if (!mon) return;
+    let box = $('rk-sheet');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'rk-sheet';
+      box.className = 'rk-sheet hidden';
+      box.onclick = e => { if (e.target === box) box.classList.add('hidden'); };
+      $('scr-rank').appendChild(box);
+    }
+    const bag = r.st && r.st[i];
+    const known = bag && typeof bag === 'object';
+    const lines = G.Upgrades.LIST.filter(u => u.cat === 'mon');
+    const stats = !known
+      ? '<p class="sub">Esta marca es de antes y no guardó las mejoras.</p>'
+      : `<div class="rk-stats">${lines.map(u => `<span>${esc(u.name)}</span><b>${bag[u.id] || 0}</b>`).join('')}</div>`;
+    box.innerHTML = `<div class="rk-card">
+      <div class="rk-card-top"></div>
+      <div class="rk-card-txt"><b translate="no"></b><small>Nivel ${r.lv || 1}</small></div>
+      ${stats}
+      <button type="button" class="btn small ghost" id="rk-sheet-x">Cerrar</button>
+    </div>`;
+    const top = box.querySelector('.rk-card-top');
+    top.appendChild(G.UI.spriteCanvas(dex, 72, 64, { scale: 2, shiny: !!r.shiny[i], shadow: false }));
+    box.querySelector('.rk-card-txt b').textContent = mon.name;
+    box.querySelector('#rk-sheet-x').onclick = () => box.classList.add('hidden');
+    box.classList.remove('hidden');
   }
 
   return { init, open };

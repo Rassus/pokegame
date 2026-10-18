@@ -76,6 +76,7 @@ G.Interact = (() => {
       G.FX.dmgText(pl.x, pl.y - pl.bodyH - 6, '+' + Math.round(healAcc), '#5fe08a');
       healAcc = 0;
       G.Audio.sfx('xp');
+      if (G.Pass) G.Pass.spring();
     }
     if (p.charge <= 0.02) G.Spawner.say('El manantial se ha secado (se recarga solo)', 2.2, true);
   }
@@ -84,6 +85,7 @@ G.Interact = (() => {
     p.used = true;
     const pw = POWERS[p.kind];
     pl.addPower(pw, POWER_TIME);
+    if (G.Pass) G.Pass.altar(pw.id);
     G.FX.ring(p.x, p.y - 20, 8, 90, pw.color, 0.6, 5);
     G.FX.burst(pl.x, pl.y - pl.bodyH * 0.5, pw.color, 24, 200);
     G.Audio.sfx('legend');

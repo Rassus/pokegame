@@ -72,6 +72,17 @@ G.Upgrades = (() => {
   /** Nivel comprado de una mejora de la cuenta. */
   function lvl(id) { return clamp(globalBag(), id); }
 
+  /** Mejoras del Pokémon con nivel, sólo las que tiene compradas. */
+  function sheet(src) {
+    const o = {};
+    for (const u of LIST) {
+      if (u.cat !== 'mon') continue;
+      const n = clamp(src, u.id);
+      if (n) o[u.id] = n;
+    }
+    return o;
+  }
+
   /** Cuántos cofres más: 1, 1,2, 1,4 o 1,7. */
   function chestMul() { return [1, 1.2, 1.4, 1.7][lvl('chests')] || 1; }
 
@@ -112,5 +123,5 @@ G.Upgrades = (() => {
     };
   }
 
-  return { LIST, BY, CATS, cost, perks, lvl, chestMul, towerXp, towerGold, shopEvery, candyAdd };
+  return { LIST, BY, CATS, cost, perks, lvl, sheet, chestMul, towerXp, towerGold, shopEvery, candyAdd };
 })();

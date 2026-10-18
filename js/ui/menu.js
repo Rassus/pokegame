@@ -24,6 +24,8 @@ G.MenuUI = (() => {
       };
     });
     document.querySelectorAll('[data-back]').forEach(b => { b.onclick = open; });
+    const menuFold = $('menu-fold');
+    if (menuFold) menuFold.onclick = () => menuFold.closest('.menu-right').classList.toggle('is-fold');
     G.Social.on(() => { if (G.UI.isOpen('scr-menu')) socialLine(); });
     $('btn-logout').onclick = () => {
       if (G.DB.guest && !confirm('Eres invitado: se perderá todo el progreso. ¿Salir?')) return;
@@ -100,6 +102,7 @@ G.MenuUI = (() => {
     const pend = G.Progress.pending();
     $('menu-goals-sub').textContent = pend ? pend + (pend === 1 ? ' premio por recoger' : ' premios por recoger') : 'Misiones, logros y perfil';
     $('menu-goals-sub').classList.toggle('gold', pend > 0);
+    if (G.PassUI) G.PassUI.open();
     // Con cuenta en la nube: amigos en línea, invitaciones y (una vez) el apodo.
     if (G.DB.online && !G.Social.started) {
       G.Social.start().then(r => {
@@ -210,7 +213,7 @@ G.MenuUI = (() => {
     }
     if (dexGen > G.Progress.region()) {
       lock.classList.remove('hidden');
-      lock.textContent = 'Región cerrada. Completa la misión en Misiones para abrirla.';
+      lock.textContent = 'Región cerrada. Completa la misión en Región para abrirla.';
     } else lock.classList.add('hidden');
     renderGrid();
     showDetail(dexSel);
@@ -492,6 +495,7 @@ G.MenuUI = (() => {
         const price = G.Upgrades.cost(u.id, now);
         if (sv.coins < price) return false;
         sv.coins -= price;
+        if (G.Pass) G.Pass.goldSpend(price);
         lv[u.id] = now + 1;
         bought = now + 1;
         G.DB.commit(true);

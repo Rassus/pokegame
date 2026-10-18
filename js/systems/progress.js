@@ -1,22 +1,19 @@
-/* ============ progress.js — misiones, logros y estadísticas de cuenta ============
- * El juego avisa de lo que pasa con G.Progress.event(tipo, datos):
+/* ============ progress.js — misiones del pase, logros y estadísticas ============
+ * El juego avisa de lo que pasa con G.Progress.event(tipo, datos).
+ * Las misiones diarias, semanales y del mes viven en el pase (systems/pass.js):
+ * se completan solas y dan puntos. Aquí siguen los logros y las regiones.
  *
- *   kill      { types, boss, legend, shiny }  (también en las copias del cooperativo)
+ *   kill      { types, boss, legend, shiny, dex }
  *   chest     cofre con candado abierto
  *   item      { id }        objeto equipado
  *   evolve    { move }      movimiento evolucionado
- *   rift      { type }      pelea de grieta ganada
- *   runEnd    { time, level, coins, types, group }
- *   missionDone { daily }   (lo lanza claim)
+ *   rift      { type, dex } pelea de grieta ganada
+ *   runEnd    { time, level, coins, types, group, dex, kills, bosses, tower, gain }
  *
  * y esto actualiza en la partida guardada:
  *   stats.bossesTotal · riftWins · evolutions · missionsDone · groupRuns
  *   legends{dex} · arenas{tipo} · itemsFound{id} · evoMoves{id} · ach{id} · achRank{id}
- *   missions { day, daily[], rerolled, week, weekly[] }
- *
- * Misiones: 3 diarias + 2 semanales, sorteadas con una semilla de la fecha y
- * la cuenta (en cualquier ordenador salen las mismas). El premio se recoge
- * a mano; los logros se dan solos al conseguirlos.
+ *   pass      el pase del mes (systems/pass.js)
  */
 G.Progress = (() => {
   const TYPES = Object.keys(G.U.TYPE_NAME);
@@ -47,20 +44,17 @@ G.Progress = (() => {
   function ensure(s) {
     if (!s) return;
     const ids = G.Ranking.periodIds();
-    const key = String(s.created || 0);
     s.missions = s.missions || {};
     const M = s.missions;
-    if (M.day !== ids.d) {
-      M.day = ids.d; M.rerolled = false;
-      M.daily = pickSet(G.MissionDefs.daily, 3, rng(ids.d + key));
-    }
-    if (M.week !== ids.w) {
-      M.week = ids.w;
-      M.weekly = pickSet(G.MissionDefs.weekly, 2, rng(ids.w + key));
-    }
+    // Las diarias y semanales de antes las sustituye el pase.
+    M.day = ids.d;
+    M.week = ids.w;
+    M.daily = [];
+    M.weekly = [];
     if (s.region == null) s.region = 1;
     if (s.regionProg == null) s.regionProg = 0;
     s.achRank = s.achRank || {};
+    if (G.Pass) G.Pass.ensure(s);
   }
 
   /** Cuánto llevas de un requisito de región (se lee de la cuenta). */
@@ -109,7 +103,7 @@ G.Progress = (() => {
     }
     if (s.regionTold) return;
     s.regionTold = true;
-    notify('Misión completada: ' + q.def.name, 'Ábrela en Misiones');
+    notify('Misión completada: ' + q.def.name, 'Ábrela en Región');
     G.DB.commit();
   }
 
@@ -149,6 +143,10 @@ G.Progress = (() => {
       if (req.t10) s.tickets.t10 -= req.t10;
       if (req.tb) s.tickets.tb -= req.tb;
       if (req.tg) s.tickets.tg -= req.tg;
+      if (G.Pass) {
+        if (req.coins) G.Pass.goldSpend(req.coins);
+        G.Pass.ticketsSpent({ t1: req.t1 || 0, t10: req.t10 || 0, tb: req.tb || 0, tg: req.tg || 0 });
+      }
     }
     s.region = q.def.gen;
     s.regionProg = 0;
@@ -219,6 +217,10 @@ G.Progress = (() => {
       s.stats = s.stats || {};
       s.stats.ticketsGot = (s.stats.ticketsGot || 0) + got;
     }
+    if (G.Pass) {
+      if (r.coins) G.Pass.goldEarn(r.coins);
+      if (got) G.Pass.ticketsEarn({ t1: r.t1 || 0, t10: r.t10 || 0, tb: 0, tg: r.tg || 0 });
+    }
     if (G.UI && G.UI.refreshCoins && !document.getElementById('topbar').classList.contains('hidden')) G.UI.refreshCoins();
   }
 
@@ -264,6 +266,7 @@ G.Progress = (() => {
     }
     advance(s.missions.daily, kind, d);
     advance(s.missions.weekly, kind, d);
+    if (G.Pass) G.Pass.onEvent(kind, d);
     noteRegion(s);
     // Los logros se miran como mucho una vez por segundo (hay cientos de bajas).
     if (kind !== 'kill' || d.boss || d.legend || d.shiny) checkAch();
@@ -273,7 +276,7 @@ G.Progress = (() => {
   /** Un enemigo ha caído (anfitrión, solitario o copia en el invitado). */
   function kill(e) {
     const legend = e.legend || (G.Rift.inArena && e.boss) ? e.dex : 0;
-    event('kill', { types: e.types || [], boss: !!e.boss, legend, shiny: !!e.shiny });
+    event('kill', { types: e.types || [], boss: !!e.boss, legend, shiny: !!e.shiny, dex: e.dex || 0 });
   }
 
   // ---------------- logros ----------------
@@ -327,7 +330,8 @@ G.Progress = (() => {
     if (!s) return 0;
     ensure(s);
     const q = regionMission();
-    return [...s.missions.daily, ...s.missions.weekly].filter(m => done(m) && !m.claimed).length + (q && q.done ? 1 : 0);
+    const passN = G.Pass ? G.Pass.ready() : 0;
+    return passN + (q && q.done ? 1 : 0);
   }
 
   // ---------------- avisos ----------------

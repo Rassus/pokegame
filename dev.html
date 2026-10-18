@@ -162,6 +162,10 @@
 
 <!-- ====== Menú principal ====== -->
 <section id="scr-menu" class="scr hidden">
+  <aside id="pass-dock" class="pass-dock">
+    <button type="button" id="pass-head" class="pass-head" data-sfx="click"></button>
+    <div id="pass-list" class="pass-list"></div>
+  </aside>
   <div class="menu-left">
     <div class="logo">
       <div class="t1">PokéSurvivor</div>
@@ -177,6 +181,7 @@
   </div>
   <div class="menu-right">
     <div class="box">
+      <button type="button" id="menu-fold" class="menu-fold" data-sfx="click">Menú</button>
       <div class="menu-list">
         <button class="menu-item play" data-go="play">Jugar<small>Entra en la mazmorra</small></button>
         <button class="menu-item" data-go="dex">Pokémon<small id="menu-dex-count">Tu colección</small></button>
@@ -394,6 +399,7 @@
     <div class="row between"><h2>Misiones</h2><button class="btn small ghost" data-back>Volver</button></div>
     <div class="tabs" id="goals-tabs">
       <div class="tab on" data-tab="missions">Misiones</div>
+      <div class="tab" data-tab="region">Región</div>
       <div class="tab" data-tab="ach">Logros</div>
       <div class="tab" data-tab="profile">Perfil</div>
     </div>
@@ -618,6 +624,7 @@
 <script defer src="js/data/upgrades.js"></script>
 <script defer src="js/data/items.js"></script>
 <script defer src="js/data/missions.js"></script>
+<script defer src="js/data/pass.js"></script>
 <script defer src="js/data/run-events.js"></script>
 <script defer src="js/data/achievements.js"></script>
 <script defer src="js/data/funding.js"></script>
@@ -644,6 +651,7 @@
 <script defer src="js/systems/weather.js"></script>
 <script defer src="js/systems/pathing.js"></script>
 <script defer src="js/systems/progress.js"></script>
+<script defer src="js/systems/pass.js"></script>
 <script defer src="js/systems/hazards.js"></script>
 <!-- red: amigos, salas, cooperativo y ranking -->
 <script defer src="js/net/social.js"></script>
@@ -665,6 +673,7 @@
 <script defer src="js/ui/social-ui.js"></script>
 <script defer src="js/ui/ranking-ui.js"></script>
 <script defer src="js/ui/goals-ui.js"></script>
+<script defer src="js/ui/pass-ui.js"></script>
 <script defer src="js/ui/settings-ui.js"></script>
 <script defer src="js/ui/support-ui.js"></script>
 <script defer src="js/ui/news-ui.js"></script>
