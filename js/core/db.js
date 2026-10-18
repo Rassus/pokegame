@@ -85,7 +85,7 @@ G.DB = (() => {
       region: 1,              // última generación abierta (1 = Kanto … 9 = Paldea)
       regionProg: 0,          // (antiguo) la lista nueva se lee de la cuenta
       tower100: {},           // id de torre -> veces que la superaste
-      towerMode: {},          // id -> { normal, hard, mad }: veces por modo
+      towerMode: {},          // id -> { normal, hard, mad, wave, waveH, waveM }
       profile: { favs: [], title: '' },   // perfil público: 3 favoritos y título
       stats: { runs: 0, bestTime: 0, bestLevel: 0, totalKills: 0, pulls: 0, coinsEarned: 0, shinies: 0,
                bossesTotal: 0, riftWins: 0, evolutions: 0, missionsDone: 0, groupRuns: 0, bestGroupTime: 0,
@@ -178,7 +178,8 @@ G.DB = (() => {
       const row = raw[id];
       if (!row || typeof row !== 'object') continue;
       const normal = n(row.normal), hard = n(row.hard), mad = n(row.mad);
-      if (normal || hard || mad) clean[id] = { normal, hard, mad };
+      const wave = Math.min(200, n(row.wave)), waveH = Math.min(200, n(row.waveH)), waveM = Math.min(200, n(row.waveM));
+      if (normal || hard || mad || wave || waveH || waveM) clean[id] = { normal, hard, mad, wave, waveH, waveM };
     }
     return clean;
   }
@@ -198,6 +199,17 @@ G.DB = (() => {
       s.tower100 = clean;
     } else s.tower100 = {};
     s.towerMode = cleanTowerMode(s.towerMode);
+    // Quien ya superó un modo llegó al final, aunque no se guardara la oleada.
+    if (G.Towers && G.Towers.LIST) {
+      for (const t of G.Towers.LIST) {
+        const row = s.towerMode[t.id];
+        if (!row) continue;
+        const waves = t.waves || 100;
+        if (row.normal) row.wave = Math.max(row.wave || 0, waves);
+        if (row.hard) row.waveH = Math.max(row.waveH || 0, waves);
+        if (row.mad) row.waveM = Math.max(row.waveM || 0, waves);
+      }
+    }
     s.coins = n(s.coins);
     s.tickets.t1 = n(s.tickets.t1);
     s.tickets.t10 = n(s.tickets.t10);
@@ -330,7 +342,10 @@ G.DB = (() => {
       r.towerMode[id] = {
         normal: Math.max(mine.normal || 0, o.normal || 0),
         hard: Math.max(mine.hard || 0, o.hard || 0),
-        mad: Math.max(mine.mad || 0, o.mad || 0)
+        mad: Math.max(mine.mad || 0, o.mad || 0),
+        wave: Math.max(mine.wave || 0, o.wave || 0),
+        waveH: Math.max(mine.waveH || 0, o.waveH || 0),
+        waveM: Math.max(mine.waveM || 0, o.waveM || 0)
       };
     }
     const nr = r.region || 1, orr = older.region || 1;

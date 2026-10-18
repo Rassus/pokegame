@@ -59,7 +59,7 @@ input { font: inherit; }
 .scr.hidden { display: none; }
 /* Pantallas que se abren con la barra superior a la vista: empiezan debajo de ella. */
 @media (min-height: 521px) {
-  #scr-goals, #scr-dex, #scr-upgrades, #scr-gacha, #scr-items, #scr-towers, #scr-friends, #scr-rank, #scr-lobby, #scr-profile { padding-top: 66px; }
+  #scr-goals, #scr-dex, #scr-upgrades, #scr-gacha, #scr-items, #scr-towers, #scr-friends, #scr-rank, #scr-lobby, #scr-lobby-tower, #scr-profile { padding-top: 66px; }
 }
 .scr.dim { background: radial-gradient(circle at 50% 40%, rgba(10,20,50,.55), rgba(3,6,16,.88)); }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
@@ -158,7 +158,7 @@ label { display: block; font-size: 14px; color: var(--muted); margin: 8px 0 4px;
 .logo .t1 { font-size: 46px; font-weight: 700; line-height: 1; color: var(--gold);
   text-shadow: 3px 3px 0 #a55f00, 6px 6px 0 var(--shadow); letter-spacing: 1px; }
 .logo .t2 { font-size: 18px; color: #fff; margin-top: 6px; letter-spacing: 3px; text-transform: uppercase; }
-.logo .t3 { font-size: 15px; color: #d2b6ff; margin-top: 2px; letter-spacing: 4px; text-transform: uppercase; }
+.logo .mark { display: block; width: min(280px, 78%); height: auto; margin: 4px auto 0; }
 
 /* ---------- test de personalidad ---------- */
 .test-box { width: min(620px, 100%); }
@@ -254,6 +254,7 @@ label { display: block; font-size: 14px; color: var(--muted); margin: 8px 0 4px;
   padding: 30px; min-width: 0;
 }
 .menu-left .logo .t1 { font-size: clamp(36px, 6vw, 64px); }
+.menu-left .logo .mark { width: min(320px, 72%); }
 .partner-card { text-align: center; margin-top: 10px; }
 .partner-card .nm { font-size: 24px; font-weight: 700; text-shadow: 3px 3px 0 var(--shadow); }
 .partner-card .lv { color: var(--muted); font-size: 14px; text-shadow: 2px 2px 0 var(--shadow); }
@@ -280,6 +281,7 @@ label { display: block; font-size: 14px; color: var(--muted); margin: 8px 0 4px;
   .menu-item.play { grid-column: span 2; }
   .menu-item small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .menu-left .logo .t1 { font-size: clamp(32px, 5vw, 52px); }
+  .menu-left .logo .mark { width: min(220px, 56%); }
   #menu-partner { height: min(30vh, 200px); width: auto; }
 }
 .topbar {
@@ -343,8 +345,8 @@ label { display: block; font-size: 14px; color: var(--muted); margin: 8px 0 4px;
 #scr-wheel #wheel-win { min-height: 1.4em; font-size: 22px; margin: 8px 0 0; }
 .kick-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 #btn-kick { margin: 12px auto 0; }
-#scr-towers .box { min-height: 0; max-height: 100%; display: flex; flex-direction: column; }
-#tower-list { margin-top: 8px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+#scr-towers .box, #scr-lobby-tower .box { min-height: 0; max-height: 100%; display: flex; flex-direction: column; }
+#tower-list, #lobby-tower-list { margin-top: 8px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .tower-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px dashed rgba(244,248,255,.15); flex-wrap: wrap; }
 .tower-row .ds { color: var(--muted); font-size: 13px; font-weight: 400; flex: 1 1 180px; }
 .tower-go { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -574,6 +576,18 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 #fr-add { margin: 10px 0 0; }
 #fr-add .field { min-width: 180px; }
 
+.lobby-play { margin: 0 0 4px; }
+.lobby-play .lobby-label { margin: 0; color: var(--muted); font-size: 13px; }
+.lobby-play .gen-tabs { margin-top: 2px; padding-bottom: 4px; }
+.lobby-play select.field { margin: 2px 0 4px; }
+.lobby-play .lobby-pick { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
+.lobby-play .lobby-cost { margin: 2px 0 0; color: var(--gold); font-size: 14px; }
+.lobby-play .lobby-cost:empty { display: none; }
+.lobby-play.view .gen-tab { pointer-events: none; }
+#lobby-play .gen-tab[data-mode="hard"].on { border-color: #ff9a3d; background: rgba(255,154,61,.16); }
+#lobby-play .gen-tab[data-mode="hard"].on b { color: #ff9a3d; }
+#lobby-play .gen-tab[data-mode="mad"].on { border-color: #ff5f6d; background: rgba(255,95,109,.16); }
+#lobby-play .gen-tab[data-mode="mad"].on b { color: #ff8a94; }
 .lobby-members { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
 .lob-card {
   display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px;
@@ -585,8 +599,15 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .lob-card .conn { font-size: 12px; color: var(--green); }
 .lob-card .conn.wait { color: var(--gold); }
 .lob-card .rdy { font-size: 12px; font-weight: 700; color: var(--muted); }
+.lob-card .pay { font-size: 12px; font-weight: 700; }
+.lob-card .pay:empty { display: none; }
+.lob-card .pay.ok { color: var(--green); }
+.lob-card .pay.no { color: var(--red); }
+.lob-card .pay.wait { color: var(--gold); }
 .lob-card.ready { box-shadow: inset 0 0 0 2px var(--green); }
+.lob-card.short { box-shadow: inset 0 0 0 2px var(--red); }
 .lob-card.ready .rdy { color: var(--green); }
+.lob-card .btn { margin-top: 4px; padding: 4px 10px; }
 .lob-card.empty { border-style: dashed; border-color: rgba(244,248,255,.18); color: var(--muted); }
 
 .invite-pop {
@@ -611,6 +632,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 
 .rk-row .who b { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rk-row .who small { color: var(--muted); font-size: 12px; }
 .rk-row .time { font-size: 22px; font-weight: 700; color: #fff; }
+.rk-row .time.wave { font-size: 15px; white-space: nowrap; }
 .rk-row.mine { border-color: var(--gold); background: rgba(255,210,63,.1); }
 .rk-me { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: rgba(0,0,0,.25); font-size: 15px; min-height: 20px; }
 
@@ -789,7 +811,7 @@ a.btn { text-decoration: none; display: inline-block; color: var(--ink); }
   .menu-left .logo { margin-bottom: 2px; }
   .menu-left .logo .t1 { font-size: 28px; }
   .logo .t2 { font-size: 10px; margin-top: 2px; letter-spacing: 2px; }
-  .logo .t3 { font-size: 9px; margin-top: 0; letter-spacing: 2px; }
+  .logo .mark { width: min(150px, 42vw); margin-top: 1px; }
   #menu-partner { height: min(34vh, 130px); width: auto; }
   .partner-card { margin-top: 2px; }
   .partner-card .nm { font-size: 17px; }

@@ -92,7 +92,7 @@
     <div class="logo">
       <div class="t1">PokéSurvivor</div>
       <div class="t2">Mundo Misterioso</div>
-      <div class="t3">Torres</div>
+      <img class="mark" src="assets/title/c1/title.png" alt="Torres Legendarias">
     </div>
     <p class="login-tag">Sobrevive a las hordas con tu compañero Pokémon · gratis, en PC y móvil</p>
     <div class="tabs">
@@ -166,7 +166,7 @@
     <div class="logo">
       <div class="t1">PokéSurvivor</div>
       <div class="t2">Mundo Misterioso</div>
-      <div class="t3">Torres</div>
+      <img class="mark" src="assets/title/c1/title.png" alt="Torres Legendarias">
     </div>
     <div class="partner-card">
       <canvas id="menu-partner" class="stage" width="260" height="200"></canvas>
@@ -347,6 +347,7 @@
     <div class="row between"><h2>Sala</h2>
       <div class="row"><button id="lobby-menu" class="btn small ghost">Menú</button><button id="lobby-leave" class="btn small ghost">Salir de la sala</button></div></div>
     <p class="sub" id="lobby-sub"></p>
+    <div id="lobby-play" class="lobby-play"></div>
     <div id="lobby-members" class="lobby-members"></div>
     <h3 id="lobby-inv-title" style="margin:14px 0 6px">Invitar amigos</h3>
     <div id="lobby-invite" class="fr-list"></div>
@@ -358,14 +359,26 @@
   </div>
 </section>
 
+<!-- ====== Elegir torre (desde la sala) ====== -->
+<section id="scr-lobby-tower" class="scr dim hidden">
+  <div class="box wide">
+    <div class="row between"><h2>Elige la torre</h2>
+      <button id="lobby-tower-back" class="btn small ghost" type="button">Volver</button></div>
+    <p class="sub" id="lobby-tower-sub"></p>
+    <div id="lobby-tower-list"></div>
+  </div>
+</section>
+
 <!-- ====== Ranking ====== -->
 <section id="scr-rank" class="scr dim hidden">
   <div class="box wide">
-    <div class="row between"><h2>Ranking <span class="sub" style="font-size:15px">· tiempo aguantado</span></h2><button class="btn small ghost" data-back>Volver</button></div>
+    <div class="row between"><h2>Ranking <span class="sub" id="rk-sub" style="font-size:15px">· tiempo aguantado</span></h2><button class="btn small ghost" data-back>Volver</button></div>
     <div class="gen-tabs" id="rk-mode"></div>
     <div class="filters" id="rk-period"></div>
     <div class="row rk-tools">
       <div class="filters" id="rk-scope" style="margin:0"></div>
+      <select id="rk-tower" class="field hidden"></select>
+      <div class="filters hidden" id="rk-tmode" style="margin:0"></div>
       <input id="rk-poke" class="field" list="rk-dl" placeholder="Filtrar por Pokémon (histórico)" spellcheck="false">
       <datalist id="rk-dl"></datalist>
       <button id="rk-clear" class="btn small ghost hidden">Quitar filtro</button>

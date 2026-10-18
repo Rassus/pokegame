@@ -33,7 +33,8 @@ G.Game = (() => {
     addEventListener('resize', resize);
     G.Touch.init(cv);
     // En móvil: al cambiar de app o girarlo en vertical, la partida se pausa.
-    document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { noteCkpt(true); autoPause(); } });
+    addEventListener('pagehide', () => noteCkpt(true));
     G.RunUI.wirePause(() => { state = 'playing'; G.UI.hideAll(); }, quitRun);
     Backdrop.init();
     last = performance.now();
@@ -89,6 +90,7 @@ G.Game = (() => {
 
   /** @param coop  { seed, host, members } para una partida en grupo */
   function startRun(coop = null) {
+    salvageCrash();
     const towerCfg = (coop && coop.tower) || G.Towers.peek();
     if (towerCfg && !G.Towers.charge(towerCfg)) {
       const why = G.Towers.afford(towerCfg);
@@ -154,6 +156,11 @@ G.Game = (() => {
     if (towerCfg) G.Towers.begin(towerCfg);
 
     state = 'playing';
+    // El invitado no tiene partida que recuperar: no se toca la copia de una cuenta.
+    ckptId = G.DB.guest ? 0 : Date.now();
+    ckptAt = 0;
+    if (G.Social.pauseWatch) G.Social.pauseWatch();
+    noteCkpt(true);
   }
 
   function quitRun() {
@@ -179,6 +186,14 @@ G.Game = (() => {
     return { time, level: pl.level, xp: pl.xp, xpNext: pl.xpNext, kills: pl.kills, bosses: pl.bosses, coins: pl.coins, t1: pl.t1, t10: pl.t10, tb: pl.tb, tg: pl.tg };
   }
   function summary() { return { t: time, ki: pl.kills, bo: pl.bosses, co: pl.coins, lv: pl.level, t1: pl.t1, t10: pl.t10, tb: pl.tb, tg: pl.tg }; }
+
+  /** Oleada de la torre, para que el invitado use la del anfitrión. */
+  function towerNet() {
+    const s = G.Towers.snapshot();
+    if (!s || s.duel) return null;
+    const waves = s.waves || 100;
+    return { wave: s.cleared ? waves : (s.wave || 0), waves, id: s.id, mode: s.mode || 'normal', cleared: s.cleared ? 1 : 0 };
+  }
 
   /** Lo que el cooperativo necesita del juego. */
   /**
@@ -285,7 +300,9 @@ G.Game = (() => {
     inLevelUp() { return state === 'levelup'; },
     shiny(dex) { G.onShinyCaught({ dex, name: (G.DEX_BY[dex] || {}).name || '' }); },
     over(d) {
-      if (d) Object.assign(pl, { kills: d.ki, bosses: d.bo, coins: d.co, level: Math.max(pl.level, d.lv || 1) });
+      // En una torre cada uno se queda con su nivel, sus bajas y su premio.
+      if (d && d.tw) G.Towers.stamp(d.tw);
+      else if (d) Object.assign(pl, { kills: d.ki, bosses: d.bo, coins: d.co, level: Math.max(pl.level, d.lv || 1) });
       if (d && d.t) time = d.t;
       if (d && d.towerClear) G.Towers.markClear();
       if (d && d.why === 'host') G.UI.toast('El anfitrión ha terminado la partida', 3200);
@@ -388,8 +405,131 @@ G.Game = (() => {
     G.Audio.sfx('shinyGet');
   };
 
+  // Copia de la run en este navegador, por si el proceso se cuelga y hay que
+  // matarlo (el try/catch del bucle no llega a ejecutarse). Al volver a entrar
+  // se cobra como una partida acabada hasta el último punto guardado.
+  const CK_KEY = 'ps.run.ckpt';
+  let ckptId = 0, ckptAt = 0;
+  function readCkpt() {
+    try { return JSON.parse(localStorage.getItem(CK_KEY) || 'null'); }
+    catch (e) { return null; }
+  }
+  function clearCkpt() {
+    ckptId = 0; ckptAt = 0;
+    try { localStorage.removeItem(CK_KEY); } catch (e) { /* nada */ }
+  }
+  function noteCkpt(force) {
+    if (G.DB.guest || !pl || state === 'ui' || state === 'over') return;
+    const now = performance.now();
+    if (!force && now - ckptAt < 15000) return;
+    ckptAt = now;
+    if (!ckptId) ckptId = Date.now();
+    const tower = G.Towers.snapshot();
+    const snap = {
+      id: ckptId, t: time, lv: pl.level, ki: pl.kills | 0, bo: pl.bosses | 0, co: pl.coins | 0,
+      mul: pl.coinMul || 1, dex: pl.dex, shiny: !!pl.shiny,
+      coop: !!pl.uid, host: !!pl.coopHost,
+      types: (pl.mon && pl.mon.types) || [],
+      team: G.Coop.active ? G.Coop.members.map(m => ({ uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny })) : null,
+      tower: tower && !tower.duel ? {
+        id: tower.id, mode: tower.mode || 'normal', dex: tower.dex,
+        wave: tower.cleared ? (tower.waves || 100) : (tower.wave || 0),
+        waves: tower.waves || 100, cleared: tower.cleared ? 1 : 0,
+        reward: tower.reward || null
+      } : null
+    };
+    try { localStorage.setItem(CK_KEY, JSON.stringify(snap)); } catch (e) { /* lleno */ }
+  }
+
+  /** La run cortada a la fuerza: monedas, tiempo, récords y ranking, sin repetir. */
+  function salvageCrash() {
+    const s = readCkpt();
+    const save = G.DB.save;
+    if (!s || !save || G.DB.guest) return null;
+    if (save.salvagedRun === s.id) { clearCkpt(); return null; }
+    const worth = (s.t || 0) >= 5 || s.ki || s.bo || (s.tower && s.tower.wave);
+    if (!worth) { clearCkpt(); return null; }
+    const mul = s.mul || 1;
+    const parts = {
+      tiempo: Math.floor((s.t || 0) / 5),
+      derrotados: Math.floor((s.ki || 0) * 0.25),
+      jefes: (s.bo || 0) * 80,
+      recogidas: s.co || 0
+    };
+    let coins = Math.round((parts.tiempo + parts.derrotados + parts.jefes + parts.recogidas) * mul);
+    const tower = s.tower;
+    if (tower && tower.id) {
+      const wave = tower.cleared ? (tower.waves || tower.wave || 0) : (tower.wave || 0);
+      if (wave >= 1) {
+        G.Towers.remember(tower.id, tower.mode, wave);
+        save.stats.towerBest = Math.max(save.stats.towerBest || 0, wave);
+        if (tower.cleared) {
+          save.tower100 = save.tower100 || {};
+          save.tower100[tower.id] = (save.tower100[tower.id] || 0) + 1;
+        }
+        save.rankPending = {
+          kind: 'tower',
+          r: {
+            id: tower.id, mode: tower.mode || 'normal', wave, cleared: !!tower.cleared,
+            time: Math.floor(s.t || 0), dex: s.dex, shiny: !!s.shiny, lv: s.lv | 0, kills: s.ki | 0
+          }
+        };
+      }
+      const rw = tower.cleared && tower.reward;
+      if (rw) {
+        if (rw.caughtShiny) {
+          if (G.DB.grantShiny(tower.dex, 'tower')) save.stats.shinies = (save.stats.shinies || 0) + 1;
+        } else if (rw.caught) G.DB.grant(tower.dex, 'tower');
+        if (rw.frags && G.Evo) {
+          const key = String(G.Evo.root(tower.dex));
+          save.frags[key] = (save.frags[key] || 0) + rw.frags;
+        }
+        if (rw.gold) coins += rw.gold;
+        if (rw.ticket) {
+          save.tickets = Object.assign({ t1: 0, t10: 0, tb: 0, tg: 0 }, save.tickets);
+          save.tickets.tg += rw.ticket;
+          save.stats.ticketsGot = (save.stats.ticketsGot || 0) + rw.ticket;
+        }
+      }
+    } else if (s.coop && s.host && s.team && s.team.length >= 2) {
+      save.rankPending = { kind: 'group', r: { t: Math.floor(s.t || 0), lv: s.lv | 0, kills: s.ki | 0, members: s.team } };
+    } else if (!s.coop) {
+      save.rankPending = { kind: 'solo', r: { t: Math.floor(s.t || 0), lv: s.lv | 0, kills: s.ki | 0, dex: s.dex, shiny: !!s.shiny } };
+    }
+    save.coins += coins;
+    save.stats.runs = (save.stats.runs || 0) + 1;
+    save.stats.totalKills = (save.stats.totalKills || 0) + (s.ki || 0);
+    if (!tower) save.stats.bestTime = Math.max(save.stats.bestTime || 0, Math.floor(s.t || 0));
+    if (s.coop && !tower) save.stats.bestGroupTime = Math.max(save.stats.bestGroupTime || 0, Math.floor(s.t || 0));
+    save.stats.bestLevel = Math.max(save.stats.bestLevel || 0, s.lv || 1);
+    save.stats.bestKills = Math.max(save.stats.bestKills || 0, s.ki || 0);
+    save.stats.bestBosses = Math.max(save.stats.bestBosses || 0, s.bo || 0);
+    save.stats.coinsEarned = (save.stats.coinsEarned || 0) + coins;
+    save.salvagedRun = s.id;
+    G.Progress.event('runEnd', { time: s.t || 0, level: s.lv || 1, coins: s.co || 0, types: s.types || [], group: !!s.coop });
+    G.Progress.checkAch();
+    G.DB.commit();
+    if (G.Social.me) G.Social.publishProfile();
+    flushRank();
+    clearCkpt();
+    return { time: Math.floor(s.t || 0), coins };
+  }
+
+  /** Sube al ranking lo que quedó pendiente de una run recuperada. */
+  function flushRank() {
+    const save = G.DB.save;
+    const p = save && save.rankPending;
+    if (!p || !G.Social.me) return;
+    delete save.rankPending;
+    G.DB.commit();
+    if (p.kind === 'tower') G.Ranking.submitTower(p.r);
+    else if (p.kind === 'group') G.Ranking.submitGroup(p.r);
+    else G.Ranking.submitSolo(p.r);
+  }
+
   function endRun(dead = true) {
     if (state === 'over' || !pl) return;
+    if (G.Social.resumeWatch) G.Social.resumeWatch();
     const coop = !!pl.uid;                    // sólo las partidas en grupo le ponen uid
     const wasHost = !!pl.coopHost;
     const team = coop ? G.Coop.members.slice() : [];
@@ -408,13 +548,25 @@ G.Game = (() => {
     };
     let coins = Math.round((parts.tiempo + parts.derrotados + parts.jefes + parts.recogidas) * mul);
     const tower = G.Towers.take();
+    let towerInfo = null;
     if (tower && !tower.duel) {
       const wave = tower.cleared ? (tower.waves || 100) : (tower.wave || 0);
+      const prev = G.Towers.remember(tower.id, tower.mode, wave);
       save.stats.towerBest = Math.max(save.stats.towerBest || 0, wave);
       if (tower.cleared && tower.id) {
         save.tower100 = save.tower100 || {};
         save.tower100[tower.id] = (save.tower100[tower.id] || 0) + 1;
       }
+      const modeName = (G.Towers.MODES.find(m => m.id === tower.mode) || G.Towers.MODES[0]).name;
+      towerInfo = {
+        name: (G.DEX_BY[tower.dex] && G.DEX_BY[tower.dex].name) || '',
+        mode: modeName, wave, waves: tower.waves || 100,
+        cleared: !!tower.cleared, best: wave > prev
+      };
+      if (wave >= 1) G.Ranking.submitTower({
+        id: tower.id, mode: tower.mode || 'normal', wave, cleared: !!tower.cleared,
+        time: Math.floor(time), dex: pl.dex, shiny: !!pl.shiny, lv: pl.level | 0, kills: pl.kills | 0
+      });
     }
     let caughtName = '';
     let towerExtra = '';
@@ -459,17 +611,20 @@ G.Game = (() => {
     save.stats.coinsEarned += coins;
     G.Progress.event('runEnd', { time, level: pl.level, coins: pl.coins, types: pl.mon.types, group: coop });
     G.Progress.checkAch();
+    if (ckptId) save.salvagedRun = ckptId;
     G.DB.commit();
+    if (ckptId) clearCkpt();
     if (G.Social.me) G.Social.publishProfile();
 
     // Ranking: en solitario cada uno lo suyo; en grupo lo sube el anfitrión.
+    // La torre ya se apuntó arriba, una fila por jugador.
     const mark = { t: Math.floor(time), lv: pl.level, kills: pl.kills };
     if (!tower && !coop) G.Ranking.submitSolo(Object.assign(mark, { dex: pl.dex, shiny: pl.shiny }));
     else if (!tower && wasHost) G.Ranking.submitGroup(Object.assign(mark, { members: team }));
 
     const title = caughtName ? '¡' + caughtName + ' atrapado!' : (tower && tower.cleared ? '¡Torre superada!' : '');
     G.RunUI.showOver({
-      dead, time, level: pl.level, kills: pl.kills, bosses: pl.bosses, coins, record, t1: pl.t1, t10: pl.t10, tb: pl.tb, tg: pl.tg,
+      dead, time, level: pl.level, kills: pl.kills, bosses: pl.bosses, coins, record, tower: towerInfo, t1: pl.t1, t10: pl.t10, tb: pl.tb, tg: pl.tg,
       moves: pl.moves, caught, title,
       dmg: pl.moves.map(m => ({
         id: m.id, name: m.name, lvl: m.lvl, type: m.type, kind: m.kind, stat: m.stat || '',
@@ -779,6 +934,7 @@ G.Game = (() => {
 
     if (pl && state !== 'ui') render(); else Backdrop.render(ctx, w, h, dpr, dt);
     G.UI.tick(dt);
+    noteCkpt(false);
 
     G.Input.endFrame();
   }
@@ -824,7 +980,10 @@ G.Game = (() => {
       // Si acabas de tumbar al jefe y puedes fusionar, se espera a esa pantalla.
       if (G.Towers.clearReady() && !(pl && !pl.dead && pl.bonds > 0 && pl.bondOptions())) {
         G.Towers.finish();
-        if (G.Coop.isHost) G.Coop.over(Object.assign(summary(), { towerClear: 1 }));
+        if (G.Coop.isHost) {
+          const tw = towerNet();
+          G.Coop.over(Object.assign(summary(), { towerClear: 1 }, tw ? { tw } : {}));
+        }
         endRun(false);
         return;
       }
@@ -868,7 +1027,8 @@ G.Game = (() => {
     deathT += dt;
     if (deathT > 1.6) {
       deathT = 0;
-      G.Coop.over(summary());
+      const tw = towerNet();
+      G.Coop.over(Object.assign(summary(), tw ? { tw } : {}));
       endRun(true);
     }
   }
@@ -1054,7 +1214,7 @@ G.Game = (() => {
     get state() { return state; }, get player() { return pl; },
     /** Shinies conseguidos en esta run: { dex, isNew }. */
     get caught() { return caught; },
-    queueGoldWheel, st
+    queueGoldWheel, st, salvageCrash, flushRank
   };
 })();
 
@@ -1099,6 +1259,8 @@ G.Flow = {
   toLogin() { G.Audio.music('village'); G.LoginUI.open(); },
   afterLogin() {
     G.Audio.music('village');
+    const kept = G.Game.salvageCrash();
+    if (kept) G.UI.toast('La partida anterior se cortó y se ha guardado hasta ' + G.U.mmss(kept.time) + ' (' + G.U.num(kept.coins) + ' Pokémonedas).', 6000);
     if (!G.DB.save.partner) G.TestUI.start();
     else this.goMenu();
   },

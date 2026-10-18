@@ -13,6 +13,8 @@
  *     s_all         histórico   (la tabla anual se quitó el 2026-10-10)
  *     s_all_p25     histórico sólo con Pikachu (el filtro por Pokémon sólo
  *                   existe en el histórico: así cada partida escribe la mitad)
+ *     s_tw150n_all  torre 150, modo normal (h difícil, m demencial).
+ *                   Cada jugador sube la suya. La puntuación es la oleada.
  *   id = tu uid (solitario) o los uid del equipo ordenados y unidos con "_".
  *
  * Ahorros:
@@ -109,7 +111,10 @@ G.Ranking = (() => {
   function saveBests(b) {
     // Sólo se conservan las tablas de los periodos actuales y las históricas.
     const cur = Object.values(periodIds());
-    for (const k of Object.keys(b)) if (!cur.some(p => k.split(':')[0].split('_')[1] === p)) delete b[k];
+    for (const k of Object.keys(b)) {
+      const parts = k.split(':')[0].split('_');
+      if (!parts.some(p => cur.includes(p))) delete b[k];
+    }
     try { localStorage.setItem(bestKey(), JSON.stringify(b)); } catch (e) { /* lleno */ }
   }
 
@@ -204,6 +209,41 @@ G.Ranking = (() => {
     return better;
   }
 
+  // Oleada × 1e6. Si la superaste, suma el tiempo que te sobró (más rápido = más puntos).
+  const WAVE = 1000000;
+  function packWave(wave, cleared, time) {
+    const w = Math.max(1, Math.min(200, Math.floor(wave) || 0));
+    if (!cleared) return w * WAVE;
+    const sec = Math.max(0, Math.min(WAVE - 1, Math.floor(time) || 0));
+    return w * WAVE + (WAVE - 1 - sec);
+  }
+  function waveOf(t) { return t >= WAVE ? Math.floor(t / WAVE) : (t | 0); }
+  function clearedOf(t) { return t >= WAVE && (t % WAVE) !== 0; }
+
+  function towerLetter(mode) { return mode === 'hard' ? 'h' : mode === 'mad' ? 'm' : 'n'; }
+
+  /** Tabla de una torre: s_tw150n_all (solitario, cada jugador la suya). */
+  function towerBoard(id, mode, period) {
+    return 's_tw' + id + towerLetter(mode) + '_' + periodIds()[period];
+  }
+
+  /** Cada jugador sube su oleada. No pide el minuto mínimo de las runs. */
+  async function submitTower(r) {
+    const fb = fbx();
+    if (!fb || !G.Social.me || !(r.wave > 0) || !r.id) return [];
+    const entry = {
+      t: packWave(r.wave, r.cleared, r.time),
+      uids: [fb.uid], names: [G.Social.me.name], dex: [r.dex | 0], shiny: [!!r.shiny],
+      lv: r.lv | 0, kills: r.kills | 0
+    };
+    const ids = periodIds();
+    const stem = 's_tw' + r.id + towerLetter(r.mode) + '_';
+    const boards = PERIODS.map(([p]) => [stem + ids[p], p]);
+    const better = await store(boards, fb.uid, entry);
+    announce(better);
+    return better;
+  }
+
   /** La sube el anfitrión, con todo el equipo. */
   async function submitGroup(r) {
     const fb = fbx();
@@ -241,21 +281,22 @@ G.Ranking = (() => {
    * Mejores marcas de una tabla.
    * @param friendsOnly  sólo tú y tus amigos
    */
-  async function top(mode, period, dex, friendsOnly) {
+  async function top(mode, period, dex, friendsOnly, tower) {
     const fb = fbx();
     if (!fb) return [];
-    const b = board(mode, period, dex);
+    const b = mode === 'tw' && tower ? towerBoard(tower.id, tower.mode, period) : board(mode, period, dex);
+    const solo = mode !== 'g';
     const rows = sorted(await summary(b));
     if (!friendsOnly) return rows.slice(0, TOP);
     const circle = [fb.uid, ...G.Social.friends.filter(f => f.status === 'ok').map(f => f.uid)].slice(0, 30);
     const inTop = rows.filter(r => r.uids.some(u => circle.includes(u)));
     // En diario, semanal, mensual y por Pokémon no hay marcas fuera del top 50.
-    if (TOP_ONLY.has(period) || dex) return inTop;
+    if (TOP_ONLY.has(period) || (dex && mode !== 'tw')) return inTop;
     // Los amigos que no están en el top 50: se buscan aparte (y se guardan 30 min).
     const ck = 'f:' + b + ':' + circle.slice().sort().join(',');
     let extra = cacheGet(ck);
     if (extra === undefined) {
-      if (mode === 's') {
+      if (solo) {
         const missing = circle.filter(u => !inTop.some(r => r.id === u));
         const docs = await Promise.all(missing.map(u => col(b).doc(u).get().catch(() => null)));
         extra = docs.filter(d => d && d.exists).map(d => rowOf(d.id, d.data()));
@@ -271,23 +312,24 @@ G.Ranking = (() => {
   }
 
   /** Tu puesto en la tabla (aunque no salgas en el top). → { pos, t, row } | null */
-  async function myRank(mode, period, dex) {
+  async function myRank(mode, period, dex, tower) {
     const fb = fbx();
     if (!fb) return null;
-    const b = board(mode, period, dex);
+    const b = mode === 'tw' && tower ? towerBoard(tower.id, tower.mode, period) : board(mode, period, dex);
+    const solo = mode !== 'g';
     // ¿Estás en el top 50? Entonces el puesto sale del resumen, sin gastar nada.
     const rows = sorted(await summary(b));
     const i = rows.findIndex(r => r.uids.includes(fb.uid));
     if (i >= 0) return { pos: i + 1, t: rows[i].t, row: rows[i] };
-    if (TOP_ONLY.has(period) || dex) return { out: true };
+    if (TOP_ONLY.has(period) || (dex && mode !== 'tw')) return { out: true };
     const ck = 'r:' + b;
     const c = cacheGet(ck);
     if (c !== undefined) return c;
     // Si este navegador ya sabe que no tienes marca en esta tabla, no se mira.
-    const kb = bests(), mk = b + ':' + (mode === 's' ? fb.uid : '*');
+    const kb = bests(), mk = b + ':' + (solo ? fb.uid : '*');
     if (kb[mk] === 0) { cacheSet(ck, null); return null; }
     let mine = null;
-    if (mode === 's') {
+    if (solo) {
       const d = await col(b).doc(fb.uid).get();
       if (d.exists) mine = rowOf(d.id, d.data());
     } else {
@@ -351,5 +393,5 @@ G.Ranking = (() => {
     try { localStorage.removeItem(bestKey()); } catch (e) { /* nada */ }
   }
 
-  return { PERIODS, periodIds, board, submitSolo, submitGroup, top, myRank, removeMine };
+  return { PERIODS, periodIds, board, submitSolo, submitGroup, submitTower, waveOf, clearedOf, top, myRank, removeMine };
 })();

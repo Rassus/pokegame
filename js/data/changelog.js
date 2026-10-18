@@ -6,21 +6,41 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-18', title: ['Ranking de torres', 'Tower leaderboard'], new: [
+    ['Al terminar una torre se ve tu resultado: la torre, el modo, la oleada y si es tu mejor. El premio y el daño son los tuyos.',
+     'When a tower ends you see your own result: the tower, the mode, the wave and whether it is your best. The reward and the damage are yours.'],
+    ['El ranking tiene la pestaña Torre. Hay una tabla por torre y por modo (normal, difícil y demencial). Gana quien llega más lejos; si la superáis, el más rápido queda delante.',
+     'The leaderboard has a Tower tab. There is a board for each tower and mode (normal, hard and insane). Whoever gets further wins; if you clear it, the faster time ranks higher.']
+  ], chg: [
+    ['En Ajustes ya no está el interruptor de herramientas de prueba. Quedan apagadas.',
+     'Settings no longer has the test-tools switch. They stay off.']
+  ], fix: [
+    ['Si el navegador se cuelga a mitad de una run, al volver a entrar se guardan el tiempo, las monedas, los récords y el ranking hasta el último punto (como mucho 15 segundos antes). Durante la partida se cierra el tubo de amigos, que es lo que Chrome cortaba.',
+     'If the browser hangs mid-run, coming back saves the time, coins, records and leaderboard up to the last point (at most 15 seconds earlier). During a run the friends channel is closed, which is what Chrome was cutting.']
+  ] },
   { d: '2026-10-17', title: ['Torres', 'Towers'], new: [
     ['Modo difícil: el doble de Pokémon por oleada, una cada 5 segundos y el jefe en 10 etapas. Cuesta 4 veces más. Se abre al superar esa torre en normal.',
      'Hard mode: twice the Pokémon per wave, one every 5 seconds and the boss in 10 stages. It costs 4 times as much. It opens once you clear that tower on normal.'],
     ['Modo demencial: el cuádruple de Pokémon por oleada, una cada 2 segundos y un jefe en cada oleada. Los jefes se quedan todos a la vez. No cuesta nada. Se abre al superar esa torre en difícil.',
      'Insane mode: four times the Pokémon per wave, one every 2 seconds and a boss on every wave. The bosses all stay at once. It costs nothing. It opens once you clear that tower on hard.'],
     ['Durante la partida, a la derecha de los movimientos, se ven el oro y los tickets que llevas (gris, morado, azul y dorado) y la lista de shinies que has conseguido.',
-     'During a run, to the right of your moves, you see the gold and the tickets you are carrying (grey, purple, blue and gold) and the list of shinies you have caught.']
+     'During a run, to the right of your moves, you see the gold and the tickets you are carrying (grey, purple, blue and gold) and the list of shinies you have caught.'],
+    ['En la sala se elige si la partida es una run normal o una torre. Si es una torre, en cada jugador se ve si le alcanza para la entrada.',
+     'In the room you choose whether the game is a normal run or a tower. On a tower, each player shows whether they can afford the entry.'],
+    ['En la sala, el anfitrión puede sacar a alguien. Esa persona vuelve al menú y los demás siguen en la sala.',
+     'In the room, the host can remove someone. That person returns to the menu and the others stay in the room.']
   ], chg: [
+    ['Defensa baja a +1% por nivel (40% al 40). Fortaleza baja a +4% por carga y ya no sube de potencia: a 7 cargas son un 28%. Con el Chaleco Asalto (+20%) el tope sigue en el 80%; sin él, Defensa al máximo y Fortaleza a tope llegan al 68%.',
+     'Defense drops to +1% per level (40% at 40). Harden drops to +4% per stack and no longer gains power: 7 stacks are 28%. With the Assault Vest (+20%) the cap stays at 80%; without it, max Defense and full Harden reach 68%.'],
     ['La tier de una torre es la de su región: Kanto 1, Johto 2… y Paldea 9. El difícil sigue en la 10 y el demencial en la 19. Al ganar, el oro ×4 del costo se multiplica por la tier, los tickets dorados por 0,8 × la tier y los fragmentos por 1,5 × la tier.',
      'A tower\'s tier is its region: Kanto 1, Johto 2… and Paldea 9. Hard continues at 10 and insane at 19. On a clear, gold ×4 the cost is multiplied by the tier, gold tickets by 0.8 × the tier and fragments by 1.5 × the tier.'],
-    ['En el título, debajo de Mundo Misterioso, aparece Torres.',
-     'In the title, under Mystery Dungeon, Towers appears.'],
+    ['En el título, debajo de Mundo Misterioso, Torres es el logo de Torres Legendarias.',
+     'In the title, under Mystery Dungeon, Towers is the Torres Legendarias logo.'],
     ['La arena de las torres es más grande. Las oleadas aparecen en el borde, lejos de donde estáis, y ya no salen encima de los jugadores.',
      'The tower arena is larger. Waves appear at the edge, away from where you stand, and no longer spawn on top of the players.']
   ], fix: [
+    ['En la sala, al elegir torre se abre una ventana para escoger cuál. Antes solo se veía la dificultad.',
+     'In the room, choosing a tower opens a window to pick which one. Before, only the difficulty was shown.'],
     ['Al salir de una grieta, un jefe no puede aparecer hasta pasados 1 minuto. Antes, si le tocaba durante la pelea, salía en la arena y se quedaba a kilómetros de donde volvíais.',
      'After leaving a rift, a boss cannot appear for 1 minute. Before, if one was due during the fight, it spawned in the arena and stayed kilometres away from where you returned.']
   ] },

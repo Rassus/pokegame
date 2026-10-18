@@ -16,7 +16,14 @@ G.Settings = (() => {
   const KEY = 'ps.settings';
   const DEF = { quality: 'auto', dmgNumbers: true, calm: false, fps: false, stick: 1, helpers: false };
   let s = Object.assign({}, DEF);
-  try { Object.assign(s, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* nada */ }
+  let helpersWasOn = false;
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEY) || '{}');
+    helpersWasOn = !!raw.helpers;
+    Object.assign(s, raw);
+  } catch (e) { /* nada */ }
+  // Sin interruptor en Ajustes: aunque se hubiera activado antes, queda apagado.
+  s.helpers = false;
   const fns = new Set();
 
   // Calidad automática: empieza alta (media en móvil) y baja si va a tirones.
@@ -25,6 +32,7 @@ G.Settings = (() => {
   let acc = 0, frames = 0, slowT = 0, fastT = 0;
 
   function save() { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { /* nada */ } }
+  if (helpersWasOn) save();
   function get(k) { return s[k]; }
   function set(k, v) { s[k] = v; save(); fns.forEach(fn => { try { fn(k, v); } catch (e) { /* nada */ } }); }
 

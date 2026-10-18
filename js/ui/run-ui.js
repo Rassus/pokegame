@@ -133,7 +133,13 @@ G.RunUI = (() => {
     });
     $('over-stats').classList.remove('hidden');
     $('over-dmg').classList.add('hidden');
+    const tw = r.tower;
+    const waveLine = tw ? (tw.cleared
+      ? 'Oleada ' + tw.wave + ' / ' + tw.waves + ' · superada'
+      : 'Oleada ' + tw.wave + ' / ' + tw.waves) : '';
     $('over-stats').innerHTML = `
+      ${tw ? `<div style="grid-column:1/-1"><span><b translate="no">${tw.name}</b> · <span>${tw.mode}</span></span><b>${waveLine}</b></div>` : ''}
+      ${tw && tw.best ? '<div style="grid-column:1/-1;text-align:center" class="gold">¡Nueva mejor oleada!</div>' : ''}
       <div><span>Tiempo</span><b>${G.U.mmss(r.time)}</b></div>
       <div><span>Nivel</span><b>${r.level}</b></div>
       <div><span>Derrotados</span><b>${G.U.num(r.kills)}</b></div>

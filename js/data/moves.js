@@ -141,7 +141,15 @@
 
     { id: 'harden', name: 'Fortaleza', type: 'normal', kind: 'buff',
       desc: 'No hace daño: acumula DEFENSA mientras esté activo.',
-      cd: 0.85, stat: 'def', amount: 0.07, dur: 7, stacks: 5 },
+      cd: 0.85, stat: 'def', amount: 0.04, dur: 7, stacks: 5,
+      // 4% por carga y se queda ahí: al llegar a 7 cargas son un 28%.
+      // Las otras de este tipo sí suben la potencia; esta no, o pasaría del 28%.
+      ups: [
+        { t: '+1 acumulación máxima', m: { stacks: 1 } },
+        { t: '+50% duración',         m: { dur: 1.50 } },
+        { t: '-25% recarga',          m: { cd: 0.75 } },
+        { t: '+1 acumulación máxima', m: { stacks: 1 } }
+      ] },
 
     // ---------------- FUEGO ----------------
     { id: 'ember', name: 'Ascuas', type: 'fire', kind: 'projectile',
@@ -417,7 +425,7 @@
 
   const BY_ID = {};
   for (const m of RAW) {
-    m.ups = LADDERS[m.kind];
+    m.ups = m.ups || LADDERS[m.kind];
     m.maxLvl = m.ups.length + 1;
     BY_ID[m.id] = m;
   }

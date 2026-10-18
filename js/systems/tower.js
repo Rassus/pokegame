@@ -21,8 +21,8 @@
  * suma una; el difícil empieza en 10 y el demencial en 19. El oro es ×4 del
  * costo × la tier, los tickets dorados ×0,8 × la tier y los fragmentos
  * (60 % de 45 a 100) ×1,5 × la tier. Si no lo tienes, un 25% de atraparlo.
- * El jefe puede salir shiny (1/1024). No cuenta para el récord de tiempo
- * ni para el ranking.
+ * El jefe puede salir shiny (1/1024). No cuenta para el récord de tiempo.
+ * El ranking de torres guarda la oleada de cada jugador, por torre y modo.
  */
 G.Towers = (() => {
   const EVERY = 10;
@@ -133,6 +133,53 @@ G.Towers = (() => {
   }
 
   function peek() { return armed; }
+
+  /** Lo que lleva la torre ahora, para el resultado y el ranking. */
+  function snapshot() {
+    if (!run) return null;
+    return {
+      id: run.id, dex: run.dex, mode: run.mode || 'normal',
+      wave: run.wave || 0, waves: run.waves || 100,
+      cleared: !!run.cleared, duel: !!run.duel,
+      reward: run.cleared && run.reward ? run.reward : null
+    };
+  }
+
+  /** El invitado usa la oleada del anfitrión (la suya puede ir un poco detrás). */
+  function stamp(info) {
+    if (!run || !info) return;
+    if (info.id) run.id = String(info.id);
+    if (info.mode === 'hard' || info.mode === 'mad' || info.mode === 'normal') run.mode = info.mode;
+    if (info.waves) run.waves = info.waves | 0;
+    if (info.wave) run.wave = info.wave | 0;
+    if (info.cleared) { run.cleared = true; run.wave = run.waves || run.wave; }
+  }
+
+  function waveKey(mode) { return mode === 'hard' ? 'waveH' : mode === 'mad' ? 'waveM' : 'wave'; }
+
+  /** Mejor oleada tuya en esa torre y modo. */
+  function bestWave(id, mode) {
+    const row = (G.DB.save && G.DB.save.towerMode && G.DB.save.towerMode[id]) || {};
+    const n = row[waveKey(mode)] || 0;
+    if (n) return n;
+    const clears = mode === 'hard' ? row.hard : mode === 'mad' ? row.mad : row.normal;
+    if (!clears) return 0;
+    const t = LIST.find(x => x.id === id);
+    return (t && t.waves) || 100;
+  }
+
+  /** Guarda la oleada si es la mejor. Devuelve la que había antes. */
+  function remember(id, mode, wave) {
+    const s = G.DB.save;
+    if (!s || !id || !(wave > 0)) return 0;
+    s.towerMode = s.towerMode || {};
+    const row = Object.assign({ normal: 0, hard: 0, mad: 0, wave: 0, waveH: 0, waveM: 0 }, s.towerMode[id]);
+    const key = waveKey(mode);
+    const prev = row[key] || 0;
+    if (wave > prev) row[key] = wave;
+    s.towerMode[id] = row;
+    return prev;
+  }
   function arm(cfg) { armed = cfg; }
   function claim() { const a = armed; armed = null; return a; }
   function reset() { run = null; }
@@ -253,7 +300,7 @@ G.Towers = (() => {
     s.stats.towerClears = (s.stats.towerClears || 0) + 1;
     if (!run.id) return;
     s.towerMode = s.towerMode || {};
-    const row = Object.assign({ normal: 0, hard: 0, mad: 0 }, s.towerMode[run.id]);
+    const row = Object.assign({ normal: 0, hard: 0, mad: 0, wave: 0, waveH: 0, waveM: 0 }, s.towerMode[run.id]);
     const key = run.mode === 'hard' ? 'hard' : run.mode === 'mad' ? 'mad' : 'normal';
     row[key] = (row[key] || 0) + 1;
     s.towerMode[run.id] = row;
@@ -904,6 +951,7 @@ G.Towers = (() => {
 
   return {
     LIST, REGIONS, MODES, unlocked, modeOpen, tierOf, due, afford, charge, prepare, peek, arm, claim, reset,
+    snapshot, stamp, bestWave, remember,
     begin, active, done, take, markClear, clearReady, finish, hud, update, hold, inAura,
     draw, drawScreen, onNet, onMinionDown, wantShop, clearShop
   };
