@@ -17,7 +17,7 @@ G.Hazards = (() => {
     list.push(o);
     if (!fromNet && G.Coop.isHost) {
       G.Coop.broadcast(['hz', { kind: o.kind, x: Math.round(o.x), y: Math.round(o.y), r: o.r, angle: o.angle, len: o.len, w: o.w,
-                                delay: o.delay, dmg: Math.round(o.dmg), type: o.type, color: o.color }]);
+                                delay: o.delay, dmg: Math.round(o.dmg), type: o.type, color: o.color, slow: o.slow || 0 }]);
     }
     return o;
   }
@@ -41,7 +41,10 @@ G.Hazards = (() => {
       if (!h.hit && h.t >= h.delay) {
         h.hit = true;
         detonate(h);
-        if (pl && !pl.dead && inside(h, pl.x, pl.y, pl.r)) { pl.invuln = 0; pl.hurt(h.dmg, h.type); }
+        if (pl && !pl.dead && inside(h, pl.x, pl.y, pl.r)) {
+          pl.invuln = 0; pl.hurt(h.dmg, h.type);
+          if (h.slow) pl.slowT = Math.max(pl.slowT || 0, h.slow);
+        }
       }
       if (h.hit && h.t >= h.delay + h.end) list.splice(i, 1);
     }

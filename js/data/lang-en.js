@@ -233,6 +233,8 @@ G.I18n.add({
   '{x} se queda': '{x} stays',
   'Has caído…': 'You fell…', 'Run terminada': 'Run over', 'Volver al menú': 'Back to menu', 'Salir de la partida': 'Leave the game',
   'Resumen': 'Summary', 'Daño total': 'Total damage', 'Sin daño': 'No damage', 'añadió': 'added',
+  'Equipo': 'Team', 'Daño del equipo': 'Team damage', 'Mochila': 'Backpack', 'Alfombra': 'Carpet',
+  'muerto': 'down', '· oleada en solitario': '· solo wave', '· oleada en grupo': '· group wave',
   'Ese daño ya va dentro de los otros movimientos.': 'That damage is already counted in the other moves.',
   'Todavía no has hecho daño.': 'You have not dealt any damage yet.',
   'Tiempo': 'Time', 'Nivel': 'Level', 'Derrotados': 'Defeated', 'Jefes': 'Bosses', 'Pokémonedas ganadas': 'PokéCoins earned',

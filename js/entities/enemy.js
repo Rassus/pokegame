@@ -411,17 +411,25 @@
     // dispara. Todo avisa en el suelo. Por debajo de la mitad de vida se
     // enfurece: más rápido, menos espera y a veces encadena dos ataques.
 
+    /** Articuno pega con un hielo más oscuro y deja el suelo helado. */
+    isArticuno() { return this.dex === 144; }
+
+    bossColor() {
+      return this.isArticuno() ? '#2f7494' : (G.U.TYPE_COLOR[this.atkType] || '#ff7a9e');
+    }
+
     bossInit() {
       const T = this.types, has = (...xs) => xs.some(x => T.includes(x));
-      const melee = ['slam', G.U.hash(this.dex, 3, 7) < 0.5 ? 'dash' : 'leap'];
+      // Articuno: ventisca y ráfaga de hielo oscuro, y se queda más a distancia.
+      const melee = this.isArticuno() ? ['slam', 'dash'] : ['slam', G.U.hash(this.dex, 3, 7) < 0.5 ? 'dash' : 'leap'];
       const pref = has('fire', 'ground', 'poison', 'rock', 'grass') ? 'rain'
                  : has('electric', 'psychic', 'dragon', 'ice', 'steel') ? 'beam'
                  : has('fairy', 'ghost', 'water', 'flying') ? 'nova' : 'volley';
       const others = ['rain', 'beam', 'nova', 'volley'].filter(x => x !== pref);
-      const ranged = [pref, others[Math.floor(G.U.hash(this.dex, 5, 9) * 3) % 3]];
-      const far = this.behavior === 'ranged';
-      this.ai = { melee, ranged, farLike: far ? 0.65 : 0.35, mode: far ? 'far' : 'close', modeT: G.U.rand(6, 8),
-                  cd: 1.6, cast: null, fury: false, side: Math.random() < 0.5 ? -1 : 1 };
+      const ranged = this.isArticuno() ? ['blizzard', 'gale'] : [pref, others[Math.floor(G.U.hash(this.dex, 5, 9) * 3) % 3]];
+      const far = this.isArticuno() || this.behavior === 'ranged';
+      this.ai = { melee, ranged, farLike: this.isArticuno() ? 0.72 : (far ? 0.65 : 0.35), mode: far ? 'far' : 'close', modeT: G.U.rand(6, 8),
+                  cd: this.isArticuno() ? 1.35 : 1.6, cast: null, fury: false, side: Math.random() < 0.5 ? -1 : 1 };
     }
 
     bossMove(dt, pl, dist, dx, dy, spd) {
@@ -472,19 +480,20 @@
 
     bossStart(id, pl) {
       const ai = this.ai, f = ai.fury ? 0.8 : 1, type = this.atkType;
-      const col = G.U.TYPE_COLOR[type] || '#ff7a9e';
+      const col = this.bossColor();
+      const chill = this.isArticuno() ? 1.8 : 0;
       const ang = Math.atan2(pl.y - this.y, pl.x - this.x);
       const c = ai.cast = { id, t: 0, wind: 0.6 * f, after: 0.35, ang };
       switch (id) {
         case 'slam':       // pisotón: onda alrededor
           c.wind = 0.85 * f;
-          G.Hazards.add({ kind: 'zone', x: this.x, y: this.y, r: 96 + this.r, delay: c.wind, dmg: this.dmg * 1.3, type, color: col });
+          G.Hazards.add({ kind: 'zone', x: this.x, y: this.y, r: 96 + this.r, delay: c.wind, dmg: this.dmg * 1.3, type, color: col, slow: chill });
           this.anim.play('Charge', { speed: 1.2 });
           break;
         case 'dash':       // embestida en línea recta
           c.wind = 0.75 * f; c.len = 330; c.dur = 0.32;
           G.Hazards.add({ kind: 'beam', x: this.x, y: this.y, angle: ang, len: c.len + this.r, w: this.r * 2 + 16,
-                          delay: c.wind + c.dur, dmg: this.dmg * 1.2, type, color: col });
+                          delay: c.wind + c.dur, dmg: this.dmg * 1.2, type, color: col, slow: chill });
           this.anim.play('Charge', { speed: 1.3 });
           break;
         case 'leap':       // salto y caída sobre ti
@@ -510,6 +519,25 @@
                             delay: 1.0, dmg: this.shotDmg() * 1.2, type, color: col });
           }
           c.wind = 1.0; c.after = 0.25; this.anim.play('Charge', { speed: 1.1 });
+          break;
+        }
+        case 'blizzard': {  // ventisca oscura: varios círculos y te frena
+          const n = ai.fury ? 8 : 5;
+          for (let i = 0; i < n; i++) {
+            const a = i ? Math.random() * 6.2832 : 0, d = i ? G.U.rand(28, 150) : 0;
+            G.Hazards.add({ kind: 'zone', x: pl.x + Math.cos(a) * d, y: pl.y + Math.sin(a) * d * 0.8, r: 48,
+                            delay: 0.85 + i * 0.09, dmg: this.shotDmg() * 0.9, type, color: col, slow: 2.2 });
+          }
+          c.wind = 0.45; this.anim.play('Shoot');
+          break;
+        }
+        case 'gale': {     // ráfaga ancha de hielo oscuro
+          const n = ai.fury ? 5 : 3, sp = ai.fury ? 0.28 : 0.34;
+          for (let i = 0; i < n; i++) {
+            G.Hazards.add({ kind: 'beam', x: this.x, y: this.y, angle: ang + (i - (n - 1) / 2) * sp, len: 440, w: 34,
+                            delay: 0.95, dmg: this.shotDmg() * 1.05, type, color: col, slow: 1.6 });
+          }
+          c.wind = 0.95; c.after = 0.25; this.anim.play('Charge', { speed: 1.1 });
           break;
         }
         case 'volley':     // abanico de disparos
@@ -555,19 +583,21 @@
 
     /** Disparo normal de enemigo (uno, o varios en abanico). */
     shoot(ax, ay, spread = 0, n = 1, k = 1) {
-      const sp = 190, type = this.atkType;
+      const sp = 190, type = this.atkType, dark = this.isArticuno();
+      const col = dark ? '#2f7494' : '#ff7a9e';
+      const vis = dark ? { proj: 'shard', pal: 'iceDark' } : G.VFX.forType(type);
       const base = Math.atan2(ay, ax);
       for (let i = 0; i < n; i++) {
         const a = base + (n === 1 ? 0 : (i / (n - 1) - 0.5) * spread);
         const shot = G.Projectiles.spawn({
           x: this.x, y: this.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
-          dmg: this.shotDmg() * k, r: 7, life: 2.4, friendly: false, color: '#ff7a9e', mtype: type,
-          vis: G.VFX.forType(type)
+          dmg: this.shotDmg() * k, r: 7, life: 2.4, friendly: false, color: col, mtype: type,
+          vis
         });
-        if (G.Coop.isHost) G.Coop.enemyShot(shot, type);
+        if (G.Coop.isHost) G.Coop.enemyShot(shot, type, dark);
       }
       this.anim.play('Shoot');
-      G.FX.ring(this.x, this.y - G.LIFT, 4, 14, '#ff7a9e', 0.2, 2);
+      G.FX.ring(this.x, this.y - G.LIFT, 4, 14, col, 0.2, 2);
     }
 
     /** Lo que hace cada personalidad cuando le toca (anfitrión / solitario). */

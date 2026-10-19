@@ -61,6 +61,7 @@ G.Player = class Player {
     this.coins = 0;            // monedas recogidas en esta run
     this.t1 = 0; this.t10 = 0; this.tb = 0; this.tg = 0; // tickets de esta run: gris, morado, azul, dorado
     this.dmgDealt = 0;
+    this.deadTime = 0;         // segundos caído en esta partida (la alfombra del resumen)
     this.dmgBy = {};           // id de movimiento -> daño hecho (ya con el ataque del momento)
     this.buffAdd = {};         // id de potenciador de ataque -> daño extra que aportó
     this.buffSrc = null;       // movimiento que tiene ahora el ataque subido
@@ -425,7 +426,7 @@ G.Player = class Player {
   // ---------------- ciclo ----------------
   update(dt) {
     this.anim.update(dt);
-    if (this.dead) return;
+    if (this.dead) { this.deadTime += dt; return; }
     if (this.invuln > 0) this.invuln -= dt;
     if (this.flash > 0) this.flash -= dt;
     if (this.attackFace > 0) this.attackFace -= dt;
@@ -547,6 +548,8 @@ G.Player = class Player {
     else { this.x = G.U.damp(this.x, n.x, 14, dt); this.y = G.U.damp(this.y, n.y, 14, dt); }
     if (n.hp < this.hp - 0.5 && !n.dead) this.flash = 0.14;
     this.hp = n.hp; this.maxHp = n.maxHp;
+    if (n.dmg != null) this.dmgDealt = n.dmg;
+    if (n.down != null) this.deadTime = n.down;
     this.magnet = n.mag || this.magnet;
     this.reviveT = n.rev || 0;
     if (n.dead && !this.dead) { this.dead = true; this.anim.play('Faint', { hold: true }); G.Projectiles.clearOrbs(this); }

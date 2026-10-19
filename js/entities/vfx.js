@@ -19,6 +19,8 @@ G.VFX = (() => {
     electric: ['#6b4300', '#c48a00', '#ffd21a', '#fff36a', '#ffffff'],
     psychic:  ['#5e0a3a', '#b0246e', '#ff4f9a', '#ff9fcf', '#ffe8f3'],
     ice:      ['#134a60', '#2f8aa8', '#62d2ea', '#bff3ff', '#ffffff'],
+    // Articuno: el mismo hielo, un poco más oscuro.
+    iceDark:  ['#0c2430', '#1a4a60', '#2f7494', '#7eb8cc', '#d4eef6'],
     fighting: ['#561208', '#9a2a16', '#e04a2e', '#ff9c6c', '#ffe2cc'],
     poison:   ['#2e0a3c', '#5e1f7e', '#a043d0', '#d995f2', '#f7e2ff'],
     ground:   ['#3a250c', '#6e4c1e', '#aa7c3c', '#dcb66c', '#f6e6b8'],

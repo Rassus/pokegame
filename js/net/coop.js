@@ -52,6 +52,7 @@ G.Coop = (() => {
   let levelSeq = 0, levelNow = 1, seenSeq = 0, doneSeq = 0, lastHo = '';
   const STALL_MS = 2500;
   let members = [];
+  let lastBoard = null;            // daño y tiempo muerto al cerrar la partida en grupo
 
   // ---------------- escalado de dificultad ----------------
 
@@ -77,6 +78,7 @@ G.Coop = (() => {
     offers = new Map(); levelSince = 0; cardVote = null; kickVote = null;
     hostAway = false; stalled = false; lastHostAt = performance.now();
     levelSeq = 0; levelNow = 1; seenSeq = 0; doneSeq = 0; lastHo = '';
+    lastBoard = null;
     cfg.members.forEach((m, i) => {
       const x = (i - (cfg.members.length - 1) / 2) * 34, y = 0;
       if (m.uid === me) { pl.x = x; pl.y = y; pl.uid = me; pl.coopHost = host; pl.tagColor = COLORS[i]; return; }
@@ -90,7 +92,23 @@ G.Coop = (() => {
     });
   }
 
+  /** Daño y segundos caído de cada uno, para la pestaña Equipo del resumen. */
+  function takeBoard() {
+    if (!local) return null;
+    const mine = (G.Social && G.Social.me && G.Social.me.name) || 'Tú';
+    const rows = [{ name: mine, dex: local.dex, shiny: !!local.shiny, dmg: Math.round(local.dmgDealt || 0), down: Math.round(local.deadTime || 0) }];
+    for (const m of mates.values()) {
+      if (!m.connected || !m.pl) continue;
+      rows.push({ name: m.name || '—', dex: m.pl.dex, shiny: !!m.pl.shiny, dmg: Math.round(m.pl.dmgDealt || 0), down: Math.round(m.pl.deadTime || 0) });
+    }
+    return rows.length > 1 ? rows : null;
+  }
+
+  function scoreboard() { return active && local ? takeBoard() : lastBoard; }
+
   function end() {
+    if (!active) return;
+    lastBoard = takeBoard();
     active = false; host = false; local = null;
     mates.clear(); outEv = []; waiting = new Set(); holds = new Set();
     offers = new Map(); cardVote = null; kickVote = null;
@@ -141,13 +159,14 @@ G.Coop = (() => {
     return [r1(local.x), r1(local.y), r2(local.moveAngle), local.walking ? 1 : 0, r1(local.hp), r1(local.maxHp),
             local.dead ? 1 : 0, m ? m.id : '', m ? m.lvl : 1, r1(local.magnet), r2(local.aim), r2(local.xpMul),
             r2(local.reviveT || 0), local.item || '',
-            api.choosing && api.choosing() ? 1 : 0, doneSeq];
+            api.choosing && api.choosing() ? 1 : 0, doneSeq,
+            r1(local.dmgDealt || 0), r1(local.deadTime || 0)];
   }
 
   function readState(a) {
     return { x: a[0], y: a[1], ang: a[2], walk: a[3], hp: a[4], maxHp: a[5], dead: a[6], mv: a[7], ml: a[8],
              mag: a[9], aim: a[10], xpMul: a[11], rev: a[12], item: a[13] || '',
-             ch: a[14], ld: a[15] };
+             ch: a[14], ld: a[15], dmg: a[16] || 0, down: a[17] || 0 };
   }
 
   // ---------------- envío ----------------
@@ -383,7 +402,8 @@ G.Coop = (() => {
       case 'hn': { const e = G.EnemyMgr.get(ev[1]); if (e && !e.dead) e.showHurt(ev[2], ev[3]); break; }
       case 'es':
         G.Projectiles.spawn({ x: ev[1], y: ev[2], vx: ev[3], vy: ev[4], dmg: ev[5], r: ev[6], life: ev[7],
-                              friendly: false, color: '#ff7a9e', vis: G.VFX.forType(ev[8]), mtype: ev[8] });
+                              friendly: false, color: ev[9] ? '#2f7494' : '#ff7a9e',
+                              vis: ev[9] ? { proj: 'shard', pal: 'iceDark' } : G.VFX.forType(ev[8]), mtype: ev[8] });
         break;
       case 'c': { const m = mates.get(ev[1]); if (m) G.Combat.ghostCast(m.pl, ev[2], ev[3], ev[4], ev[5]); break; }
       case 'item': api.item(ev[1]); break;
@@ -444,7 +464,7 @@ G.Coop = (() => {
     emit(['ne', e.id, e.dex, r1(e.x), r1(e.y), e.boss ? 1 : 0, e.shiny ? 1 : 0, Math.ceil(e.maxHp), r2(e.dmg), e.behavior, e.towerPhase || 0]);
   }
   function enemyGone(e, died) { emit([died ? 'ed' : 'eg', e.id]); }
-  function enemyShot(p, type) { emit(['es', r1(p.x), r1(p.y), r1(p.vx), r1(p.vy), r2(p.dmg), p.r, p.life, type]); }
+  function enemyShot(p, type, dark) { emit(['es', r1(p.x), r1(p.y), r1(p.vx), r1(p.vy), r2(p.dmg), p.r, p.life, type, dark ? 1 : 0]); }
   function pickupAdded(o) { emit(['pk', o.id, o.kind, r1(o.x), r1(o.y), o.value, o.noMag ? 1 : 0]); }
   function pickupGone(id) { emit(['pc', id]); }
   function say(text, secs) { emit(['say', text, secs]); }
@@ -717,6 +737,7 @@ G.Coop = (() => {
     mate(u) { return mates.get(u); },
     get mates() { return [...mates.values()]; },
     get members() { return members; },
+    scoreboard,
     get active() { return active; },
     get isHost() { return active && host; },
     get local() { return local; }
