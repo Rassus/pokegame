@@ -22,7 +22,7 @@
  * costo × la tier, los tickets dorados ×0,8 × la tier y los fragmentos
  * (60 % de 45 a 100) ×1,5 × la tier. Si no lo tienes, un 25% de atraparlo.
  * El jefe puede salir shiny (1/1024). No cuenta para el récord de tiempo.
- * El ranking de torres guarda la oleada de cada jugador, por torre y modo.
+ * El ranking de torres guarda la oleada, en solitario y en grupo, por torre y modo.
  */
 G.Towers = (() => {
   const EVERY = 10;
@@ -874,13 +874,14 @@ G.Towers = (() => {
   function draw(ctx) {
     if (!run) return;
     const e = bossOf();
+    const dark = run.dex === 144;
     if (run.aura > 0 && e) {
       ctx.save();
       ctx.globalAlpha = 0.16 + Math.sin(performance.now() / 200) * 0.04;
-      ctx.fillStyle = '#7a4ad0';
+      ctx.fillStyle = dark ? '#163044' : '#7a4ad0';
       ctx.beginPath(); ctx.arc(e.x, e.y, 340, 0, 6.2832); ctx.fill();
       ctx.globalAlpha = 0.8;
-      ctx.strokeStyle = '#c9b6ff'; ctx.lineWidth = 3;
+      ctx.strokeStyle = dark ? '#5a9eb8' : '#c9b6ff'; ctx.lineWidth = 3;
       ctx.stroke();
       ctx.restore();
     }
@@ -888,10 +889,10 @@ G.Towers = (() => {
     if (c && c.id === 'silence' && e) {
       ctx.save();
       ctx.globalAlpha = 0.18;
-      ctx.fillStyle = '#b9a6ff';
+      ctx.fillStyle = dark ? '#1c3a4c' : '#b9a6ff';
       ctx.beginPath(); ctx.arc(e.x, e.y, c.rad || 8, 0, 6.2832); ctx.fill();
       ctx.globalAlpha = 0.9;
-      ctx.strokeStyle = '#efe8ff'; ctx.lineWidth = 3;
+      ctx.strokeStyle = dark ? '#7eb4c8' : '#efe8ff'; ctx.lineWidth = 3;
       ctx.stroke();
       ctx.restore();
     }
@@ -941,11 +942,12 @@ G.Towers = (() => {
     const u = Math.min(1, c.t / c.dur);
     const left = w * (0.16 + 0.34 * u);
     const right = w * (0.84 - 0.34 * u);
+    const dark = run && run.dex === 144;
     ctx.save();
-    ctx.fillStyle = 'rgba(150, 90, 255, .28)';
+    ctx.fillStyle = dark ? 'rgba(18, 48, 68, .5)' : 'rgba(150, 90, 255, .28)';
     ctx.fillRect(0, 0, left, h);
     ctx.fillRect(right, 0, w - right, h);
-    ctx.fillStyle = 'rgba(90, 40, 160, .22)';
+    ctx.fillStyle = dark ? 'rgba(8, 24, 36, .4)' : 'rgba(90, 40, 160, .22)';
     if (right > left) ctx.fillRect(left, 0, right - left, h);
     ctx.restore();
     if (c.t > 0.75 && !c.hit) {

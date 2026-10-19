@@ -13,8 +13,9 @@
  *     s_all         histórico   (la tabla anual se quitó el 2026-10-10)
  *     s_all_p25     histórico sólo con Pikachu (el filtro por Pokémon sólo
  *                   existe en el histórico: así cada partida escribe la mitad)
- *     s_tw150n_all  torre 150, modo normal (h difícil, m demencial).
- *                   Cada jugador sube la suya. La puntuación es la oleada.
+ *     s_tw150n_all  torre 150, modo normal, en solitario (h difícil, m demencial).
+ *     g_tw150n_all  la misma torre en grupo: una fila por equipo.
+ *                   La puntuación es la oleada.
  *   id = tu uid (solitario) o los uid del equipo ordenados y unidos con "_".
  *
  * Ahorros:
@@ -228,12 +229,12 @@ G.Ranking = (() => {
 
   function towerLetter(mode) { return mode === 'hard' ? 'h' : mode === 'mad' ? 'm' : 'n'; }
 
-  /** Tabla de una torre: s_tw150n_all (solitario, cada jugador la suya). */
-  function towerBoard(id, mode, period) {
-    return 's_tw' + id + towerLetter(mode) + '_' + periodIds()[period];
+  /** Tabla de una torre: s_tw150n_all en solitario, g_tw150n_all en grupo. */
+  function towerBoard(id, mode, period, party) {
+    return (party === 'g' ? 'g' : 's') + '_tw' + id + towerLetter(mode) + '_' + periodIds()[period];
   }
 
-  /** Cada jugador sube su oleada. No pide el minuto mínimo de las runs. */
+  /** Cada jugador sube su oleada en solitario. No pide el minuto mínimo de las runs. */
   async function submitTower(r) {
     const fb = fbx();
     if (!fb || !G.Social.me || !(r.wave > 0) || !r.id) return [];
@@ -246,6 +247,26 @@ G.Ranking = (() => {
     const stem = 's_tw' + r.id + towerLetter(r.mode) + '_';
     const boards = PERIODS.map(([p]) => [stem + ids[p], p]);
     const better = await store(boards, fb.uid, entry);
+    announce(better);
+    return better;
+  }
+
+  /** La sube el anfitrión: el equipo, con la oleada de la torre. */
+  async function submitTowerGroup(r) {
+    const fb = fbx();
+    if (!fb || !(r.wave > 0) || !r.id || !r.members || r.members.length < 2) return [];
+    const ms = r.members.slice().sort((a, b) => (a.uid < b.uid ? -1 : 1));
+    if (!ms.some(m => m.uid === fb.uid)) return [];
+    const entry = {
+      t: packWave(r.wave, r.cleared, r.time),
+      uids: ms.map(m => m.uid), names: ms.map(m => m.name), dex: ms.map(m => m.dex | 0),
+      shiny: ms.map(m => !!m.shiny), lv: r.lv | 0, kills: r.kills | 0,
+      st: ms.map(m => (m.st ? G.Upgrades.sheet(m.st) : null))
+    };
+    const ids = periodIds();
+    const stem = 'g_tw' + r.id + towerLetter(r.mode) + '_';
+    const boards = PERIODS.map(([p]) => [stem + ids[p], p]);
+    const better = await store(boards, ms.map(m => m.uid).join('_'), entry);
     announce(better);
     return better;
   }
@@ -291,8 +312,9 @@ G.Ranking = (() => {
   async function top(mode, period, dex, friendsOnly, tower) {
     const fb = fbx();
     if (!fb) return [];
-    const b = mode === 'tw' && tower ? towerBoard(tower.id, tower.mode, period) : board(mode, period, dex);
-    const solo = mode !== 'g';
+    const party = tower && tower.party === 'g' ? 'g' : 's';
+    const b = mode === 'tw' && tower ? towerBoard(tower.id, tower.mode, period, party) : board(mode, period, dex);
+    const solo = mode === 'tw' ? party !== 'g' : mode !== 'g';
     const rows = sorted(await summary(b));
     if (!friendsOnly) return rows.slice(0, TOP);
     const circle = [fb.uid, ...G.Social.friends.filter(f => f.status === 'ok').map(f => f.uid)].slice(0, 30);
@@ -322,8 +344,9 @@ G.Ranking = (() => {
   async function myRank(mode, period, dex, tower) {
     const fb = fbx();
     if (!fb) return null;
-    const b = mode === 'tw' && tower ? towerBoard(tower.id, tower.mode, period) : board(mode, period, dex);
-    const solo = mode !== 'g';
+    const party = tower && tower.party === 'g' ? 'g' : 's';
+    const b = mode === 'tw' && tower ? towerBoard(tower.id, tower.mode, period, party) : board(mode, period, dex);
+    const solo = mode === 'tw' ? party !== 'g' : mode !== 'g';
     // ¿Estás en el top 50? Entonces el puesto sale del resumen, sin gastar nada.
     const rows = sorted(await summary(b));
     const i = rows.findIndex(r => r.uids.includes(fb.uid));
@@ -510,5 +533,5 @@ G.Ranking = (() => {
     try { localStorage.removeItem(bestKey()); } catch (e) { /* nada */ }
   }
 
-  return { PERIODS, periodIds, board, submitSolo, submitGroup, submitTower, waveOf, clearedOf, top, myRank, removeMine, wealthTop, touchPurse, wallet };
+  return { PERIODS, periodIds, board, submitSolo, submitGroup, submitTower, submitTowerGroup, waveOf, clearedOf, top, myRank, removeMine, wealthTop, touchPurse, wallet };
 })();

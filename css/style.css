@@ -482,9 +482,14 @@ label { display: block; font-size: 14px; color: var(--muted); margin: 8px 0 4px;
 
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 18px; }
 #scr-over .gen-tabs { justify-content: center; margin-top: 2px; }
-#over-dmg { text-align: left; margin: 4px 0 14px; }
-#over-dmg .total { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
-#over-dmg .total span { color: var(--muted); font-size: 12px; text-transform: uppercase; }
+#over-dmg, #over-team { text-align: left; margin: 4px 0 14px; }
+#over-dmg .total, #over-team .total { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+#over-dmg .total span, #over-team .total span { color: var(--muted); font-size: 12px; text-transform: uppercase; }
+#over-team .badge { display: inline-block; margin-left: 4px; font-size: 10px; font-weight: 800; letter-spacing: .03em; padding: 1px 5px; border-radius: 4px; vertical-align: 1px; }
+#over-team .badge.mvp { background: #ffd23f; color: #1a1408; }
+#over-team .badge.bag { background: #6b5c52; color: #f4f0ea; }
+#over-team .badge.rug { background: #c23a4b; color: #fff; }
+#over-team .mons { flex: 0 0 auto; width: 36px; height: 32px; }
 .dmg-row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 1px dashed rgba(244,248,255,.15); }
 .dmg-row .ico { flex: 0 0 auto; }
 .dmg-row .who { flex: 1; min-width: 0; }

@@ -121,18 +121,25 @@ G.RunUI = (() => {
   function showOver(r, onBack) {
     $('over-title').textContent = r.title || (r.dead ? 'Has caído…' : 'Run terminada');
     renderOverDmg(r.dmg || []);
+    renderOverTeam(r.team || []);
     const tabs = $('over-tabs');
+    const teamBtn = tabs.querySelector('[data-over="team"]');
+    if (teamBtn) teamBtn.classList.toggle('hidden', !(r.team && r.team.length > 1));
     tabs.querySelectorAll('.gen-tab').forEach(btn => {
       btn.classList.toggle('on', btn.dataset.over === 'sum');
       btn.onclick = () => {
         tabs.querySelectorAll('.gen-tab').forEach(b => b.classList.toggle('on', b === btn));
-        const dmg = btn.dataset.over === 'dmg';
-        $('over-stats').classList.toggle('hidden', dmg);
-        $('over-dmg').classList.toggle('hidden', !dmg);
+        const which = btn.dataset.over;
+        $('over-stats').classList.toggle('hidden', which !== 'sum');
+        $('over-dmg').classList.toggle('hidden', which !== 'dmg');
+        const team = $('over-team');
+        if (team) team.classList.toggle('hidden', which !== 'team');
       };
     });
     $('over-stats').classList.remove('hidden');
     $('over-dmg').classList.add('hidden');
+    const teamBox = $('over-team');
+    if (teamBox) teamBox.classList.add('hidden');
     const tw = r.tower;
     const waveLine = tw ? (tw.cleared
       ? 'Oleada ' + tw.wave + ' / ' + tw.waves + ' · superada'
@@ -200,6 +207,42 @@ G.RunUI = (() => {
           <div class="val">${val}</div></div>`;
       }).join('') +
       (anyAdd ? '<p class="note">Ese daño ya va dentro de los otros movimientos.</p>' : '');
+  }
+
+  /** Tercera pestaña, en grupo: daño de cada jugador, el MVP, la mochila y la alfombra. */
+  function renderOverTeam(list) {
+    const box = $('over-team');
+    if (!box) return;
+    if (!list || list.length < 2) { box.innerHTML = ''; return; }
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const rows = list.map(p => ({ ...p, dmg: Math.round(p.dmg || 0), down: Math.round(p.down || 0) }));
+    const total = rows.reduce((s, p) => s + p.dmg, 0);
+    const max = Math.max(1, ...rows.map(p => p.dmg));
+    const byDmg = rows.slice().sort((a, b) => b.dmg - a.dmg || a.down - b.down);
+    const mvp = byDmg[0].dmg > 0 ? byDmg[0] : null;
+    const low = byDmg[byDmg.length - 1].dmg;
+    const bags = new Set(rows.filter(p => p !== mvp && p.dmg === low));
+    const topDown = Math.max(...rows.map(p => p.down));
+    const rugs = new Set(topDown > 0 ? rows.filter(p => p.down === topDown) : []);
+    rows.sort((a, b) => b.dmg - a.dmg || a.down - b.down);
+    box.innerHTML = `<div class="total"><span>Daño del equipo</span><b>${G.U.num(total)}</b></div>`;
+    for (const p of rows) {
+      const el = document.createElement('div');
+      el.className = 'dmg-row';
+      const badges = (mvp === p ? '<span class="badge mvp">MVP</span>' : '')
+        + (bags.has(p) ? '<span class="badge bag">Mochila</span>' : '')
+        + (rugs.has(p) ? '<span class="badge rug">Alfombra</span>' : '');
+      const pct = total > 0 ? Math.round(p.dmg / total * 100) : 0;
+      const ico = document.createElement('span');
+      ico.className = 'mons';
+      if (G.DEX_BY[p.dex]) ico.appendChild(G.UI.spriteCanvas(p.dex, 36, 32, { scale: 1, shiny: !!p.shiny }));
+      el.appendChild(ico);
+      el.insertAdjacentHTML('beforeend',
+        `<div class="who"><b>${esc(p.name || '—')}${badges}</b>
+          <div class="dmg-bar"><i style="width:${Math.round(p.dmg / max * 100)}%;background:#ff7b6b"></i></div></div>
+         <div class="val"><b>${G.U.num(p.dmg)}</b><small>${pct}% · ${G.U.mmss(p.down)} muerto</small></div>`);
+      box.appendChild(el);
+    }
   }
 
   /** Has encontrado un objeto llevando ya otro: ¿con cuál te quedas? */

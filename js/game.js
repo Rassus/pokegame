@@ -479,7 +479,8 @@ G.Game = (() => {
           r: {
             id: tower.id, mode: tower.mode || 'normal', wave, cleared: !!tower.cleared,
             time: Math.floor(s.t || 0), dex: s.dex, shiny: !!s.shiny, lv: s.lv | 0, kills: s.ki | 0, st: s.st || null
-          }
+          },
+          group: (s.coop && s.host && s.team && s.team.length >= 2) ? s.team : null
         };
       }
       const rw = tower.cleared && tower.reward;
@@ -530,8 +531,10 @@ G.Game = (() => {
     if (!p || !G.Social.me) return;
     delete save.rankPending;
     G.DB.commit();
-    if (p.kind === 'tower') G.Ranking.submitTower(p.r);
-    else if (p.kind === 'group') G.Ranking.submitGroup(p.r);
+    if (p.kind === 'tower') {
+      G.Ranking.submitTower(p.r);
+      if (p.group) G.Ranking.submitTowerGroup(Object.assign({}, p.r, { members: p.group }));
+    } else if (p.kind === 'group') G.Ranking.submitGroup(p.r);
     else G.Ranking.submitSolo(p.r);
   }
 
@@ -541,6 +544,7 @@ G.Game = (() => {
     const coop = !!pl.uid;                    // sólo las partidas en grupo le ponen uid
     const wasHost = !!pl.coopHost;
     const team = coop ? G.Coop.members.slice() : [];
+    const teamBoard = coop && G.Coop.scoreboard ? G.Coop.scoreboard() : null;
     if (G.Coop.active) G.Coop.end();
     if (coop) G.Social.setPlaying(false);
     state = 'over';
@@ -571,11 +575,15 @@ G.Game = (() => {
         mode: modeName, wave, waves: tower.waves || 100,
         cleared: !!tower.cleared, best: wave > prev
       };
-      if (wave >= 1) G.Ranking.submitTower({
-        id: tower.id, mode: tower.mode || 'normal', wave, cleared: !!tower.cleared,
-        time: Math.floor(time), dex: pl.dex, shiny: !!pl.shiny, lv: pl.level | 0, kills: pl.kills | 0,
-        st: G.Upgrades.sheet((save.pupg || {})[pl.dex])
-      });
+      if (wave >= 1) {
+        const row = {
+          id: tower.id, mode: tower.mode || 'normal', wave, cleared: !!tower.cleared,
+          time: Math.floor(time), dex: pl.dex, shiny: !!pl.shiny, lv: pl.level | 0, kills: pl.kills | 0,
+          st: G.Upgrades.sheet((save.pupg || {})[pl.dex])
+        };
+        G.Ranking.submitTower(row);
+        if (wasHost && team.length >= 2) G.Ranking.submitTowerGroup(Object.assign({}, row, { members: team }));
+      }
     }
     let caughtName = '';
     let towerExtra = '';
@@ -627,7 +635,7 @@ G.Game = (() => {
     if (G.Social.me) G.Social.publishProfile();
 
     // Ranking: en solitario cada uno lo suyo; en grupo lo sube el anfitrión.
-    // La torre ya se apuntó arriba, una fila por jugador.
+    // La torre ya se apuntó arriba: cada jugador en solo y, si ibais juntos, el equipo.
     const mark = { t: Math.floor(time), lv: pl.level, kills: pl.kills, st: G.Upgrades.sheet((save.pupg || {})[pl.dex]) };
     if (!tower && !coop) G.Ranking.submitSolo(Object.assign(mark, { dex: pl.dex, shiny: pl.shiny }));
     else if (!tower && wasHost) G.Ranking.submitGroup(Object.assign(mark, { members: team }));
@@ -640,6 +648,7 @@ G.Game = (() => {
         id: m.id, name: m.name, lvl: m.lvl, type: m.type, kind: m.kind, stat: m.stat || '',
         dealt: pl.dmgBy[m.id] || 0, added: pl.buffAdd[m.id] || 0
       })),
+      team: teamBoard,
       breakdown: Object.entries(parts).filter(([, v]) => v).map(([k, v]) => `${k} ${G.U.num(v)}`).join(' · ') +
                  (mul > 1 ? ` · ×${mul.toFixed(2)} Fortuna` : '') +
                  (caughtName ? ' · ' + caughtName + ' atrapado' : '') + towerExtra

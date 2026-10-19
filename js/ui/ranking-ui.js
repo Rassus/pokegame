@@ -1,13 +1,13 @@
 /* ============ ranking-ui.js — pantalla del ranking ============
  * Pestañas Solo / Grupo / Torre, periodo (diario ... histórico), todos o sólo amigos,
  * filtro por Pokémon (sólo en el histórico) y tu puesto abajo aunque no salgas
- * en el top. En Torre se elige la torre y el modo, y se ordena por oleada.
+ * en el top. En Torre se elige la torre, el modo y si es en solitario o en grupo.
  * Lo leído se guarda 30 min (ver ranking.js).
  */
 G.RankingUI = (() => {
   const $ = G.UI.$;
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  let mode = 's', period = 'w', scope = 'all', dex = null, towerId = '', towerMode = 'normal', purseKind = 'gold';
+  let mode = 's', period = 'w', scope = 'all', dex = null, towerId = '', towerMode = 'normal', towerParty = 's', purseKind = 'gold';
   let token = 0;
 
   function init() {
@@ -74,7 +74,8 @@ G.RankingUI = (() => {
     if ($('rk-period')) $('rk-period').classList.toggle('hidden', purse);
     if ($('rk-scope')) $('rk-scope').classList.toggle('hidden', purse);
     if (tm) tm.classList.toggle('hidden', !on && !purse);
-    if (sub) sub.textContent = purse ? (purseKind === 'tickets' ? '· top 50 de tickets' : '· top 50 de oro') : on ? '· oleada alcanzada' : '· tiempo aguantado';
+    if (sub) sub.textContent = purse ? (purseKind === 'tickets' ? '· top 50 de tickets' : '· top 50 de oro')
+      : on ? (towerParty === 'g' ? '· oleada en grupo' : '· oleada en solitario') : '· tiempo aguantado';
     if (purse && tm) {
       tm.innerHTML = '';
       for (const [id, name] of [['gold', 'Oro'], ['tickets', 'Tickets']]) {
@@ -109,6 +110,14 @@ G.RankingUI = (() => {
     if (!towerId && sel.options.length) towerId = sel.options[0].value;
     if (towerId) sel.value = towerId;
     tm.innerHTML = '';
+    for (const [id, name] of [['s', 'Solo'], ['g', 'Grupo']]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (id === towerParty ? ' on' : '');
+      b.textContent = name;
+      b.onclick = () => { towerParty = id; tabs(); load(); };
+      tm.appendChild(b);
+    }
     for (const m of G.Towers.MODES) {
       const b = document.createElement('button');
       b.type = 'button';
@@ -146,7 +155,7 @@ G.RankingUI = (() => {
     if (mode === 'pu') { loadPurse(my); return; }
     let rows = [], me = null;
     try {
-      const tower = mode === 'tw' ? { id: towerId, mode: towerMode } : null;
+      const tower = mode === 'tw' ? { id: towerId, mode: towerMode, party: towerParty } : null;
       [rows, me] = await Promise.all([
         G.Ranking.top(mode, period, mode === 'tw' ? null : dex, scope === 'friends', tower),
         G.Social.me ? G.Ranking.myRank(mode, period, mode === 'tw' ? null : dex, tower) : Promise.resolve(null)
@@ -173,13 +182,14 @@ G.RankingUI = (() => {
                      : (mode === 's' ? 'en solitario' : 'en grupo') + (dex ? ' con ' + mon : '');
     if (mode === 'tw') {
       const tb = towerBits();
-      const who = '<b translate="no">' + esc(tb.name) + '</b> · ' + tb.modeName;
+      const side = towerParty === 'g' ? (en ? 'group' : 'en grupo') : (en ? 'solo' : 'en solitario');
+      const who = '<b translate="no">' + esc(tb.name) + '</b> · ' + tb.modeName + ' · ' + (towerParty === 'g' ? 'en grupo' : 'en solitario');
       $('rk-me').innerHTML = !G.Social.me ? 'Elige un apodo (en Amigos) para salir en el ranking.'
-        : me && me.out ? (en ? `<span translate="no">You're not in the top 50 of ${esc(tb.name)} (${tb.enMode}) ${pn} yet. Your exact rank is in All-time.</span>`
+        : me && me.out ? (en ? `<span translate="no">You're not in the top 50 of ${esc(tb.name)} (${tb.enMode}, ${side}) ${pn} yet. Your exact rank is in All-time.</span>`
                              : `Aún no estás en el top 50 ${pn} en ${who}. Tu puesto exacto está en Histórico.`)
-        : me ? (en ? `<span translate="no">Your best rank on ${esc(tb.name)} (${tb.enMode}) ${pn}: <b class="gold">#${me.pos}</b> · ${waveText(me.t, true)}</span>`
+        : me ? (en ? `<span translate="no">Your best ${side} rank on ${esc(tb.name)} (${tb.enMode}) ${pn}: <b class="gold">#${me.pos}</b> · ${waveText(me.t, true)}</span>`
                    : `Tu mejor puesto ${pn} en ${who}: <b class="gold">#${me.pos}</b> · <span>${waveText(me.t)}</span>`)
-        : (en ? `<span translate="no">You don't have a record on ${esc(tb.name)} (${tb.enMode}) ${pn} yet.</span>`
+        : (en ? `<span translate="no">You don't have a ${side} record on ${esc(tb.name)} (${tb.enMode}) ${pn} yet.</span>`
               : `Aún no tienes marca ${pn} en ${who}.`);
       return;
     }
