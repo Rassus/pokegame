@@ -33,8 +33,16 @@ G.Pass = (() => {
     return values[0];
   }
 
-  function rollTrack(n) {
-    const r = rng('pase-pista-' + n);
+  /** Cada cuenta tiene su propia tirada. Sin uid, se guarda una semilla en la partida. */
+  function who(s) {
+    const uid = (G.DB && G.DB.fb && G.DB.fb.uid) || (G.Social && G.Social.uid) || '';
+    if (uid) return uid;
+    if (!s.passSalt) s.passSalt = String(s.created || Date.now()) + '-' + Math.floor(Math.random() * 1e9);
+    return s.passSalt;
+  }
+
+  function rollTrack(n, salt) {
+    const r = rng('pase-pista-' + n + (salt ? ':' + salt : ''));
     return D().layout().map(row => {
       const o = { kind: row.kind };
       if (row.rarity) o.rarity = row.rarity;
@@ -43,10 +51,46 @@ G.Pass = (() => {
     });
   }
 
-  function fresh(month, n, bank) {
+  function rewardSame(a, b) {
+    return !!a && !!b && a.kind === b.kind && (a.n || 0) === (b.n || 0) && (a.rarity || 0) === (b.rarity || 0);
+  }
+
+  function trackSame(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!rewardSame(a[i], b[i])) return false;
+    return true;
+  }
+
+  /**
+   * La primera versión sorteaba el oro y los tickets con una semilla igual
+   * para todos. Si esta pista sigue siendo esa, los premios sin recoger
+   * pasan a la tirada de este jugador. Lo ya recogido se queda.
+   */
+  function personalize(s, Q) {
+    const salt = who(s);
+    if (Q.own === salt) return false;
+    if (Q.track && trackSame(Q.track, rollTrack(Q.n || 1, ''))) {
+      const mine = rollTrack(Q.n || 1, salt);
+      for (let i = 0; i < mine.length; i++) {
+        if (Q.claimed && Q.claimed[i + 1]) continue;
+        Q.track[i] = mine[i];
+      }
+    }
+    for (let i = 0; i < (Q.post || []).length; i++) {
+      const post = Q.post[i];
+      if (!post || post.claimed) continue;
+      const shared = rollPost(rng('pase-extra-' + Q.n + '-' + Q.month + '-' + i));
+      if (!rewardSame(post.reward, shared)) continue;
+      post.reward = rollPost(rng('pase-extra-' + Q.n + '-' + Q.month + '-' + i + ':' + salt));
+    }
+    Q.own = salt;
+    return true;
+  }
+
+  function fresh(month, n, bank, salt) {
     return {
-      n, month, pts: 0, fold: false, claimed: {},
-      track: rollTrack(n), post: [], bank: bank || [],
+      n, month, pts: 0, fold: false, claimed: {}, own: salt || '',
+      track: rollTrack(n, salt), post: [], bank: bank || [],
       stats: {}, best: {},
       days: {}, weeks: {}, monthM: []
     };
@@ -54,7 +98,7 @@ G.Pass = (() => {
 
   function blank(s) {
     const ids = G.Ranking.periodIds();
-    s.pass = fresh(ids.m, 1, []);
+    s.pass = fresh(ids.m, 1, [], who(s));
   }
 
   function allM(P) {
@@ -95,18 +139,21 @@ G.Pass = (() => {
       s.stats.missionsDone = (s.stats.missionsDone || 0) + 1;
     }
     if (gained) {
-      ensurePost(P);
+      ensurePost(s);
       if (!quiet) toast(n === 1 ? 'Pase +' + gained + ' · ' + last : 'Pase +' + gained + ' puntos');
       if (G.PassUI) G.PassUI.refresh();
     }
     return gained;
   }
 
-  function ensurePost(P) {
+  function ensurePost(s) {
+    const P = s.pass;
+    if (!P) return;
     const extra = Math.floor(Math.max(0, P.pts - 1000) / 10);
     P.post = P.post || [];
+    const salt = P.own || who(s);
     while (P.post.length < extra) {
-      const r = rng('pase-extra-' + P.n + '-' + P.month + '-' + P.post.length);
+      const r = rng('pase-extra-' + P.n + '-' + P.month + '-' + P.post.length + (salt ? ':' + salt : ''));
       P.post.push({ reward: rollPost(r), claimed: false });
     }
   }
@@ -341,7 +388,7 @@ G.Pass = (() => {
       const bank = park(s, P);
       const n = (P.n || 1) + 1;
       const fold = !!P.fold;
-      s.pass = fresh(ids.m, n, bank);
+      s.pass = fresh(ids.m, n, bank, who(s));
       s.pass.fold = fold;
     }
     const Q = s.pass;
@@ -353,8 +400,13 @@ G.Pass = (() => {
     Q.claimed = Q.claimed || {};
     Q.bank = Q.bank || [];
     Q.post = Q.post || [];
-    if (!Q.track || Q.track.length !== 100) Q.track = rollTrack(Q.n || 1);
     let made = false;
+    if (!Q.track || Q.track.length !== 100) {
+      Q.track = rollTrack(Q.n || 1, who(s));
+      Q.own = who(s);
+      made = true;
+    }
+    if (personalize(s, Q)) made = true;
     // El pase 1 sale a mitad de mes: quien entra hoy recibe las diarias
     // desde el día 1, no solo la de hoy. Los meses siguientes solo suman el día en curso.
     if ((Q.n || 1) === 1 && ids.m === Q.month) {
