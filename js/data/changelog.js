@@ -14,7 +14,10 @@ G.CHANGELOG = [
   ], chg: [
     ['Articuno ataca con un hielo más oscuro: ventisca y ráfaga que te frenan. Su aura, su silencio y su amnesia también se ven más oscuros.',
      'Articuno attacks with darker ice: a blizzard and a gust that slow you. Its aura, silence and amnesia look darker too.']
-  ], fix: [] },
+  ], fix: [
+    ['En el pase, el oro y los tickets salían iguales para todo el mundo. Ahora cada jugador tiene su propia tirada. Lo que ya habías recogido se queda; lo que no, se vuelve a sortear.',
+     'On the pass, gold and tickets came out the same for everyone. Each player now has their own roll. What you already claimed stays; what you have not is rolled again.']
+  ] },
   { d: '2026-10-18', title: ['Ranking de torres', 'Tower leaderboard'], new: [
     ['Al terminar una torre se ve tu resultado: la torre, el modo, la oleada y si es tu mejor. El premio y el daño son los tuyos.',
      'When a tower ends you see your own result: the tower, the mode, the wave and whether it is your best. The reward and the damage are yours.'],
