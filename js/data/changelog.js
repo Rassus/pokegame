@@ -13,7 +13,13 @@ G.CHANGELOG = [
      'The tower leaderboard splits solo and group. In a group, the team\'s wave is what counts.']
   ], chg: [
     ['Articuno ataca con un hielo más oscuro: ventisca y ráfaga que te frenan. Su aura, su silencio y su amnesia también se ven más oscuros.',
-     'Articuno attacks with darker ice: a blizzard and a gust that slow you. Its aura, silence and amnesia look darker too.']
+     'Articuno attacks with darker ice: a blizzard and a gust that slow you. Its aura, silence and amnesia look darker too.'],
+    ['El Ángel guardián ya no salta al caer si un compañero puede levantarte. Solo actúa cuando la torre se iba a perder.',
+     'Guardian angel no longer triggers when you go down if a teammate can revive you. It only acts when the tower was about to be lost.'],
+    ['Al vencer al jefe de una torre no suelta un objeto: abre una tienda con 2 objetos y 1 cambio para todos. No salen Ganzúa, Llave Maestra, Moneda Amuleto ni Piedra Evolución.',
+     'Beating a tower boss no longer drops an item: it opens a shop with 2 items and 1 reroll for everyone. Lockpick, Master Key, Amulet Coin and Evolution Stone do not appear.'],
+    ['En difícil, el oro al superar la torre se multiplica por 4. Las oleadas tienen ×1,3 de vida y de velocidad de ataque.',
+     'On hard, the gold for clearing the tower is multiplied by 4. Waves have ×1.3 HP and attack speed.']
   ], fix: [
     ['En el pase, el oro y los tickets salían iguales para todo el mundo. Ahora cada jugador tiene su propia tirada. Lo que ya habías recogido se queda; lo que no, se vuelve a sortear.',
      'On the pass, gold and tickets came out the same for everyone. Each player now has their own roll. What you already claimed stays; what you have not is rolled again.']

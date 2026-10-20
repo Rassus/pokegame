@@ -1,7 +1,8 @@
 /* ============ tower.js — torres en una grieta ============
  * Cada jefe vencido en una grieta tiene su torre. La primera oleada sale al
  * entrar; las siguientes, cada 10 s, aunque queden vivos. Difícil duplica
- * los Pokémon, baja a 5 s y parte al jefe en 10 etapas. Demencial los
+ * los Pokémon, les da ×1,3 de vida y de velocidad de ataque, baja a 5 s y
+ * parte al jefe en 10 etapas. Demencial los
  * cuadruplica, una oleada cada 2 s y un jefe en cada una: se quedan todos.
  * Se juega en una arena de grieta más ancha que la del legendario: las
  * oleadas salen en el borde, lejos de los jugadores. La dificultad sube con
@@ -16,10 +17,11 @@
  * En torres de Kanto, los Pokémon de oleada dan XP ×2, 3 Pokémonedas y un
  * 0,01% de un fragmento de su línea. En todas las torres, la tienda abre cada
  * 10 oleadas (Premio por oleada la adelanta hasta cada 5): 2 mejoras y una baya.
+ * Al caer un jefe no suelta objeto: abre una tienda con 2 objetos y 1 cambio.
  *
  * Al superar la torre el premio sigue la tier: Kanto es 1 y cada región
  * suma una; el difícil empieza en 10 y el demencial en 19. El oro es ×4 del
- * costo × la tier, los tickets dorados ×0,8 × la tier y los fragmentos
+ * costo × la tier (en difícil, otra vez ×4), los tickets dorados ×0,8 × la tier y los fragmentos
  * (60 % de 45 a 100) ×1,5 × la tier. Si no lo tienes, un 25% de atraparlo.
  * El jefe puede salir shiny (1/1024). No cuenta para el récord de tiempo.
  * El ranking de torres guarda la oleada, en solitario y en grupo, por torre y modo.
@@ -30,7 +32,7 @@ G.Towers = (() => {
   const ARENA_R = 16;
   const MODES = [
     { id: 'normal', name: 'Normal', hint: '10 s', pack: 1, every: 10, stages: 0, stack: false },
-    { id: 'hard', name: 'Difícil', hint: '×4 precio', detail: '×4 de precio · ×2 Pokémon · 5 s · jefe en 10 etapas', pack: 2, every: 5, stages: 10, stack: false },
+    { id: 'hard', name: 'Difícil', hint: '×4 precio', detail: '×4 de precio · ×2 Pokémon · ×1,3 vida y ataque · 5 s · jefe en 10 etapas · oro ×4', pack: 2, every: 5, stages: 10, stack: false },
     { id: 'mad', name: 'Demencial', hint: 'sin costo', detail: 'sin costo · ×4 Pokémon · 2 s · jefe en cada oleada', pack: 4, every: 2, stages: 0, stack: true }
   ];
   const CHANSEY = 113;
@@ -268,7 +270,7 @@ G.Towers = (() => {
       plan, phases: plan.length, fee: cfg.fee || 0,
       every: cfg.every || EVERY, pack: cfg.pack || 1, stack: !!cfg.stack, mode: cfg.mode || 'normal',
       tier: cfg.tier || tierOf(gen, cfg.mode),
-      wave: 0, wait: 0.4, cleared: false, done: false, reward: null,
+      wave: 0, wait: 0.4, cleared: false, done: false, reward: null, itemShops: 0,
       bosses: [], finalDown: false, aura: 0, fx: null, duel: !!cfg.duel,
       ax: cfg.arena.tx * tile + tile / 2, ay: cfg.arena.ty * tile + tile / 2, ar: cfg.arena.r
     };
@@ -394,14 +396,17 @@ G.Towers = (() => {
     const beh = behavior || (far ? 'ranged' : 'chase');
     const loot = kantoLoot();
     const xp = Math.round((4 + k * 1.4) * (loot ? loot.xp : 1) * G.Upgrades.towerXp());
+    // Difícil: las oleadas pegan más seguido y aguantan más. El daño no cambia.
+    const hard = run && run.mode === 'hard' ? 1.3 : 1;
     return {
       dex: p.dex, name: p.name, behavior: beh,
-      hp: Math.round((26 + k * 12) * mul * grow),
+      hp: Math.round((26 + k * 12) * mul * grow * hard),
       spd: Math.round(G.U.clamp(52 + ((p.spd || 78) - 78) * 0.25, 46, 96)),
       dmg: Math.round((6 + k * 0.85) * mul * grow),
       xp,
       shotDmg: Math.round((4 + k * 0.55) * mul * grow),
-      shotCd: beh === 'healer' ? 3.5 : 2.1,
+      shotCd: (beh === 'healer' ? 3.5 : 2.1) / hard,
+      atkSpd: hard,
       range: beh === 'healer' ? 230 : 200
     };
   }
@@ -430,6 +435,8 @@ G.Towers = (() => {
 
   function wantShop() { return !!(run && run.wantShop && !run.duel); }
   function clearShop() { if (run) run.wantShop = false; }
+  function wantItem() { return !!(run && run.itemShops > 0); }
+  function clearItem() { if (run && run.itemShops > 0) run.itemShops--; }
 
   /** Botín de oleada: oro extra de la cuenta y, en Kanto, el bono y el fragmento. */
   function onMinionDown(e) {
@@ -779,6 +786,7 @@ G.Towers = (() => {
         run.ray = null; net(['tw', 'ray', 'off']);
       }
       grantBond(true);
+      run.itemShops = (run.itemShops || 0) + 1;
       if (b.phase < run.phases) {
         if (!run.stack) G.Spawner.say('Se retira… volverá más adelante', 2.4);
       } else run.finalDown = true;
@@ -799,7 +807,9 @@ G.Towers = (() => {
     const tier = run.tier || 1;
     const frags = Math.random() < 0.6 ? Math.round(G.U.randInt(45, 100) * 1.5 * tier) : 0;
     const ticket = Math.round(0.8 * tier);
-    return { frags, caught, caughtShiny, gold: Math.round((run.fee || 0) * 4 * tier), ticket };
+    let gold = Math.round((run.fee || 0) * 4 * tier);
+    if (run.mode === 'hard') gold *= 4;
+    return { frags, caught, caughtShiny, gold, ticket };
   }
 
   function finish() {
@@ -857,7 +867,7 @@ G.Towers = (() => {
 
   /** La torre está limpia: el jefe final cayó y no queda nadie. */
   function clearReady() {
-    return authority() && !!run && !run.done && run.wave >= run.waves && run.finalDown && !anyAlive();
+    return authority() && !!run && !run.done && run.wave >= run.waves && run.finalDown && !anyAlive() && !(run.itemShops > 0);
   }
 
   function grantBond(send) {
@@ -960,6 +970,6 @@ G.Towers = (() => {
     LIST, REGIONS, MODES, unlocked, modeOpen, tierOf, due, afford, charge, prepare, peek, arm, claim, reset,
     snapshot, stamp, bestWave, remember,
     begin, active, done, take, markClear, clearReady, finish, hud, update, hold, inAura,
-    draw, drawScreen, onNet, onMinionDown, wantShop, clearShop
+    draw, drawScreen, onNet, onMinionDown, wantShop, clearShop, wantItem, clearItem
   };
 })();

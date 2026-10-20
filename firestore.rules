@@ -112,9 +112,23 @@ service cloud.firestore {
     }
 
     // Una entrada sólo se puede mejorar, nunca empeorar.
+    // asus27 es la cuenta de pruebas: no puede dejar marca.
+    function testerName(n) {
+      return n is string && n.lower() == 'asus27';
+    }
+    function hasTester(names) {
+      return names is list && (
+        (names.size() > 0 && testerName(names[0]))
+        || (names.size() > 1 && testerName(names[1]))
+        || (names.size() > 2 && testerName(names[2]))
+        || (names.size() > 3 && testerName(names[3]))
+      );
+    }
+
     function validEntry(board, id) {
       let d = request.resource.data;
-      return d.keys().hasOnly(['t', 'uids', 'names', 'dex', 'shiny', 'lv', 'kills', 'at', 'st'])
+      return !hasTester(d.names)
+        && d.keys().hasOnly(['t', 'uids', 'names', 'dex', 'shiny', 'lv', 'kills', 'at', 'st'])
         && d.t is int && d.t > 0
         && d.lv is int && d.kills is int
         && d.uids is list && me() in d.uids
@@ -149,6 +163,7 @@ service cloud.firestore {
         && row.keys().hasOnly(['n', 'name', 'dex', 'shiny', 't1', 't10', 'tb', 'tg'])
         && row.n is int && row.n > 0 && row.n < 100000000000
         && row.name is string && row.name.size() >= 3 && row.name.size() <= 16
+        && !testerName(row.name)
         && row.dex is int && row.dex >= 0 && row.dex < 2000
         && row.shiny is bool
         && row.t1 is int && row.t1 >= 0 && row.t1 < 1000000000

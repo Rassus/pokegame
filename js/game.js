@@ -277,18 +277,19 @@ G.Game = (() => {
     },
     levelStart(level) {
       // Si tenías abierta la elección de objeto, vuelve al terminar: afterLevelUp.
-      // level === 0: tienda de torre (2 mejoras + baya).
+      // level === 0: tienda de oleada (2 mejoras + baya). level < 0: tienda de objetos del jefe.
       if (state === 'choice' && openItem && G.Coop.active) G.Coop.holdEnd();
       state = 'levelup';
       G.UI.hide('scr-pause');
       G.Audio.sfx('levelup');
-      const shop = !level;
-      const cards = shop ? G.LevelUp.shopOffer(pl) : G.LevelUp.offer(pl);
+      const item = level < 0;
+      const shop = level === 0;
+      const cards = item ? G.Items.towerOffer(pl, 2) : shop ? G.LevelUp.shopOffer(pl) : G.LevelUp.offer(pl);
       G.RunUI.showLevelUp(level, cards, card => {
-        G.Audio.sfx(card.type === 'berry' ? 'heal' : 'confirm');
+        G.Audio.sfx(item ? 'legend' : card.type === 'berry' ? 'heal' : 'confirm');
         card.apply(pl);
         G.Coop.localPicked();
-      }, true, { shop });
+      }, true, { shop, item });
     },
     waiting(names) { G.RunUI.setWaiting(names); },
     resume() {
@@ -695,6 +696,26 @@ G.Game = (() => {
     openCards(0, G.LevelUp.shopOffer(pl), true);
   }
 
+  /** Torres: al caer un jefe, 2 objetos y 1 cambio, para todos. */
+  function maybeTowerItemShop() {
+    if (state !== 'playing' || !G.Towers.wantItem || !G.Towers.wantItem()) return;
+    if (G.Coop.active) {
+      if (G.Coop.players().every(p => p.dead)) return;
+      G.Towers.clearItem();
+      G.Coop.levelStart(-1);
+      return;
+    }
+    if (pl.dead) return;
+    G.Towers.clearItem();
+    state = 'levelup';
+    G.Audio.sfx('levelup');
+    G.RunUI.showLevelUp(0, G.Items.towerOffer(pl, 2), card => {
+      G.Audio.sfx('legend');
+      card.apply(pl);
+      state = 'playing';
+    }, false, { item: true });
+  }
+
   // ---------------- vínculos ----------------
 
   /**
@@ -961,6 +982,11 @@ G.Game = (() => {
   function update(dt) {
     const coop = G.Coop.active;
     if (flashT > 0) flashT -= dt;
+    // El ángel solo gasta la vida cuando ya no hay quien te levante.
+    if (pl.dead && pl.angelLeft > 0 && G.Towers.active() && !pl.mateCanRaise()) {
+      pl.angelSave();
+      deathT = 0;
+    }
     // Tras caer, deja que se vea la animación de Faint antes del resumen.
     // (En la arena de la grieta no: allí caer sólo te echa de vuelta.)
     if (pl.dead && !coop && !G.Rift.inArena) {
@@ -1026,6 +1052,7 @@ G.Game = (() => {
 
     G.Audio.music(G.Rift.inArena || G.Towers.active() ? 'rift' : G.EnemyMgr.bossAlive() ? 'boss' : G.BIOME_MUSIC[biome % G.BIOME_MUSIC.length]);
     if (!coop || G.Coop.isHost) {
+      maybeTowerItemShop();
       maybeTowerShop();
       maybeLevelUp();
     }
@@ -1044,7 +1071,9 @@ G.Game = (() => {
   function checkAllDown(dt) {
     if (G.Rift.inArena || !G.Coop.players().every(p => p.dead)) { deathT = 0; return; }
     deathT += dt;
-    if (deathT > 1.6) {
+    // Si alguien aún tiene el ángel, su ordenador lo levanta y avisa. Se espera ese aviso.
+    const angel = G.Towers.active() && G.Coop.players().some(p => (p.angelLeft || 0) > 0);
+    if (deathT > (angel ? 3.5 : 1.6)) {
       deathT = 0;
       const tw = towerNet();
       G.Coop.over(Object.assign(summary(), tw ? { tw } : {}));

@@ -160,13 +160,13 @@ G.Coop = (() => {
             local.dead ? 1 : 0, m ? m.id : '', m ? m.lvl : 1, r1(local.magnet), r2(local.aim), r2(local.xpMul),
             r2(local.reviveT || 0), local.item || '',
             api.choosing && api.choosing() ? 1 : 0, doneSeq,
-            r1(local.dmgDealt || 0), r1(local.deadTime || 0)];
+            r1(local.dmgDealt || 0), r1(local.deadTime || 0), local.angelLeft > 0 ? 1 : 0];
   }
 
   function readState(a) {
     return { x: a[0], y: a[1], ang: a[2], walk: a[3], hp: a[4], maxHp: a[5], dead: a[6], mv: a[7], ml: a[8],
              mag: a[9], aim: a[10], xpMul: a[11], rev: a[12], item: a[13] || '',
-             ch: a[14], ld: a[15], dmg: a[16] || 0, down: a[17] || 0 };
+             ch: a[14], ld: a[15], dmg: a[16] || 0, down: a[17] || 0, angel: a[18] ? 1 : 0 };
   }
 
   // ---------------- envío ----------------
