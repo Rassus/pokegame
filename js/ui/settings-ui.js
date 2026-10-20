@@ -142,6 +142,7 @@ G.SettingsUI = (() => {
       + `<div class="set-row"><div class="grow"><b>Tipo de cuenta</b></div><span>${esc(kind)}</span></div>`
       + `<div class="set-row"><div class="grow"><b>Partida</b></div><span>${esc(SYNC[st] || st)}</span></div>`
       + (G.QA && G.QA.allowed() ? toggle('qa', 'Modo prueba', 'Añade botones para oro, tickets, fragmentos y misiones. Solo en esta cuenta.') : '')
+      + (G.Admin && G.Admin.allowed() ? G.Admin.form() : '')
       + `<div class="row wrap" style="gap:8px;margin-top:12px">
            <button class="btn" id="set-logout">Cerrar sesión</button>
            <button class="btn danger" id="set-delete">Borrar cuenta</button>
@@ -155,6 +156,7 @@ G.SettingsUI = (() => {
     });
     const full = $('set-full'); if (full) full.onclick = toggleFull;
     box.querySelectorAll('[data-lang]').forEach(b => { b.onclick = () => { if (b.dataset.lang !== G.I18n.lang) G.I18n.set(b.dataset.lang); }; });
+    if (G.Admin) G.Admin.wire(box);
     const lo = $('set-login'); if (lo) lo.onclick = () => { close(); leave(); };
     const out = $('set-logout'); if (out) out.onclick = () => { close(); leave(); };
     const del = $('set-delete');

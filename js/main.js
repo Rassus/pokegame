@@ -2,7 +2,7 @@
 (() => {
   // Si un archivo no llega a cargarse (conexión móvil que se corta), mejor
   // avisar que arrancar a medias.
-  const NEED = ['U', 'I18n', 'Settings', 'DB', 'Audio', 'Input', 'Touch', 'Sprites', 'Camera', 'Moves', 'Enemies', 'Upgrades', 'Items',
+  const NEED = ['U', 'Guard', 'I18n', 'Settings', 'DB', 'Audio', 'Input', 'Touch', 'Sprites', 'Camera', 'Moves', 'Enemies', 'Upgrades', 'Items',
                 'World', 'FX', 'Projectiles', 'EnemyMgr', 'Pickups', 'Player', 'Combat', 'Spawner', 'LevelUp', 'Gacha',
                 'Rift', 'Weather', 'Progress', 'Hazards', 'Social', 'Net', 'Coop', 'Ranking', 'Icons', 'UI', 'HUD',
                 'MenuUI', 'RunUI', 'SettingsUI', 'Funding', 'SupportUI', 'Game', 'Flow'];
@@ -37,6 +37,22 @@
     if (maintenance()) return;
     if (broken()) return;
     G.I18n.startDom();
+    // Las funciones de prueba (subir de nivel, forzar shiny, clima...) no responden si salen de la consola.
+    if (G.Guard) {
+      for (const k of ['Events', 'Rift', 'Weather', 'Spawner', 'Gacha', 'Audio']) {
+        const o = G[k];
+        if (!o) continue;
+        const desc = Object.getOwnPropertyDescriptors(o);
+        for (const name of Object.keys(desc)) {
+          if (!/^debug|^_dbg$/.test(name) || typeof desc[name].value !== 'function') continue;
+          const orig = desc[name].value;
+          o[name] = function (...args) {
+            if (G.Guard.fromConsole()) return;
+            return orig.apply(this, args);
+          };
+        }
+      }
+    }
     // Espera a la fuente pixel para que la UI no salte al cargarla.
     const ready = document.fonts && document.fonts.load ? document.fonts.load('16px Pixelify') : Promise.resolve();
     ready.catch(() => {}).then(() => G.Flow.boot());

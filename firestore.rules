@@ -17,11 +17,17 @@ service cloud.firestore {
 
     function signedIn() { return request.auth != null; }
     function me() { return request.auth.uid; }
+    // Solo la cuenta dueña del apodo asus27. Puede borrar datos ajenos, no escribirlos.
+    function isAdmin() {
+      return signedIn()
+        && get(/databases/$(database)/documents/names/asus27).data.uid == me();
+    }
 
     match /saves/{uid} {
-      allow read, delete: if signedIn() && me() == uid;
+      allow read: if signedIn() && me() == uid;
+      allow delete: if signedIn() && (me() == uid || isAdmin());
 
-      allow create, update: if signedIn() && me() == uid && validSaveDoc();
+      allow create, update: if signedIn() && (me() == uid || isAdmin()) && validSaveDoc();
     }
 
     function validSaveDoc() {
@@ -40,7 +46,7 @@ service cloud.firestore {
         && request.resource.data.uid == me()
         && lower.size() >= 3 && lower.size() <= 16
         && lower == lower.lower();
-      allow delete: if signedIn() && resource.data.uid == me();
+      allow delete: if signedIn() && (resource.data.uid == me() || (isAdmin() && lower != 'asus27'));
     }
 
     // Perfil público: apodo, 3 favoritos, título, mejores marcas y medallas.
@@ -57,14 +63,23 @@ service cloud.firestore {
         && (!('best' in request.resource.data) || request.resource.data.best is map)
         && (!('medals' in request.resource.data) || (request.resource.data.medals is list && request.resource.data.medals.size() <= 8))
         && getAfter(/databases/$(database)/documents/names/$(request.resource.data.lower)).data.uid == me();
-      allow delete: if signedIn() && me() == uid;
+      allow update: if signedIn() && isAdmin() && uid != me()
+        && resource.data.name == request.resource.data.name
+        && resource.data.lower == request.resource.data.lower
+        && request.resource.data.keys().hasOnly(['name', 'lower', 'at', 'favs', 'title', 'best', 'medals'])
+        && request.resource.data.at == request.time
+        && request.resource.data.favs is list && request.resource.data.favs.size() == 0
+        && request.resource.data.title == ''
+        && request.resource.data.best is map && request.resource.data.best.size() == 0
+        && request.resource.data.medals is list && request.resource.data.medals.size() == 0;
+      allow delete: if signedIn() && (me() == uid || isAdmin());
     }
 
     // ---------- amigos ----------
     // Un documento por pareja, con id "uidMenor_uidMayor".
 
     match /friendships/{pid} {
-      allow read: if signedIn() && (resource == null || me() in resource.data.users);
+      allow read: if signedIn() && (resource == null || me() in resource.data.users || isAdmin());
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['users', 'from', 'to', 'status', 'names', 'at'])
         && request.resource.data.from == me()
@@ -83,13 +98,14 @@ service cloud.firestore {
         && resource.data.status == 'pending'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'at', 'names'])
         && request.resource.data.status == 'ok';
-      allow delete: if signedIn() && me() in resource.data.users;
+      allow delete: if signedIn() && (me() in resource.data.users || isAdmin());
     }
 
     // ---------- ranking ----------
 
     match /runs/{uid} {
-      allow read, delete: if signedIn() && me() == uid;
+      allow read: if signedIn() && me() == uid;
+      allow delete: if signedIn() && (me() == uid || isAdmin());
     }
 
     // Mejoras del Pokémon al hacer la marca (Vitalidad, Fuerza…). Una por compañero.
@@ -146,7 +162,7 @@ service cloud.firestore {
     match /lb/{board}/e/{id} {
       allow read: if signedIn();
       allow create, update: if signedIn() && validEntry(board, id);
-      allow delete: if signedIn() && me() in resource.data.uids;
+      allow delete: if signedIn() && (me() in resource.data.uids || isAdmin());
     }
 
     // Resumen con el top 50 de cada tabla (lo que se lee al mirar el ranking).
@@ -181,7 +197,7 @@ service cloud.firestore {
       return d.keys().hasOnly(['top', 'me', 'ev'])
         && d.top is map && d.top.size() <= 50
         && d.me is string && d.ev is string
-        && ((d.me == '' && d.ev == me() && d.ev in old && !(d.ev in d.top) && changed.hasOnly([d.ev]))
+        && ((d.me == '' && (d.ev == me() || isAdmin()) && d.ev in old && !(d.ev in d.top) && changed.hasOnly([d.ev]))
           || (d.me == me() && d.me in d.top && wealthRow(board, d.top[d.me])
             && (d.me in old
                 ? (d.ev == '' && changed.hasOnly([d.me]))
@@ -201,7 +217,7 @@ service cloud.firestore {
       return d.keys().hasOnly(['top', 'me', 'ev'])
         && d.top is map && d.top.size() <= 50
         && d.me is string && d.ev is string
-        && (d.me == '' ? removeMine(d, old, changed) : addMine(board, d, old, changed));
+        && (d.me == '' ? (removeMine(d, old, changed) || adminDrop(d, old, changed)) : addMine(board, d, old, changed));
     }
     function addMine(board, d, old, changed) {
       let e = getAfter(/databases/$(database)/documents/lb/$(board)/e/$(d.me)).data;
@@ -214,6 +230,9 @@ service cloud.firestore {
     }
     function removeMine(d, old, changed) {
       return d.ev in old && me() in old[d.ev].uids && !(d.ev in d.top) && changed.hasOnly([d.ev]);
+    }
+    function adminDrop(d, old, changed) {
+      return isAdmin() && d.ev in old && !(d.ev in d.top) && changed.hasOnly([d.ev]);
     }
 
     match /lbs/{board} {
@@ -229,12 +248,12 @@ service cloud.firestore {
         && request.resource.data.at == request.time
         && request.resource.data.room is string && request.resource.data.room.size() <= 40
         && request.resource.data.play is bool && request.resource.data.on is bool;
-      allow delete: if signedIn() && me() == uid;
+      allow delete: if signedIn() && (me() == uid || isAdmin());
     }
 
     // Invitaciones a una sala: id "para_de". Sólo entre amigos confirmados.
     match /inv/{id} {
-      allow read: if signedIn() && (resource == null || me() == resource.data.to || me() == resource.data.from);
+      allow read: if signedIn() && (resource == null || me() == resource.data.to || me() == resource.data.from || isAdmin());
       allow create, update: if signedIn()
         && request.resource.data.keys().hasOnly(['to', 'from', 'room', 'name', 'at'])
         && request.resource.data.from == me()
@@ -243,7 +262,7 @@ service cloud.firestore {
         && request.resource.data.name is string && request.resource.data.name.size() <= 16
         && request.resource.data.at == request.time
         && get(/databases/$(database)/documents/friendships/$(request.resource.data.to < me() ? request.resource.data.to + '_' + me() : me() + '_' + request.resource.data.to)).data.status == 'ok';
-      allow delete: if signedIn() && (me() == resource.data.to || me() == resource.data.from);
+      allow delete: if signedIn() && (me() == resource.data.to || me() == resource.data.from || isAdmin());
     }
 
     // Para borrar todas tus marcas al borrar la cuenta (consulta de grupo).

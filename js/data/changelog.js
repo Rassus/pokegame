@@ -6,6 +6,10 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-20', title: ['Torre en grupo', 'Group tower'], chg: [
+    ['En la torre, cada compañero que te revive acorta el tiempo. Uno tarda 3 s; dos, 1,5 s; tres, 1 s.',
+     'In a tower, each teammate reviving you shortens the time. One takes 3 s; two, 1.5 s; three, 1 s.']
+  ] },
   { d: '2026-10-19', title: ['Hielo oscuro y el equipo', 'Dark ice and the team'], new: [
     ['Al acabar una partida en grupo, Daño tiene la pestaña Equipo: el daño de cada jugador, el MVP, la mochila (el que menos daño hizo) y la alfombra (el que más tiempo pasó caído).',
      'When a group run ends, Damage has a Team tab: each player\'s damage, the MVP, the backpack (least damage) and the carpet (most time down).'],

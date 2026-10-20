@@ -1060,10 +1060,12 @@ G.Game = (() => {
     if (G.Coop.isHost) checkAllDown(dt);
   }
 
-  /** Caído en grupo: un compañero a tu lado te va levantando. */
+  /** Caído en grupo: un compañero a tu lado te va levantando.
+   *  En la torre, cada uno que esté a tu lado acorta el tiempo (3 s, 1,5 s, 1 s…). */
   function reviveTick(dt) {
-    const helper = G.Coop.puppets().some(p => !p.dead && G.U.dist2(p.x, p.y, pl.x, pl.y) < 56 * 56);
-    pl.reviveT = helper ? (pl.reviveT || 0) + dt : Math.max(0, (pl.reviveT || 0) - dt * 0.5);
+    const n = G.Coop.puppets().filter(p => !p.dead && G.U.dist2(p.x, p.y, pl.x, pl.y) < 56 * 56).length;
+    const rate = n > 0 && G.Towers.active() ? n : (n > 0 ? 1 : 0);
+    pl.reviveT = rate ? (pl.reviveT || 0) + dt * rate : Math.max(0, (pl.reviveT || 0) - dt * 0.5);
     if (pl.reviveT >= G.Player.REVIVE_TIME) pl.revive(0.5);
   }
 
@@ -1258,13 +1260,17 @@ G.Game = (() => {
     quit() { if (state !== 'ui' && state !== 'over') quitRun(); },
     /** Para grabar vídeos: abre las cartas de subir de nivel. */
     debugLevelUp() { pl.level++; pendingLevels++; },
+    /** Suma monedas de esta run. Sirve para probar el bloqueo de la consola. */
+    debugCoins(n = 100000) { if (pl) pl.coins += Math.floor(n) || 0; },
     toUI() { state = 'ui'; Backdrop.restore(); },
-    get state() { return state; }, get player() { return pl; },
+    get state() { return state; },
+    get player() { return pl && G.Guard ? G.Guard.wrap(pl) : pl; },
     /** Shinies conseguidos en esta run: { dex, isNew }. */
     get caught() { return caught; },
     queueGoldWheel, st, salvageCrash, flushRank
   };
 })();
+if (G.Guard) G.Guard.sealCalls(G.Game);
 
 /* ============ Flow — transiciones entre pantallas ============ */
 G.Flow = {
@@ -1278,6 +1284,13 @@ G.Flow = {
       qa.src = 'js/ui/qa.js';
       qa.onload = () => { if (G.QA) G.QA.init(); };
       document.body.appendChild(qa);
+    }
+    if (G.Admin) G.Admin.init();
+    else if (/dev\.html$/i.test(location.pathname)) {
+      const adm = document.createElement('script');
+      adm.src = 'js/ui/admin.js';
+      adm.onload = () => { if (G.Admin) G.Admin.init(); };
+      document.body.appendChild(adm);
     }
     G.SupportUI.init(); G.NewsUI.init(); G.PassUI.init(); G.Updater.init();
     // Tu nombre arriba a la derecha abre tu perfil.
