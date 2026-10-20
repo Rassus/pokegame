@@ -1271,7 +1271,15 @@ G.Flow = {
   boot() {
     G.UI.initChrome();
     G.LoginUI.init(); G.TestUI.init(); G.MenuUI.init(); G.GachaUI.init();
-    G.SocialUI.init(); G.RankingUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init(); G.SupportUI.init(); G.NewsUI.init(); G.PassUI.init(); G.Updater.init();
+    G.SocialUI.init(); G.RankingUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init();
+    if (G.QA) G.QA.init();
+    else if (/dev\.html$/i.test(location.pathname)) {
+      const qa = document.createElement('script');
+      qa.src = 'js/ui/qa.js';
+      qa.onload = () => { if (G.QA) G.QA.init(); };
+      document.body.appendChild(qa);
+    }
+    G.SupportUI.init(); G.NewsUI.init(); G.PassUI.init(); G.Updater.init();
     // Tu nombre arriba a la derecha abre tu perfil.
     document.getElementById('user-pill').onclick = () => G.GoalsUI.open('profile');
     G.Audio.music('village');     // suena tras el primer clic (lo exige el navegador)

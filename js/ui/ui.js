@@ -25,6 +25,7 @@ G.UI = (() => {
     $('credits-line').classList.toggle('hidden', !on);
     if (!on) $('sound-panel').classList.add('hidden');
     if (on) refreshCoins();
+    if (G.QA) G.QA.sync();
   }
 
   function helpersOn() { return !!(G.Settings && G.Settings.get('helpers')); }

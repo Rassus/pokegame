@@ -29,7 +29,10 @@ G.SettingsUI = (() => {
     $('scr-settings').classList.remove('hidden');
     render();
   }
-  function close() { $('scr-settings').classList.add('hidden'); }
+  function close() {
+    $('scr-settings').classList.add('hidden');
+    if (G.QA) G.QA.sync();
+  }
   const isOpen = () => !$('scr-settings').classList.contains('hidden');
 
   // ---------------- pantalla completa ----------------
@@ -120,6 +123,7 @@ G.SettingsUI = (() => {
            </div>`;
     }
     wire(box);
+    if (G.QA) G.QA.sync();
   }
 
   function renderAccount(box) {
@@ -137,6 +141,7 @@ G.SettingsUI = (() => {
       + `<div class="set-row"><div class="grow"><b>Apodo</b><small>Es único y no se puede cambiar.</small></div><span class="gold" translate="no">${esc(nick)}</span></div>`
       + `<div class="set-row"><div class="grow"><b>Tipo de cuenta</b></div><span>${esc(kind)}</span></div>`
       + `<div class="set-row"><div class="grow"><b>Partida</b></div><span>${esc(SYNC[st] || st)}</span></div>`
+      + (G.QA && G.QA.allowed() ? toggle('qa', 'Modo prueba', 'Añade botones para oro, tickets, fragmentos y misiones. Solo en esta cuenta.') : '')
       + `<div class="row wrap" style="gap:8px;margin-top:12px">
            <button class="btn" id="set-logout">Cerrar sesión</button>
            <button class="btn danger" id="set-delete">Borrar cuenta</button>

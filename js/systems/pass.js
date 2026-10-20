@@ -834,6 +834,24 @@ G.Pass = (() => {
     return Math.max(1, dim - day + 1);
   }
 
+  /** QA: deja hechas las misiones del pase que sigan abiertas y suma sus puntos. */
+  function completeOpen() {
+    const s = G.DB.save;
+    if (!s) return { n: 0, gained: 0 };
+    ensure(s);
+    const P = s.pass;
+    if (!P) return { n: 0, gained: 0 };
+    let n = 0;
+    for (const m of allM(P)) {
+      if (m.awarded) continue;
+      const bucket = m.max ? (P.best = P.best || {}) : (P.stats = P.stats || {});
+      if ((bucket[m.key] || 0) < m.goal) bucket[m.key] = m.goal;
+      n++;
+    }
+    const gained = scan(s, true);
+    return { n, gained };
+  }
+
   function toggleFold() {
     const s = G.DB.save;
     if (!s || !s.pass) return;
@@ -844,7 +862,7 @@ G.Pass = (() => {
   return {
     ensure, onEvent, beginRun, goldSpend, ticketsEarn, ticketsSpent, gacha,
     towerPlayed, floor, chest, rock, altar, spring, goldEarn,
-    claimLevel, claimPost, claimPick, claimBank, ready, boards, toggleFold, daysLeft,
+    claimLevel, claimPost, claimPick, claimBank, ready, boards, completeOpen, toggleFold, daysLeft,
     value: valueOf, text: m => D().text(m), points: t => D().points(t)
   };
 })();
