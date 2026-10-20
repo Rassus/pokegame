@@ -14,14 +14,15 @@
  * grises. Rayquaza es aparte: 150 oleadas, 100.000 de oro y seis encuentros
  * antes del jefe final.
  *
- * En torres de Kanto, los Pokémon de oleada dan XP ×2, 3 Pokémonedas y un
- * 0,01% de un fragmento de su línea. En todas las torres, la tienda abre cada
+ * Cada Pokémon de oleada tiene un 70% de soltar oro: 3 × la tier + 3 × Oro
+ * extra. La experiencia es la base ×1 en normal, ×0,5 en difícil y ×0,1 en
+ * demencial, y después Exp extra. En Kanto, un 0,01% de un fragmento. La tienda abre cada
  * 10 oleadas (Premio por oleada la adelanta hasta cada 5): 2 mejoras y una baya.
  * Al caer un jefe no suelta objeto: abre una tienda con 2 objetos y 1 cambio.
  *
  * Al superar la torre el premio sigue la tier: Kanto es 1 y cada región
  * suma una; el difícil empieza en 10 y el demencial en 19. El oro es ×4 del
- * costo × la tier (en difícil, otra vez ×4), los tickets dorados ×0,8 × la tier y los fragmentos
+ * costo × la tier, los tickets dorados ×0,8 × la tier y los fragmentos
  * (60 % de 45 a 100) ×1,5 × la tier. Si no lo tienes, un 25% de atraparlo.
  * El jefe puede salir shiny (1/1024). No cuenta para el récord de tiempo.
  * El ranking de torres guarda la oleada, en solitario y en grupo, por torre y modo.
@@ -32,7 +33,7 @@ G.Towers = (() => {
   const ARENA_R = 16;
   const MODES = [
     { id: 'normal', name: 'Normal', hint: '10 s', pack: 1, every: 10, stages: 0, stack: false },
-    { id: 'hard', name: 'Difícil', hint: '×4 precio', detail: '×4 de precio · ×2 Pokémon · ×1,3 vida y ataque · 5 s · jefe en 10 etapas · oro ×4', pack: 2, every: 5, stages: 10, stack: false },
+    { id: 'hard', name: 'Difícil', hint: '×4 precio', detail: '×4 de precio · ×2 Pokémon · ×1,3 vida y ataque · 5 s · jefe en 10 etapas', pack: 2, every: 5, stages: 10, stack: false },
     { id: 'mad', name: 'Demencial', hint: 'sin costo', detail: 'sin costo · ×4 Pokémon · 2 s · jefe en cada oleada', pack: 4, every: 2, stages: 0, stack: true }
   ];
   const CHANSEY = 113;
@@ -46,8 +47,9 @@ G.Towers = (() => {
   const PLAN = [25, 50, 75, 100];
   const REGIONS = ['', 'Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Teselia', 'Kalos', 'Alola', 'Galar', 'Paldea'];
   const ONE = { hp: 1, spd: 1, dmg: 1 };
-  // Torres de Kanto: más XP/oro por baja y un fragmento muy raro.
-  const KANTO = { xp: 2, gold: 3, fragPct: 0.01 };
+  // Oro de una baja, sin la mejora Oro extra. En Kanto, un fragmento muy raro.
+  const GOLD_BASE = 3;
+  const KANTO_FRAG = 0.01;
 
   function specFor(p) {
     if (p.dex === 384) return { fee: 100000, tickets: 0, waves: 150, plan: [20, 40, 60, 80, 100, 120, 150] };
@@ -386,16 +388,18 @@ G.Towers = (() => {
   /** Cada oleada es un 3% más fuerte que la anterior, en vida y en daño. */
   function growOf(k) { return Math.pow(1.03, Math.max(0, k - 1)); }
 
-  function kantoLoot() {
-    return run && !run.duel && run.gen === 1 ? KANTO : null;
+  function modeXp() {
+    if (!run) return 1;
+    if (run.mode === 'hard') return 0.5;
+    if (run.mode === 'mad') return 0.1;
+    return 1;
   }
 
   function waveDef(p, k, mul, behavior) {
     const grow = growOf(k);
     const far = (p.types || []).some(t => ['psychic', 'electric', 'fire', 'water', 'ice', 'ghost', 'dragon'].includes(t));
     const beh = behavior || (far ? 'ranged' : 'chase');
-    const loot = kantoLoot();
-    const xp = Math.round((4 + k * 1.4) * (loot ? loot.xp : 1) * G.Upgrades.towerXp());
+    const xp = Math.round((4 + k * 1.4) * modeXp() * G.Upgrades.towerXp());
     // Difícil: las oleadas pegan más seguido y aguantan más. El daño no cambia.
     const hard = run && run.mode === 'hard' ? 1.3 : 1;
     return {
@@ -438,13 +442,15 @@ G.Towers = (() => {
   function wantItem() { return !!(run && run.itemShops > 0); }
   function clearItem() { if (run && run.itemShops > 0) run.itemShops--; }
 
-  /** Botín de oleada: oro extra de la cuenta y, en Kanto, el bono y el fragmento. */
+  /** 70%: oro base × tier + oro base × Oro extra. En Kanto, el fragmento. */
   function onMinionDown(e) {
     if (!run || run.duel || !e || e.boss || e.legend || e.towerPhase) return;
-    const loot = kantoLoot();
-    const gold = (loot ? loot.gold : 0) + G.Upgrades.towerGold();
-    if (gold > 0) G.Pickups.drop('coin', e.x + G.U.rand(-8, 8), e.y + G.U.rand(-6, 6), gold);
-    if (loot && Math.random() * 100 < loot.fragPct) grantFrag(e.dex, true);
+    if (Math.random() < 0.7) {
+      const base = GOLD_BASE;
+      const gold = Math.round(base * (run.tier || 1) + base * G.Upgrades.towerGold());
+      if (gold > 0) G.Pickups.drop('coin', e.x + G.U.rand(-8, 8), e.y + G.U.rand(-6, 6), gold);
+    }
+    if (run.gen === 1 && Math.random() * 100 < KANTO_FRAG) grantFrag(e.dex, true);
   }
 
   function grantFrag(dex, send) {
@@ -486,7 +492,7 @@ G.Towers = (() => {
     const def = {
       dex: mon.dex, name: mon.name, behavior: far ? 'ranged' : 'charger',
       hp: Math.round(4200 * mul), spd: Math.round(G.U.clamp(50 + (mon.spd - 78) * 0.45, 48, 100)),
-      dmg: Math.round(34 * mul), xp: Math.round((360 + phase * 80) * G.Upgrades.towerXp()),
+      dmg: Math.round(34 * mul), xp: Math.round((360 + phase * 80) * modeXp() * G.Upgrades.towerXp()),
       shotDmg: Math.round(18 * mul), shotCd: 1, range: 280
     };
     const [bx, by] = bossSpot();
@@ -807,9 +813,9 @@ G.Towers = (() => {
     const tier = run.tier || 1;
     const frags = Math.random() < 0.6 ? Math.round(G.U.randInt(45, 100) * 1.5 * tier) : 0;
     const ticket = Math.round(0.8 * tier);
-    let gold = Math.round((run.fee || 0) * 4 * tier);
-    if (run.mode === 'hard') gold *= 4;
-    return { frags, caught, caughtShiny, gold, ticket };
+    const goldBase = Math.round((run.fee || 0) * 4);
+    const gold = Math.round(goldBase * tier);
+    return { frags, caught, caughtShiny, gold, goldBase, tier, ticket };
   }
 
   function finish() {

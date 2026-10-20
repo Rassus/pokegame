@@ -18,7 +18,7 @@ G.RunUI = (() => {
       if (title) title.textContent = '¡Objeto!';
       const hold = G.Game.player && G.Game.player.item;
       if (sub) sub.innerHTML = hold
-        ? 'Elige un objeto · sustituye al que llevas · <kbd>1</kbd> <kbd>2</kbd>'
+        ? 'Elige un objeto · o conserva el tuyo · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>'
         : 'Elige un objeto · <kbd>1</kbd> <kbd>2</kbd>';
     } else if (shopMode) {
       if (title) title.textContent = '¡Tienda!';
@@ -32,7 +32,7 @@ G.RunUI = (() => {
     $('lvl-wait').textContent = '';
     $('lvl-wait').classList.toggle('hidden', !coop);
     $('cards').classList.remove('done');
-    renderCards(list);
+    renderCards(withKeep(list));
     $('lvl-reroll').onclick = reroll;
     G.UI.show('scr-levelup');
   }
@@ -56,7 +56,7 @@ G.RunUI = (() => {
       const p = G.Game.player;
       const avoid = offers.map(c => c.itemId).filter(Boolean);
       G.Audio.sfx('select');
-      renderCards(G.Items.towerOffer(p, 2, avoid));
+      renderCards(withKeep(G.Items.towerOffer(p, 2, avoid)));
       return;
     }
     if (shopMode || !offers || rerollsLeft() <= 0) return;
@@ -66,6 +66,26 @@ G.RunUI = (() => {
     p.rerolls = (p.rerolls || 0) + 1;
     G.Audio.sfx('select');
     renderCards(G.LevelUp.offer(p));
+  }
+
+  /** Si ya llevas un objeto, la tienda del jefe ofrece quedártelo. */
+  function keepItemCard() {
+    const p = G.Game.player;
+    const it = p && p.item && G.Items.BY[p.item];
+    if (!it) return null;
+    return {
+      type: 'item', key: 'keep:' + it.id, itemId: it.id, keep: true,
+      icon: it.id, color: '#9fb1c9', tag: 'El tuyo',
+      title: 'Conservar objeto',
+      desc: it.name + '. ' + it.desc,
+      apply() { G.Spawner.say('Sigues con ' + it.name, 2, true); }
+    };
+  }
+
+  function withKeep(list) {
+    if (!itemShop) return list;
+    const keep = keepItemCard();
+    return keep ? list.concat(keep) : list;
   }
 
   function renderCards(list) {
@@ -173,7 +193,7 @@ G.RunUI = (() => {
       <div><span>Jefes</span><b>${r.bosses}</b></div>
       <div style="grid-column:1/-1"><span>Pokémonedas ganadas</span>
         <b class="gold"><span class="coin"></span> +${G.U.num(r.coins)}</b>
-        <div style="font-size:12px;color:var(--muted)">${r.breakdown}</div></div>
+        <div style="font-size:12px;color:var(--muted)">${r.breakdown || ''}${r.pay ? `<div>${G.U.num(r.pay.base)} × ${r.pay.mul} Fortuna = ${G.U.num(r.pay.got)}</div>` : ''}${r.pay && r.pay.prize ? `<div>${G.U.num(r.pay.prize.base)} × tier ${r.pay.prize.tier} = ${G.U.num(r.pay.prize.gold)}</div>` : ''}</div></div>
       ${r.t1 || r.t10 || r.tb || r.tg ? `<div style="grid-column:1/-1"><span>Tickets del gacha</span><b>
         ${r.t1 ? G.Icons.html('ticket', 22) + ' +' + r.t1 + ' ' : ''}${r.t10 ? G.Icons.html('ticket10', 22) + ' +' + r.t10 + ' ' : ''}${r.tb ? G.Icons.html('ticketb', 22) + ' +' + r.tb + ' ' : ''}${r.tg ? G.Icons.html('ticketg', 22) + ' +' + r.tg : ''}</b></div>` : ''}
       <div style="grid-column:1/-1"><span>Movimientos</span><b style="font-size:15px">

@@ -552,14 +552,16 @@ G.Game = (() => {
     G.Audio.music(null);
     G.Audio.sfx(dead ? 'gameover' : 'back');
     const save = G.DB.save;
-    const mul = pl.coinMul;
+    const mul = pl.coinMul || 1;
     const parts = {
       tiempo: Math.floor(time / 5),
       derrotados: Math.floor(pl.kills * 0.25),
       jefes: pl.bosses * 80,
       recogidas: pl.coins
     };
-    let coins = Math.round((parts.tiempo + parts.derrotados + parts.jefes + parts.recogidas) * mul);
+    const baseGold = parts.tiempo + parts.derrotados + parts.jefes + parts.recogidas;
+    let coins = Math.round(baseGold * mul);
+    const pay = { base: baseGold, mul: mul.toFixed(2).replace('.', ','), got: coins };
     const tower = G.Towers.take();
     let towerInfo = null;
     if (tower && !tower.duel) {
@@ -606,7 +608,9 @@ G.Game = (() => {
       }
       if (rw.gold) {
         coins += rw.gold;
-        towerExtra += ' · +' + G.U.num(rw.gold) + ' Pokémonedas';
+        const tier = rw.tier || 1;
+        const goldBase = rw.goldBase != null ? rw.goldBase : Math.round(rw.gold / tier);
+        pay.prize = { base: goldBase, tier, gold: rw.gold };
       }
       if (rw.ticket) {
         save.tickets = Object.assign({ t1: 0, t10: 0, tb: 0, tg: 0 }, save.tickets);
@@ -650,8 +654,8 @@ G.Game = (() => {
         dealt: pl.dmgBy[m.id] || 0, added: pl.buffAdd[m.id] || 0
       })),
       team: teamBoard,
+      pay,
       breakdown: Object.entries(parts).filter(([, v]) => v).map(([k, v]) => `${k} ${G.U.num(v)}`).join(' · ') +
-                 (mul > 1 ? ` · ×${mul.toFixed(2)} Fortuna` : '') +
                  (caughtName ? ' · ' + caughtName + ' atrapado' : '') + towerExtra
     }, () => { pl = null; G.Flow.afterRun(); });
   }

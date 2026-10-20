@@ -336,8 +336,11 @@ G.Ranking = (() => {
         const docs = await Promise.all(missing.map(u => col(b).doc(u).get().catch(() => null)));
         extra = docs.filter(d => d && d.exists).map(d => rowOf(d.id, d.data()));
       } else {
-        const s = await col(b).where('uids', 'array-contains-any', circle).get();
-        extra = s.docs.map(d => rowOf(d.id, d.data()));
+        extra = [];
+        for (let i = 0; i < circle.length; i += 10) {
+          const s = await col(b).where('uids', 'array-contains-any', circle.slice(i, i + 10)).get();
+          extra.push(...s.docs.map(d => rowOf(d.id, d.data())));
+        }
       }
       cacheSet(ck, extra);
     }

@@ -38,7 +38,7 @@ G.Upgrades = (() => {
 
     { cat: 'rift', id: 'spring', icon: 'wrain', name: 'Fuente de agua', unit: 'Un manantial en cada grieta', max: 1, costs: [3500] },
 
-    { cat: 'tower', id: 'tgold', icon: 'coin', name: 'Oro extra', unit: '+1 Pokémoneda por baja en la torre', max: 40, costs: ladder(1000, 4000000, 40) },
+    { cat: 'tower', id: 'tgold', icon: 'coin', name: 'Oro extra', unit: 'Cada baja suma el oro base × nivel', max: 40, costs: ladder(1000, 4000000, 40) },
     { cat: 'tower', id: 'txp',   icon: 'book', name: 'Exp extra', unit: '+5% de experiencia en la torre', max: 20, costs: ladder(1000, 1000000, 20) },
     { cat: 'tower', id: 'twave', icon: 'cards', name: 'Premio por oleada', unit: 'La tienda llega 1 oleada antes (de cada 10 hasta cada 5)', max: 5, costs: ladder(10000, 500000, 5) },
     { cat: 'tower', id: 'angel', icon: 'heart', name: 'Ángel guardián', unit: 'En la torre, te salva 1 vez si ibas a perderla', max: 1, costs: [25000] }
@@ -89,7 +89,7 @@ G.Upgrades = (() => {
   /** Experiencia de los Pokémon de la torre. */
   function towerXp() { return 1 + lvl('txp') * 0.05; }
 
-  /** Pokémonedas extra por baja en la torre. */
+  /** Niveles de Oro extra: cada baja suma el oro base × este nivel. */
   function towerGold() { return lvl('tgold'); }
 
   /** Cada cuántas oleadas abre la tienda (10, y baja hasta 5). */

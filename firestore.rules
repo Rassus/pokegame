@@ -120,11 +120,15 @@ service cloud.firestore {
         && lvl(s, 'moves', 1) && lvl(s, 'crit', 40) && lvl(s, 'reroll', 6) && lvl(s, 'ban', 3));
     }
     function validSheets(st, n) {
-      return st is list && st.size() == n && st.size() <= 4
+      return st is list && st.size() == n && st.size() <= 8
         && (st.size() < 1 || validSheet(st[0]))
         && (st.size() < 2 || validSheet(st[1]))
         && (st.size() < 3 || validSheet(st[2]))
-        && (st.size() < 4 || validSheet(st[3]));
+        && (st.size() < 4 || validSheet(st[3]))
+        && (st.size() < 5 || validSheet(st[4]))
+        && (st.size() < 6 || validSheet(st[5]))
+        && (st.size() < 7 || validSheet(st[6]))
+        && (st.size() < 8 || validSheet(st[7]));
     }
 
     // Una entrada sólo se puede mejorar, nunca empeorar.
@@ -138,6 +142,10 @@ service cloud.firestore {
         || (names.size() > 1 && testerName(names[1]))
         || (names.size() > 2 && testerName(names[2]))
         || (names.size() > 3 && testerName(names[3]))
+        || (names.size() > 4 && testerName(names[4]))
+        || (names.size() > 5 && testerName(names[5]))
+        || (names.size() > 6 && testerName(names[6]))
+        || (names.size() > 7 && testerName(names[7]))
       );
     }
 
@@ -155,7 +163,7 @@ service cloud.firestore {
         && d.at == request.time
         && (board.matches('s_.*')
               ? (d.uids.size() == 1 && id == me())
-              : (d.uids.size() >= 2 && d.uids.size() <= 4 && id == d.uids.join('_')))
+              : (d.uids.size() >= 2 && d.uids.size() <= 8 && id == d.uids.join('_')))
         && (resource == null || d.t > resource.data.t);
     }
 

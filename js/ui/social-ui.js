@@ -249,7 +249,8 @@
         else {
           const name = (G.DEX_BY[chosen.dexes[0]] && G.DEX_BY[chosen.dexes[0]].name) || chosen.name;
           const modeName = (G.Towers.MODES.find(m => m.id === play.mode) || G.Towers.MODES[0]).name;
-          nameLine.textContent = 'Torre de ' + name + ' · ' + modeName;
+          const tier = G.Towers.tierOf(chosen.gen, play.mode);
+          nameLine.textContent = 'Torre de ' + name + ' · ' + modeName + ' · ' + chosen.waves + ' oleadas · tier ' + tier;
         }
         box.appendChild(nameLine);
         if (room.isHost) {
@@ -304,10 +305,20 @@
         title.textContent = name;
         title.setAttribute('translate', 'no');
         el.appendChild(title);
-        const info = document.createElement('span');
-        info.className = 'ds';
         const open = G.Towers.unlocked(t.dexes[0]);
         const modeOk = open && G.Towers.modeOpen(t.id, mode);
+        if (open) {
+          const picked = G.Towers.MODES.find(x => x.id === mode) || G.Towers.MODES[0];
+          const tier = G.Towers.tierOf(t.gen, mode);
+          const extra = (picked.detail ? ' · ' + picked.detail : (t.waves > 100 ? ' · 6 encuentros antes del jefe final' : ' · jefe en la 25, 50, 75 y 100')) + ' · tier ' + tier;
+          const own = G.DB.owns(t.dexes[0]) ? ' · en tu pokédex' : '';
+          const spec = document.createElement('span');
+          spec.className = 'ds';
+          spec.textContent = t.waves + ' oleadas' + extra + own;
+          el.appendChild(spec);
+        }
+        const info = document.createElement('span');
+        info.className = 'ds';
         if (!open) info.textContent = 'Vence a ' + name + ' en una grieta';
         else if (!modeOk) info.textContent = mode === 'mad' ? 'Supera el modo difícil' : 'Supera el modo normal';
         else info.textContent = costText(G.Towers.due(t.id, mode));

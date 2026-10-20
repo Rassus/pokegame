@@ -8,7 +8,13 @@
 G.CHANGELOG = [
   { d: '2026-10-20', title: ['Torre en grupo', 'Group tower'], chg: [
     ['En la torre, cada compañero que te revive acorta el tiempo. Uno tarda 3 s; dos, 1,5 s; tres, 1 s.',
-     'In a tower, each teammate reviving you shortens the time. One takes 3 s; two, 1.5 s; three, 1 s.']
+     'In a tower, each teammate reviving you shortens the time. One takes 3 s; two, 1.5 s; three, 1 s.'],
+    ['En la tienda de objetos de la torre, si ya llevas uno, la tercera opción es conservarlo.',
+     'In the tower item shop, if you already hold one, the third option is to keep it.'],
+    ['Al acabar o perder una run se ve el oro, el multiplicador y el total. Si superas la torre, también el premio por la tier.',
+     'When a run ends or you lose, you see the gold, the multiplier and the total. If you clear a tower, the tier prize is shown too.'],
+    ['En la sala, al elegir torre, se ven las oleadas, el modo y la tier. El ranking de torres en grupo ya no se queda cargando si hay muchos amigos.',
+     'In the room, picking a tower shows the waves, the mode and the tier. The group tower leaderboard no longer stays loading when you have many friends.'],
   ] },
   { d: '2026-10-19', title: ['Hielo oscuro y el equipo', 'Dark ice and the team'], new: [
     ['Al acabar una partida en grupo, Daño tiene la pestaña Equipo: el daño de cada jugador, el MVP, la mochila (el que menos daño hizo) y la alfombra (el que más tiempo pasó caído).',
