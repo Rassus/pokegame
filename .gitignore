@@ -19,5 +19,8 @@ desktop.ini
 # Contactos privados (emails de terceros): nunca al repositorio público
 docs/CONTACTOS_CREADORES.md
 
+# Modo prueba local (solo asus27). No se publica.
+js/ui/qa.js
+
 # Caché local de wrangler (Cloudflare)
 .wrangler/
