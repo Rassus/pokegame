@@ -134,6 +134,7 @@ G.Game = (() => {
     time = 0; pendingLevels = 0; qaDirty = false;
 
     pl = new G.Player(mon, perks, !!save.partnerShiny && G.DB.ownsShiny(mon.dex), G.Gacha.grown(mon, save));
+    if (G.Garden) G.Garden.applyRun(pl, !!towerCfg);
     banked = { t1: 0, t10: 0, tb: 0, tg: 0 };
     caught = [];
     // Atajos: movimientos con hueco fijo (save.pbind[dex] = [id del 1, id del 2, ...]),
@@ -926,7 +927,7 @@ G.Game = (() => {
       // Esc en una subpantalla del menú vuelve al menú.
       if (G.Input.tap('escape')) {
         if (G.MenuUI.closeMove()) return;
-        if (!G.UI.isOpen('scr-profile') && ['scr-dex', 'scr-upgrades', 'scr-gacha', 'scr-items', 'scr-towers', 'scr-friends', 'scr-rank', 'scr-goals'].some(G.UI.isOpen)
+        if (!G.UI.isOpen('scr-profile') && ['scr-dex', 'scr-upgrades', 'scr-gacha', 'scr-items', 'scr-towers', 'scr-expedition', 'scr-garden', 'scr-friends', 'scr-rank', 'scr-goals'].some(G.UI.isOpen)
             && document.getElementById('pull-fx').classList.contains('hidden')) G.MenuUI.open();
       }
       return;
@@ -1360,7 +1361,7 @@ if (G.Guard) G.Guard.sealCalls(G.Game);
 G.Flow = {
   boot() {
     G.UI.initChrome();
-    G.LoginUI.init(); G.TestUI.init(); G.MenuUI.init(); G.GachaUI.init();
+    G.LoginUI.init(); G.TestUI.init(); G.MenuUI.init(); G.GachaUI.init(); G.ExpeditionUI.init(); G.GardenUI.init();
     G.SocialUI.init(); G.RankingUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init();
     if (G.QA) G.QA.init();
     if (G.Admin) G.Admin.init();

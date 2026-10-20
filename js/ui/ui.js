@@ -9,7 +9,7 @@ G.UI = (() => {
   const $ = id => document.getElementById(id);
   const SCREENS = ['scr-login', 'scr-test', 'scr-result', 'scr-starters', 'scr-menu',
                    'scr-dex', 'scr-upgrades', 'scr-gacha', 'scr-items', 'scr-towers', 'scr-levelup', 'scr-pause', 'scr-over',
-                   'scr-nick', 'scr-friends', 'scr-lobby', 'scr-lobby-tower', 'scr-rank', 'scr-item', 'scr-goals', 'scr-bond'];
+                   'scr-nick', 'scr-friends', 'scr-lobby', 'scr-lobby-tower', 'scr-rank', 'scr-item', 'scr-goals', 'scr-bond', 'scr-expedition', 'scr-garden'];
 
   function show(id, keepMenu = false) {
     for (const s of SCREENS) if (s !== id && !(keepMenu && s === 'scr-menu')) $(s).classList.add('hidden');
@@ -71,7 +71,7 @@ G.UI = (() => {
 
   // ---------------- sonido de la interfaz ----------------
 
-  const CLICKABLE = '.btn, .ticket-plus, .menu-item, .tab, .chip, .card, .cell:not(.locked), .answer, .gen-tab';
+  const CLICKABLE = '.btn, .ticket-plus, .menu-item, .tab, .chip, .card, .cell:not(.locked), .answer, .gen-tab, .exp-slot, .exp-dot, .exp-arrow, .exp-berry, .g-soil, .g-sign, .bag-item';
   let lastHover = null;
 
   function wireSounds() {

@@ -59,7 +59,7 @@ input { font: inherit; }
 .scr.hidden { display: none; }
 /* Pantallas que se abren con la barra superior a la vista: empiezan debajo de ella. */
 @media (min-height: 521px) {
-  #scr-goals, #scr-dex, #scr-upgrades, #scr-gacha, #scr-items, #scr-towers, #scr-friends, #scr-rank, #scr-lobby, #scr-lobby-tower, #scr-profile { padding-top: 66px; }
+  #scr-goals, #scr-dex, #scr-upgrades, #scr-gacha, #scr-items, #scr-towers, #scr-expedition, #scr-garden, #scr-friends, #scr-rank, #scr-lobby, #scr-lobby-tower, #scr-profile { padding-top: 66px; }
 }
 .scr.dim { background: radial-gradient(circle at 50% 40%, rgba(10,20,50,.55), rgba(3,6,16,.88)); }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
@@ -1158,4 +1158,111 @@ a.btn { text-decoration: none; display: inline-block; color: var(--ink); }
   #dex-detail .btn { position: sticky; bottom: 0; order: 9; margin-top: auto; padding: 8px 6px; font-size: 15px;
     box-shadow: 0 -6px 10px rgba(5,10,25,.6); }
   #dex-detail #dex-cash { position: static; order: 0; box-shadow: none; margin-top: 0; }
+}
+
+/* ---------- expedición ---------- */
+.exp-box { width: min(920px, 100%); }
+.exp-stage {
+  position: relative; height: 210px; border-radius: 12px; overflow: hidden;
+  border: 3px solid var(--edge); box-shadow: 0 0 0 3px var(--edge-out);
+  background: #0b1838; touch-action: pan-y;
+}
+.exp-stage img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.exp-cap {
+  position: absolute; left: 64px; right: 64px; top: 50%; transform: translateY(-50%);
+  text-align: center; font-size: 34px; font-weight: 700; color: #fff;
+  text-shadow: 2px 2px 0 #000, -2px 0 0 #000, 0 2px 0 #000;
+  pointer-events: none;
+}
+.exp-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+  width: 54px; height: 72px; padding: 0; border: 0; background: transparent; cursor: pointer;
+}
+.exp-arrow.left { left: 6px; }
+.exp-arrow.right { right: 6px; }
+.exp-arrow::before {
+  content: ''; display: block; width: 22px; height: 22px; margin: 0 auto;
+  border-top: 4px solid #fff; border-right: 4px solid #fff;
+  filter: drop-shadow(2px 2px 0 #000) drop-shadow(-1px -1px 0 #000);
+}
+.exp-arrow.left::before { transform: rotate(-135deg); }
+.exp-arrow.right::before { transform: rotate(45deg); }
+.exp-types { text-align: center; margin-top: 10px; }
+.exp-types .type { margin: 2px; }
+.exp-dots { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
+.exp-dot {
+  width: 10px; height: 10px; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 2px solid var(--edge); background: transparent;
+}
+.exp-dot.on { background: var(--gold); border-color: var(--gold); }
+.exp-rate { text-align: center; min-height: 1.4em; }
+.exp-slots { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-top: 6px; }
+.exp-slot {
+  appearance: none; width: 132px; padding: 6px 6px 8px; cursor: pointer; color: inherit; font: inherit;
+  background: rgba(0,0,0,.22); border: 3px solid var(--edge); border-radius: 12px;
+  box-shadow: 0 0 0 2px var(--edge-out); text-align: center;
+}
+.exp-slot.on { border-color: var(--gold); }
+.exp-slot .exp-time { display: block; color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+.exp-face {
+  display: flex; align-items: flex-end; justify-content: center; height: 92px;
+  border-radius: 8px; background: rgba(0,0,0,.28) center / cover no-repeat;
+}
+.exp-face.has { box-shadow: inset 0 0 0 2px rgba(255,255,255,.25); }
+.exp-face canvas { width: 112px; height: 84px; }
+.exp-plus { font-size: 42px; line-height: 92px; color: var(--muted); }
+.exp-slot b { display: block; font-size: 14px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.exp-slot small { display: block; min-height: 2.6em; color: var(--muted); font-size: 12px; }
+.exp-good { color: var(--green) !important; }
+.exp-neutral { color: var(--gold) !important; }
+.exp-bad { color: #ff8a94 !important; }
+.exp-pick {
+  position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(3,6,16,.78);
+}
+.exp-pick .box { width: min(860px, 100%); max-height: 100%; }
+button.cell { width: 100%; appearance: none; font: inherit; color: inherit; }
+.exp-berry-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.exp-berry {
+  appearance: none; font: inherit; color: inherit; cursor: pointer;
+  width: 72px; padding: 6px 4px; border-radius: 10px;
+  background: rgba(0,0,0,.25); border: 2px solid rgba(244,248,255,.35);
+}
+.exp-berry small { display: block; font-size: 12px; color: var(--muted); }
+.exp-berry-note { margin: 6px 0 0; }
+.garden-map { position: relative; width: min(763px, 100%); margin: 12px auto 0; }
+.garden-map > img { width: 100%; height: auto; display: block; pointer-events: none; user-select: none; }
+.g-plot { position: absolute; }
+.g-soil {
+  position: absolute; left: 6%; width: 88%; height: 46%; padding: 0; border: 0;
+  background: transparent; cursor: pointer;
+}
+.g-soil.top { top: 2%; }
+.g-soil.bot { bottom: 2%; }
+.g-soil canvas { width: 100%; height: 100%; pointer-events: none; }
+.g-sign {
+  position: absolute; left: 50%; top: 8%; transform: translateX(-50%);
+  width: 78%; padding: 0; border: 0; background: transparent; cursor: pointer;
+}
+.g-sign img { width: 100%; height: auto; display: block; pointer-events: none; }
+.g-price {
+  position: absolute; left: 0; right: 0; top: 31%; transform: translateY(-50%); margin: 0; text-align: center;
+  color: #ffe14d; font-weight: 800; font-size: clamp(11px, 1.5vw, 18px); line-height: 1;
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 2px 0 #000;
+  pointer-events: none;
+}
+.bag-item {
+  display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left;
+  margin: 8px 0; padding: 8px; cursor: pointer; color: inherit; font: inherit;
+  background: rgba(0,0,0,.28); border: 2px solid rgba(244,248,255,.28); border-radius: 10px;
+}
+.bag-item.on { border-color: var(--gold); }
+.bag-item.sold { opacity: .55; cursor: default; }
+.bag-item canvas { flex: 0 0 48px; }
+.bag-item small { display: block; color: var(--muted); }
+.bag-text { margin-top: 4px; }
+@media (max-width: 640px) {
+  .exp-stage { height: 160px; }
+  .exp-cap { font-size: 26px; }
+  .exp-slot { width: 108px; }
 }

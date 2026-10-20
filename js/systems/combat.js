@@ -94,7 +94,11 @@ G.Combat = (() => {
   }
 
   /** Tabla de tipos × clima para un ataque de tipo `type` contra `e`. */
-  function typeK(type, e) { return G.Types.mult(type, e.types) * G.Weather.mult(type); }
+  function typeK(type, e) {
+    const pl = G.Game && G.Game.player;
+    const w = pl && pl.weatherImmune ? 1 : G.Weather.mult(type);
+    return G.Types.mult(type, e.types) * w;
+  }
 
   function fireProjectiles(pl, m) {
     const col = G.U.TYPE_COLOR[m.type];

@@ -84,12 +84,13 @@ G.Interact = (() => {
   function usePower(pl, p) {
     p.used = true;
     const pw = POWERS[p.kind];
+    const dur = POWER_TIME + (pl.hasteExtra && pw.id === 'cd' ? pl.hasteExtra : 0);
     pl.addPower(pw, POWER_TIME);
     if (G.Pass) G.Pass.altar(pw.id);
     G.FX.ring(p.x, p.y - 20, 8, 90, pw.color, 0.6, 5);
     G.FX.burst(pl.x, pl.y - pl.bodyH * 0.5, pw.color, 24, 200);
     G.Audio.sfx('legend');
-    G.Spawner.say('¡Poder ' + pw.name + '! ' + pw.desc + ' durante ' + POWER_TIME + ' s', 3, true);
+    G.Spawner.say('¡Poder ' + pw.name + '! ' + pw.desc + ' durante ' + dur + ' s', 3, true);
   }
 
   /**
@@ -120,7 +121,7 @@ G.Interact = (() => {
         else e.hurt(90 + lvl * 18, '#ff7b3d', e.x - x, e.y - y, 220);
       }
     }
-    if (pl && !pl.dead && G.U.dist2(x, y, pl.x, pl.y) < (TRAP_R * 0.7) ** 2) {
+    if (pl && !pl.dead && !pl.floorImmune && G.U.dist2(x, y, pl.x, pl.y) < (TRAP_R * 0.7) ** 2) {
       pl.invuln = 0;
       if (k === 0) pl.hurt(pl.maxHp * 0.1);
       else if (k === 1) { pl.slowT = 3.5; G.FX.dmgText(pl.x, pl.y - pl.bodyH - 6, '¡Pegajoso!', '#8bd94a'); }

@@ -109,9 +109,9 @@ G.Player = class Player {
   }
   get spd() {
     const s = this.baseSpd * this.spdMul * (1 + this.buffs.spd.n * this.buffs.spd.amount) * (this.slowT > 0 ? 0.5 : 1) * (1 - Math.min(0.6, this.terror || 0));
-    const w = G.Weather.speedFor(this.mon.types);
+    const w = this.weatherImmune ? 1 : G.Weather.speedFor(this.mon.types);
     let slow = 1;
-    if (this.inLiquid) {
+    if (this.inLiquid && !this.floorImmune) {
       const le = G.World.liquidEffect(this.mon.types);
       // Botines de Hielo: en el agua no frenan y dan +30% de velocidad.
       slow = this.item === 'iceboots' && G.World.liquidKind() === 'water' ? 1.3 : (le.slow || 1);
@@ -267,7 +267,7 @@ G.Player = class Player {
     if (type) {
       const k = G.Types.mult(type, this.mon.types);
       eff = G.Types.label(k);
-      amount *= k * G.Weather.mult(type);
+      amount *= k * (this.weatherImmune ? 1 : G.Weather.mult(type));
     }
     // Con un ataque cuerpo a cuerpo activo se recibe un 25 % menos: hay que
     // estar encima de los enemigos para pegar (iban muy por detrás).
@@ -397,11 +397,27 @@ G.Player = class Player {
     this.hp = Math.min(this.maxHp, this.hp + give);
   }
 
+  /** Quita el poder del altar, también si Pera'h lo acumuló una segunda vez. */
+  dropPower() {
+    if (!this.power) return;
+    const n = this.power.stacks || 1;
+    for (let i = 0; i < n; i++) this.power.def.off(this);
+    this.power = null;
+  }
+
   /** Poder de un altar (ver systems/interact.js): se aplica y se quita solo. */
   addPower(def, dur) {
-    if (this.power) this.power.def.off(this);
+    if (this.hasteExtra && def.id === 'cd') dur += this.hasteExtra;
+    if (this.power && this.power.def.id === 'cd' && def.id === 'cd' && this.hasteExtra && (this.power.stacks || 1) < 2) {
+      def.on(this);
+      this.power.t = dur;
+      this.power.dur = dur;
+      this.power.stacks = 2;
+      return;
+    }
+    this.dropPower();
     def.on(this);
-    this.power = { def, t: dur, dur };
+    this.power = { def, t: dur, dur, stacks: 1 };
   }
 
   addBuff(stat, amount, dur, maxStacks, src) {
@@ -454,8 +470,18 @@ G.Player = class Player {
       this.shield = this.shield < cap ? Math.min(cap, this.shield + this.maxHp * 0.01 * dt) : cap;
     }
     // Sin tope que recargar, el escudo (p. ej. Baya Milagro) se queda hasta que el daño lo gaste.
-    if (this.power && (this.power.t -= dt) <= 0) { this.power.def.off(this); this.power = null; }
+    if (this.power && (this.power.t -= dt) <= 0) this.dropPower();
     if (this.regen > 0) this.hp = Math.min(this.maxHp, this.hp + this.regen * dt);
+    if (this.candyLeft > 0 && this.hp < this.maxHp - 0.05) {
+      const give = Math.min(3.5 * dt, this.candyLeft, this.maxHp - this.hp);
+      this.hp += give;
+      this.candyLeft -= give;
+      if (this.candyLeft <= 0.05) {
+        this.candyLeft = 0;
+        if (G.Garden) G.Garden.consume(this.dex);
+        if (G.Spawner) G.Spawner.say('Caramelo se ha gastado', 2.4, true);
+      }
+    }
 
     // --- movimiento con colisiones ---
     // (En cooperativo la pausa no para el juego: sólo te quedas quieto.)
@@ -463,27 +489,38 @@ G.Player = class Player {
     this.walking = ax !== 0 || ay !== 0;
     const s = this.spd;
     // Hielo: resbalas (la velocidad cambia despacio).
-    const slide = this.inLiquid && G.World.liquidEffect(this.mon.types).slide;
+    const slide = !this.floorImmune && this.inLiquid && G.World.liquidEffect(this.mon.types).slide;
     this.svx = slide ? G.U.damp(this.svx || 0, ax * s * 1.15, 1.6, dt) : ax * s;
     this.svy = slide ? G.U.damp(this.svy || 0, ay * s * 1.15, 1.6, dt) : ay * s;
     this.x += this.svx * dt;
     this.y += this.svy * dt;
     G.World.collide(this);
     if (this.walking) this.moveAngle = Math.atan2(ay, ax);
+    if (this.polcaHit && this.walking && this.power && this.power.def.id === 'spd') {
+      this.polcaT = (this.polcaT || 0) - dt;
+      if (this.polcaT <= 0) {
+        this.polcaT = 0.8;
+        const dmg = Math.max(1, Math.round(this.baseSpd * this.baseAtk * 0.08));
+        for (const e of G.EnemyMgr.queryCircle(this.x, this.y, this.r + 10)) {
+          if (e.dead || e.remote) continue;
+          e.hurt(dmg, '#5fd4ff');
+        }
+      }
+    }
 
     // --- terreno líquido ---
     this.inLiquid = G.World.isLiquid(this.x, this.y);
     if (this.inLiquid) {
       const le = G.World.liquidEffect(this.mon.types);
       const towel = this.item === 'saunatowel' && G.World.liquidKind() === 'lava';
-      if (le.dmg && !towel) {
+      if (!this.floorImmune && le.dmg && !towel) {
         this.lavaTick -= dt;
         if (this.lavaTick <= 0) {
           this.lavaTick = le.every; this.invuln = 0;
           this.hurt(Math.max(le.flat, this.maxHp * le.dmg * 0.5));
           G.FX.burst(this.x, this.y - 4, le.color, 5, 70);
         }
-      } else if (!le.dmg && this.walking && Math.random() < dt * 8) {
+      } else if (!this.floorImmune && !le.dmg && this.walking && Math.random() < dt * 8) {
         G.FX.burst(this.x, this.y, le.slide ? '#ffffff' : '#b3defa', 2, 40);
       }
       // Toalla de Sauna: 4 de vida por segundo mientras pisas lava.

@@ -149,7 +149,9 @@
     }
     applyPoison(stacks = 1) {
       if (this.remote) { G.Coop.status(this, 'p', stacks); return; }
-      this.poison = Math.min(8, this.poison + stacks); this.poisonT = 4;
+      this.poison = Math.min(8, this.poison + stacks);
+      const pl = G.Game && G.Game.player;
+      this.poisonT = 4 * (pl && pl.poisonTime ? pl.poisonTime : 1);
     }
 
     die() {
@@ -263,7 +265,12 @@
       }
       if (this.poison > 0) {
         this.poisonT -= dt; this.poisonTick -= dt;
-        if (this.poisonTick <= 0) { this.poisonTick = 0.6; this.hurt(this.maxHp * 0.012 * this.poison + 1, '#d47cf0'); }
+        if (this.poisonTick <= 0) {
+          this.poisonTick = 0.6;
+          const pl = G.Game && G.Game.player;
+          const mul = pl && pl.poisonMul ? pl.poisonMul : 1;
+          this.hurt((this.maxHp * 0.012 * this.poison + 1) * mul, '#d47cf0');
+        }
         if (this.poisonT <= 0) this.poison = 0;
       }
       if (this.dead) return;

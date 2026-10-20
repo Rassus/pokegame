@@ -41,7 +41,12 @@ G.Upgrades = (() => {
     { cat: 'tower', id: 'tgold', icon: 'coin', name: 'Oro extra', unit: 'Cada baja suma el oro base × nivel', max: 40, costs: ladder(1000, 4000000, 40) },
     { cat: 'tower', id: 'txp',   icon: 'book', name: 'Exp extra', unit: '+5% de experiencia en la torre', max: 20, costs: ladder(1000, 1000000, 20) },
     { cat: 'tower', id: 'twave', icon: 'cards', name: 'Premio por oleada', unit: 'La tienda llega 1 oleada antes (de cada 10 hasta cada 5)', max: 5, costs: ladder(10000, 500000, 5) },
-    { cat: 'tower', id: 'angel', icon: 'heart', name: 'Ángel guardián', unit: 'En la torre, te salva 1 vez si ibas a perderla', max: 1, costs: [25000] }
+    { cat: 'tower', id: 'angel', icon: 'heart', name: 'Ángel guardián', unit: 'En la torre, te salva 1 vez si ibas a perderla', max: 1, costs: [25000] },
+
+    // Expedición. Empiezas con 1 hueco; cada nivel de expslot abre otro (hasta 4).
+    // La baya es un hueco por Pokémon (huerto), no una mejora de la cuenta.
+    { cat: 'exp', id: 'expmind', icon: 'star', name: 'Mentalidad Ganadora', unit: '+1 fragmento por ronda', max: 4, costs: [15000, 60000, 185000, 325000] },
+    { cat: 'exp', id: 'expslot', icon: 'boot', name: 'Expediciones', unit: '+1 expedición a la vez', max: 3, costs: [150000, 600000, 1500000] }
   ];
   const BY = {};
   for (const u of LIST) BY[u.id] = u;
@@ -49,7 +54,8 @@ G.Upgrades = (() => {
     { id: 'mon', name: 'Pokémon' },
     { id: 'run', name: 'Run' },
     { id: 'rift', name: 'Grieta' },
-    { id: 'tower', name: 'Torre' }
+    { id: 'tower', name: 'Torre' },
+    { id: 'exp', name: 'Expedición' }
   ];
 
   function cost(id, lvl) {

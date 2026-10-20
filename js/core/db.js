@@ -91,6 +91,12 @@ G.DB = (() => {
       profile: { favs: [], title: '' },   // perfil público: 3 favoritos y título
       dexFav: {},             // dex -> ms: favorito de la colección (>0 marcado, <0 quitado)
       epoch: 0,               // sube al reiniciar la cuenta: la copia vieja del navegador no se fusiona
+      expd: [],               // huecos de expedición: null o { dex, biome, at, every, gain, cond }
+      expdDone: {},           // dex -> { t, n, k }: última vez que se llamó, y los fragmentos ya dados
+      berries: {},            // id -> cantidad en la mochila (las puestas no cuentan aquí)
+      seeds: {},              // id -> semillas
+      monBerry: {},           // dex -> id de la baya que lleva
+      garden: { open: 1, plants: {}, shopAt: 0, shop: [], sold: [] },
       stats: { runs: 0, bestTime: 0, bestLevel: 0, totalKills: 0, pulls: 0, coinsEarned: 0, shinies: 0,
                bossesTotal: 0, riftWins: 0, evolutions: 0, missionsDone: 0, groupRuns: 0, bestGroupTime: 0,
                shinyKills: 0, shinyBosses: 0, goldPulls: 0, ticketsGot: 0, bestKills: 0, bestBosses: 0, towerClears: 0, towerBest: 0 }
@@ -282,9 +288,18 @@ G.DB = (() => {
     s.gupg = s.gupg && typeof s.gupg === 'object' ? s.gupg : {};
     if (G.Upgrades) for (const id of Object.keys(s.gupg)) {
       const def = G.Upgrades.BY[id];
+      // Espacio para Bayas ya no existe: cada Pokémon tiene su hueco. Se devuelve lo pagado.
+      if (id === 'expberry') {
+        const lvl = n(s.gupg[id]);
+        if (lvl >= 1) s.coins = (s.coins || 0) + (lvl >= 2 ? 600000 : 100000);
+        delete s.gupg[id];
+        continue;
+      }
       if (!def || def.cat === 'mon') delete s.gupg[id];
       else s.gupg[id] = Math.min(def.max, n(s.gupg[id]));
     }
+    if (G.Expedition) G.Expedition.clean(s);
+    if (G.Garden) G.Garden.clean(s);
   }
 
   /**
@@ -373,6 +388,8 @@ G.DB = (() => {
     const nr = r.region || 1, orr = older.region || 1;
     if (orr > nr) { r.region = orr; r.regionProg = older.regionProg || 0; r.regionTold = older.regionTold; }
     else if (orr === nr) r.regionProg = Math.max(r.regionProg || 0, older.regionProg || 0);
+    if (G.Expedition) G.Expedition.merge(r, older);
+    if (G.Garden) G.Garden.merge(r, older);
     if (r.starter == null) r.starter = older.starter;
     if (r.personality == null) r.personality = older.personality;
     if (r.partner == null || !r.owned[r.partner]) { r.partner = older.partner; r.partnerShiny = older.partnerShiny; }

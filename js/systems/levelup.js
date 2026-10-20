@@ -37,7 +37,8 @@ G.LevelUp = (() => {
       // llenar los 4 huecos con ellos deja la run sin salida.
       const buffs = pl.moves.filter(m => m.kind === 'buff').length;
       const pool = G.Moves.poolFor(pl.mon).filter(id =>
-        !pl.hasMove(id) && !(pl.banned && pl.banned.has(id)) && !(buffs >= 2 && G.Moves.BY_ID[id].kind === 'buff'));
+        !pl.hasMove(id) && !(pl.banned && pl.banned.has(id)) && !(buffs >= 2 && G.Moves.BY_ID[id].kind === 'buff')
+        && !(pl.noHarden && id === 'harden'));
       for (const id of G.U.pickN(pool, 6)) {
         const d = G.Moves.BY_ID[id];
         out.push({
@@ -112,8 +113,13 @@ G.LevelUp = (() => {
     // Cada mejora tiene un tope de veces (`max`): en partidas muy largas se
     // acumulaban sin fin (velocidad, recarga y experiencia por las nubes) y el
     // juego acababa colgándose. Las que piden una evolución salen siempre.
-    const room = s => !s.max || (pl.statsTaken[s.id] || 0) < s.max;
-    const pickStats = G.U.pickN(STATS.filter(s => !waiting[s.id] && room(s)), 5).concat(STATS.filter(s => waiting[s.id]));
+    const room = s => {
+      if (pl.noDef && s.id === 'def') return false;
+      const max = (s.max || 0) + (s.id === 'def' ? (pl.defExtra || 0) : 0);
+      return !max || (pl.statsTaken[s.id] || 0) < max;
+    };
+    const pickStats = G.U.pickN(STATS.filter(s => !waiting[s.id] && room(s)), 5)
+      .concat(STATS.filter(s => waiting[s.id] && room(s)));
     for (const s of pickStats) {
       const evoFor = waiting[s.id];
       out.push({
@@ -145,6 +151,25 @@ G.LevelUp = (() => {
       if (used.has(c.key)) continue;
       used.add(c.key);
       picked.push(c);
+    }
+    // Polca, en la torre: si sale Carrera, se aplica sola y eliges entre las otras.
+    if (pl.polcaTower && n >= 3) {
+      const i = picked.findIndex(c => c.key === 'stat:spd');
+      if (i >= 0) {
+        picked[i].apply(pl);
+        picked.splice(i, 1);
+        if (G.Spawner) G.Spawner.say('Carrera viene con Polca: ya está aplicada. Elige otra.', 3.2, true);
+        if (!picked.length) {
+          while (pool.length) {
+            const j = pool.findIndex(x => x.key !== 'stat:spd');
+            if (j < 0) break;
+            const c = pool.splice(j, 1)[0];
+            if (used.has(c.key)) continue;
+            picked.push(c);
+            break;
+          }
+        }
+      }
     }
     return picked;
   }

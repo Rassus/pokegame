@@ -30,7 +30,7 @@ G.MenuUI = (() => {
   }
 
   function init() {
-    const ICON = { play: 'ball', dex: 'book', upgrades: 'up', gacha: 'ball4', items: 'leftovers', towers: 'tower', goals: 'medal3', friends: 'friends', rank: 'trophy', settings: 'gear', qa: 'star' };
+    const ICON = { play: 'ball', dex: 'book', upgrades: 'up', gacha: 'ball4', items: 'leftovers', towers: 'tower', expedition: 'boot', garden: 'sprout', goals: 'medal3', friends: 'friends', rank: 'trophy', settings: 'gear', qa: 'star' };
     document.querySelectorAll('#scr-menu [data-go]').forEach(b => {
       b.insertAdjacentHTML('afterbegin', `<span class="mi-ico">${G.Icons.html(ICON[b.dataset.go], 26)}</span>`);
       b.dataset.sfx = b.dataset.go === 'play' ? 'confirm' : 'click';
@@ -42,6 +42,8 @@ G.MenuUI = (() => {
         else if (go === 'gacha') G.GachaUI.open();
         else if (go === 'items') openItems();
         else if (go === 'towers') G.TowerUI.open();
+        else if (go === 'expedition') G.ExpeditionUI.open();
+        else if (go === 'garden') G.GardenUI.open();
         else if (go === 'goals') G.GoalsUI.open();
         else if (go === 'friends') G.FriendsUI.open();
         else if (go === 'rank') G.RankingUI.open();
@@ -126,6 +128,8 @@ G.MenuUI = (() => {
       (G.DB.guest ? '<br><span style="color:#ffb0b8">Modo invitado: no se guarda</span>' : '');
 
     socialLine();
+    if ($('menu-exp-sub') && G.Expedition) $('menu-exp-sub').textContent = G.Expedition.menuLine(s);
+    if ($('menu-garden-sub') && G.Garden) $('menu-garden-sub').textContent = G.Garden.menuLine(s);
     // Premios de misiones por recoger.
     G.Progress.checkAch();
     const pend = G.Progress.pending();
@@ -511,6 +515,7 @@ G.MenuUI = (() => {
         ${bar('Ataque', 'atk', gstat.atk, G.Gacha.CAP.atk, '×' + gstat.atk.toFixed(2))}
         ${bar('Velocidad', 'spd', gstat.spd, G.Gacha.CAP.spd, gstat.spd)}
         <p class="stat-have">${G.Icons.html('frag', 16)} <b>${haveF}</b></p>
+        <button type="button" id="dex-berry" class="btn small" style="width:100%;margin:8px 0">Baya: ${G.Garden ? G.GardenUI.label(dex) : 'Ninguna'}</button>
         <p style="font-size:14px;margin:10px 0 4px">Empieza con <b class="gold">${G.Moves.BY_ID[G.startMoveOf(dex)].name}</b></p>
         <div class="move-icons" title="Movimientos que puede aprender">
           ${moves.map(id => `<button type="button" class="move-ico${id === moveSel ? ' on' : ''}" data-move="${id}" title="${G.Moves.BY_ID[id].name}">${G.Icons.html('move:' + id, 16)}</button>`).join('')}</div>
@@ -565,6 +570,8 @@ G.MenuUI = (() => {
       G.UI.toast(G.DB.guest ? p.name + ' (invitado: no se guarda)' : p.name + ' añadido a tu colección');
       openDex();
     };
+    const berryBtn = $('dex-berry');
+    if (berryBtn) berryBtn.onclick = () => G.GardenUI.openBag(dex, () => showDetail(dex));
     const pick = $('dex-pick');
     if (pick) pick.onclick = () => {
       s.partner = dex;
@@ -583,7 +590,8 @@ G.MenuUI = (() => {
     mon: 'Cada Pokémon tiene las suyas. Sólo cuentan cuando juegas con él.',
     run: 'Valen en todas las partidas, con cualquier Pokémon.',
     rift: 'Valen al entrar en una grieta.',
-    tower: 'Valen en todas las torres.'
+    tower: 'Valen en todas las torres.',
+    exp: 'Empiezas con 1 expedición. Cada nivel de Expediciones abre otra, hasta 4. El ritmo se fija al enviar.'
   };
 
   /**

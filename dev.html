@@ -189,6 +189,8 @@
         <button class="menu-item" data-go="gacha">Gacha<small>9 regiones · Pokémon y shinies</small></button>
         <button class="menu-item" data-go="items">Objetos<small>Qué hace cada uno y cuándo cae</small></button>
         <button class="menu-item" data-go="towers">Torres<small>Una torre por cada jefe</small></button>
+        <button class="menu-item" data-go="expedition">Expedición<small id="menu-exp-sub">Fragmentos de su línea, hasta 8 h</small></button>
+        <button class="menu-item" data-go="garden">Huerto<small id="menu-garden-sub">Siembra bayas y dáselas a tus Pokémon</small></button>
         <button class="menu-item" data-go="goals">Misiones<small id="menu-goals-sub">Misiones, logros y perfil</small></button>
         <button class="menu-item" data-go="friends">Amigos<small id="menu-friends-sub">Juega en grupo, hasta 8</small></button>
         <button class="menu-item" data-go="rank">Ranking<small>Quién aguanta más</small></button>
@@ -520,6 +522,79 @@
   </div>
 </section>
 
+<!-- ====== Expedición ====== -->
+<section id="scr-expedition" class="scr dim hidden">
+  <div class="box wide exp-box">
+    <div class="row between"><h2>Expedición</h2><button class="btn small ghost" data-back>Volver</button></div>
+    <p class="sub" id="exp-help"></p>
+    <div class="exp-stage" id="exp-stage">
+      <button type="button" class="exp-arrow left" id="exp-prev" aria-label="Bioma anterior"></button>
+      <img id="exp-photo" alt="" draggable="false">
+      <div class="exp-cap" id="exp-name"></div>
+      <button type="button" class="exp-arrow right" id="exp-next" aria-label="Bioma siguiente"></button>
+    </div>
+    <div class="exp-types" id="exp-types"></div>
+    <div class="exp-dots" id="exp-dots"></div>
+    <p class="sub exp-rate" id="exp-rate"></p>
+    <div class="exp-slots" id="exp-slots"></div>
+    <div class="row" style="justify-content:center;margin-top:14px">
+      <button type="button" class="btn gold" id="exp-go" data-sfx="none">Enviar</button>
+    </div>
+  </div>
+  <div id="exp-pick" class="exp-pick hidden">
+    <div class="box wide">
+      <div class="row between"><h2>Elige un Pokémon</h2><button type="button" class="btn small ghost" id="exp-pick-x">Cerrar</button></div>
+      <p class="sub" id="exp-pick-sub"></p>
+      <input id="exp-search" class="field" placeholder="Buscar por nombre" spellcheck="false" autocomplete="off">
+      <div class="filters" id="exp-filt"></div>
+      <div class="grid" id="exp-grid"></div>
+      <div id="exp-berries"></div>
+      <div class="row" style="margin-top:12px">
+        <button type="button" class="btn gold grow" id="exp-choose" data-sfx="confirm">Elegir</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== Huerto ====== -->
+<section id="scr-garden" class="scr dim hidden">
+  <div class="box wide garden-box">
+    <div class="row between">
+      <h2>Huerto</h2>
+      <div class="row">
+        <button type="button" class="btn small" id="garden-shop">Semillas</button>
+        <button type="button" class="btn small ghost" data-back>Volver</button>
+      </div>
+    </div>
+    <p class="sub">La primera parcela está abierta. Cada una tiene dos huecos. La tienda saca 4 semillas cada 8 horas, a 2.500. Recoges de 1 a 3 bayas y hay un 30% de una semilla.</p>
+    <div class="garden-map">
+      <img src="assets/berries/mapa.png" alt="" draggable="false">
+      <div id="garden-plots"></div>
+    </div>
+  </div>
+</section>
+<div id="garden-shop-panel" class="exp-pick hidden">
+  <div class="box">
+    <div class="row between"><h2>Tienda de semillas</h2><button type="button" class="btn small ghost" id="garden-shop-x">Cerrar</button></div>
+    <p class="sub" id="garden-shop-left"></p>
+    <div id="garden-shop-list"></div>
+  </div>
+</div>
+<div id="seed-bag" class="exp-pick hidden">
+  <div class="box">
+    <div class="row between"><h2>Semillas</h2><button type="button" class="btn small ghost" id="seed-bag-x">Cerrar</button></div>
+    <p class="sub">Elige una semilla</p>
+    <div id="seed-list"></div>
+  </div>
+</div>
+<div id="berry-bag" class="exp-pick hidden">
+  <div class="box">
+    <div class="row between"><h2 id="berry-bag-title">Baya</h2><button type="button" class="btn small ghost" id="berry-bag-x">Cerrar</button></div>
+    <p class="sub" id="berry-bag-note"></p>
+    <div id="berry-list"></div>
+  </div>
+</div>
+
 <!-- ====== Torres ====== -->
 <section id="scr-towers" class="scr dim hidden">
   <div class="box wide">
@@ -659,6 +734,7 @@
 <script defer src="js/data/starters.js"></script>
 <script defer src="js/data/enemies.js"></script>
 <script defer src="js/data/upgrades.js"></script>
+<script defer src="js/data/berries.js"></script>
 <script defer src="js/data/items.js"></script>
 <script defer src="js/data/missions.js"></script>
 <script defer src="js/data/pass.js"></script>
@@ -684,6 +760,8 @@
 <script defer src="js/systems/interact.js"></script>
 <script defer src="js/systems/rift.js"></script>
 <script defer src="js/systems/tower.js"></script>
+<script defer src="js/systems/expedition.js"></script>
+<script defer src="js/systems/garden.js"></script>
 <script defer src="js/systems/events.js"></script>
 <script defer src="js/systems/weather.js"></script>
 <script defer src="js/systems/pathing.js"></script>
@@ -704,6 +782,8 @@
 <script defer src="js/ui/test.js"></script>
 <script defer src="js/ui/menu.js"></script>
 <script defer src="js/ui/tower-ui.js"></script>
+<script defer src="js/ui/expedition-ui.js"></script>
+<script defer src="js/ui/garden-ui.js"></script>
 <script defer src="js/ui/slots.js"></script>
 <script defer src="js/ui/gacha-ui.js"></script>
 <script defer src="js/ui/run-ui.js"></script>
