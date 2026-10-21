@@ -38,6 +38,12 @@ G.Ranking = (() => {
   // ('p' = histórico de un Pokémon: casi cada partida entraba en el de su
   //  Pokémon y escribía; ahora también sólo el top 50.)
   const TOP_ONLY = new Set(['d', 'w', 'm', 'p']);
+  // Cuentas de prueba: no entran en ninguna tabla. El apodo no se puede cambiar.
+  const ASIDE = new Set(['asus27']);
+  const hiddenName = n => ASIDE.has(String(n || '').trim().toLowerCase());
+  const aside = () => !!(G.Social && G.Social.me && hiddenName(G.Social.me.name));
+  const partyHidden = members => aside() || (members || []).some(m => hiddenName(m && m.name));
+  const hide = rows => rows.filter(r => !(r.names || []).some(hiddenName));
   const TOP = 50;
   // Las runs de menos de 1 minuto no se suben (casi nunca entran en una tabla
   // y eran muchas lecturas y escrituras para nada).
@@ -206,7 +212,7 @@ G.Ranking = (() => {
 
   async function submitSolo(r) {
     const fb = fbx();
-    if (!fb || !G.Social.me || r.t < MIN_T) return [];
+    if (aside() || !fb || !G.Social.me || r.t < MIN_T) return [];
     const ids = periodIds();
     const entry = { t: r.t, uids: [fb.uid], names: [G.Social.me.name], dex: [r.dex], shiny: [!!r.shiny], lv: r.lv, kills: r.kills, st: [sheetOf(r)] };
     const boards = PERIODS.map(([p]) => ['s_' + ids[p], p]);
@@ -237,7 +243,7 @@ G.Ranking = (() => {
   /** Cada jugador sube su oleada en solitario. No pide el minuto mínimo de las runs. */
   async function submitTower(r) {
     const fb = fbx();
-    if (!fb || !G.Social.me || !(r.wave > 0) || !r.id) return [];
+    if (aside() || !fb || !G.Social.me || !(r.wave > 0) || !r.id) return [];
     const entry = {
       t: packWave(r.wave, r.cleared, r.time),
       uids: [fb.uid], names: [G.Social.me.name], dex: [r.dex | 0], shiny: [!!r.shiny],
@@ -254,7 +260,7 @@ G.Ranking = (() => {
   /** La sube el anfitrión: el equipo, con la oleada de la torre. */
   async function submitTowerGroup(r) {
     const fb = fbx();
-    if (!fb || !(r.wave > 0) || !r.id || !r.members || r.members.length < 2) return [];
+    if (partyHidden(r.members) || !fb || !(r.wave > 0) || !r.id || !r.members || r.members.length < 2) return [];
     const ms = r.members.slice().sort((a, b) => (a.uid < b.uid ? -1 : 1));
     if (!ms.some(m => m.uid === fb.uid)) return [];
     const entry = {
@@ -274,7 +280,7 @@ G.Ranking = (() => {
   /** La sube el anfitrión, con todo el equipo. */
   async function submitGroup(r) {
     const fb = fbx();
-    if (!fb || r.t < MIN_T || !r.members || r.members.length < 2) return [];
+    if (partyHidden(r.members) || !fb || r.t < MIN_T || !r.members || r.members.length < 2) return [];
     const ms = r.members.slice().sort((a, b) => (a.uid < b.uid ? -1 : 1));
     const id = ms.map(m => m.uid).join('_');
     const entry = { t: r.t, uids: ms.map(m => m.uid), names: ms.map(m => m.name), dex: ms.map(m => m.dex),
@@ -315,7 +321,7 @@ G.Ranking = (() => {
     const party = tower && tower.party === 'g' ? 'g' : 's';
     const b = mode === 'tw' && tower ? towerBoard(tower.id, tower.mode, period, party) : board(mode, period, dex);
     const solo = mode === 'tw' ? party !== 'g' : mode !== 'g';
-    const rows = sorted(await summary(b));
+    const rows = hide(sorted(await summary(b)));
     if (!friendsOnly) return rows.slice(0, TOP);
     const circle = [fb.uid, ...G.Social.friends.filter(f => f.status === 'ok').map(f => f.uid)].slice(0, 30);
     const inTop = rows.filter(r => r.uids.some(u => circle.includes(u)));
@@ -330,25 +336,28 @@ G.Ranking = (() => {
         const docs = await Promise.all(missing.map(u => col(b).doc(u).get().catch(() => null)));
         extra = docs.filter(d => d && d.exists).map(d => rowOf(d.id, d.data()));
       } else {
-        const s = await col(b).where('uids', 'array-contains-any', circle).get();
-        extra = s.docs.map(d => rowOf(d.id, d.data()));
+        extra = [];
+        for (let i = 0; i < circle.length; i += 10) {
+          const s = await col(b).where('uids', 'array-contains-any', circle.slice(i, i + 10)).get();
+          extra.push(...s.docs.map(d => rowOf(d.id, d.data())));
+        }
       }
       cacheSet(ck, extra);
     }
     const all = new Map();
-    for (const r of [...inTop, ...extra]) all.set(r.id, r);
+    for (const r of hide([...inTop, ...extra])) all.set(r.id, r);
     return [...all.values()].sort((a, c) => c.t - a.t).slice(0, TOP);
   }
 
   /** Tu puesto en la tabla (aunque no salgas en el top). → { pos, t, row } | null */
   async function myRank(mode, period, dex, tower) {
     const fb = fbx();
-    if (!fb) return null;
+    if (!fb || aside()) return null;
     const party = tower && tower.party === 'g' ? 'g' : 's';
     const b = mode === 'tw' && tower ? towerBoard(tower.id, tower.mode, period, party) : board(mode, period, dex);
     const solo = mode === 'tw' ? party !== 'g' : mode !== 'g';
     // ¿Estás en el top 50? Entonces el puesto sale del resumen, sin gastar nada.
-    const rows = sorted(await summary(b));
+    const rows = hide(sorted(await summary(b)));
     const i = rows.findIndex(r => r.uids.includes(fb.uid));
     if (i >= 0) return { pos: i + 1, t: rows[i].t, row: rows[i] };
     if (TOP_ONLY.has(period) || (dex && mode !== 'tw')) return { out: true };
@@ -447,6 +456,7 @@ G.Ranking = (() => {
     const board = kind === 'tickets' ? 'tickets' : 'gold';
     const top = await summary(board);
     return Object.entries(top).map(([id, v]) => ({ id, n: v.n | 0, name: v.name || '', dex: v.dex | 0, shiny: !!v.shiny, t1: v.t1 | 0, t10: v.t10 | 0, tb: v.tb | 0, tg: v.tg | 0 }))
+      .filter(r => !hiddenName(r.name))
       .sort((a, b) => b.n - a.n || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   }
 
@@ -488,7 +498,7 @@ G.Ranking = (() => {
   /** Sube tu oro y tus tickets al top 50 si la cifra cambia el puesto. */
   function touchPurse() {
     const fb = fbx();
-    if (!fb || !G.Social.me || !G.DB.save) return Promise.resolve();
+    if (aside() || !fb || !G.Social.me || !G.DB.save) return Promise.resolve();
     if (purseBusy) return purseBusy;
     const w = wallet();
     purseBusy = (async () => {
@@ -500,6 +510,50 @@ G.Ranking = (() => {
       if (now.coins !== w.coins || now.tickets !== w.tickets) touchPurse();
     });
     return purseBusy;
+  }
+
+  /**
+   * Cuenta de prueba: borra sus marcas (la ficha y la fila del top) la primera
+   * vez que entra en este navegador. Las reglas impiden volver a escribirlas.
+   */
+  function quiet() {
+    const fb = fbx();
+    if (!aside() || !fb) return Promise.resolve();
+    const flag = 'ps.rk.aside.' + fb.uid;
+    try { if (localStorage.getItem(flag) === '1') return Promise.resolve(); } catch (e) { /* nada */ }
+    if (quiet.busy) return quiet.busy;
+    quiet.busy = (async () => {
+      const snap = await fb.fs.collectionGroup('e').where('uids', 'array-contains', fb.uid).get();
+      for (const d of snap.docs) {
+        const board = d.ref.parent.parent.id;
+        await fb.fs.runTransaction(async tx => {
+          const s = await tx.get(sumRef(board));
+          const e = await tx.get(d.ref);
+          if (s.exists) {
+            const top = Object.assign({}, s.data().top || {});
+            if (top[d.id] && (top[d.id].uids || []).includes(fb.uid)) {
+              delete top[d.id];
+              tx.set(sumRef(board), { top, me: '', ev: d.id });
+            }
+          }
+          if (e.exists && (e.data().uids || []).includes(fb.uid)) tx.delete(d.ref);
+        });
+      }
+      await Promise.all(['gold', 'tickets'].map(b => fb.fs.runTransaction(async tx => {
+        const s = await tx.get(sumRef(b));
+        if (!s.exists) return;
+        const top = Object.assign({}, s.data().top || {});
+        if (!top[fb.uid]) return;
+        delete top[fb.uid];
+        tx.set(sumRef(b), { top, me: '', ev: fb.uid });
+      })));
+      try { localStorage.setItem(flag, '1'); localStorage.removeItem(bestKey()); } catch (e) { /* nada */ }
+      G.UI.toast('Esta cuenta no entra en el ranking', 3200);
+    })().catch(e => {
+      quiet.busy = null;
+      console.warn('[Ranking] cuenta de prueba:', e.code || e.message);
+    });
+    return quiet.busy;
   }
 
   /** Al borrar la cuenta: quita tus filas de los resúmenes que conoce este navegador. */
@@ -533,5 +587,5 @@ G.Ranking = (() => {
     try { localStorage.removeItem(bestKey()); } catch (e) { /* nada */ }
   }
 
-  return { PERIODS, periodIds, board, submitSolo, submitGroup, submitTower, submitTowerGroup, waveOf, clearedOf, top, myRank, removeMine, wealthTop, touchPurse, wallet };
+  return { PERIODS, periodIds, board, submitSolo, submitGroup, submitTower, submitTowerGroup, waveOf, clearedOf, top, myRank, removeMine, quiet, wealthTop, touchPurse, wallet };
 })();

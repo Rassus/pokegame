@@ -68,6 +68,44 @@ G.Items = (() => {
     return G.U.pick(pool).id;
   }
 
+  // En la torre no hay cofres ni cierre de run al que le saquen partido.
+  const TOWER_BAN = new Set(['lockpick', 'masterkey', 'amuletcoin']);
+
+  function itemCard(it) {
+    return {
+      w: 0, type: 'item', key: 'item:' + it.id, itemId: it.id,
+      icon: it.id, color: '#ffd23f', tag: 'Objeto',
+      title: it.name, desc: it.desc,
+      apply: p => {
+        if (!p || p.item === it.id) return;
+        p.equip(it.id);
+        G.Spawner.say('¡Llevas ' + it.name + '!', 2.6, true);
+        G.Progress.event('item', { id: it.id });
+        G.FX.ring(p.x, p.y, 8, 70, '#ffd23f', 0.55, 4);
+      }
+    };
+  }
+
+  /**
+   * Tienda del jefe de la torre: 2 objetos. avoid son los que acaba de ver
+   * (el cambio no los repite). Tampoco sale el que ya lleva.
+   */
+  function towerOffer(pl, n = 2, avoid) {
+    const ban = new Set(TOWER_BAN);
+    if (pl && pl.item) ban.add(pl.item);
+    const base = LIST.filter(i => !ban.has(i.id));
+    const skip = new Set(avoid || []);
+    let pool = base.filter(i => !skip.has(i.id));
+    if (pool.length < n) pool = base.slice();
+    const bag = pool.slice();
+    const out = [];
+    while (out.length < n && bag.length) {
+      const i = Math.floor(Math.random() * bag.length);
+      out.push(itemCard(bag.splice(i, 1)[0]));
+    }
+    return out;
+  }
+
   /** Cuántos llevan este objeto ahora (en grupo, cada uno el suyo). */
   function holders(id) {
     if (G.Coop && G.Coop.active) {
@@ -93,5 +131,5 @@ G.Items = (() => {
     return base + (Math.random() < x - base ? 1 : 0);
   }
 
-  return { LIST, BY, roll, STONE, DROP, each, holders, coinFreq, coinChance, coinRolls };
+  return { LIST, BY, roll, towerOffer, STONE, DROP, each, holders, coinFreq, coinChance, coinRolls };
 })();

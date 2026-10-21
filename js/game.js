@@ -277,18 +277,19 @@ G.Game = (() => {
     },
     levelStart(level) {
       // Si tenías abierta la elección de objeto, vuelve al terminar: afterLevelUp.
-      // level === 0: tienda de torre (2 mejoras + baya).
+      // level === 0: tienda de oleada (2 mejoras + baya). level < 0: tienda de objetos del jefe.
       if (state === 'choice' && openItem && G.Coop.active) G.Coop.holdEnd();
       state = 'levelup';
       G.UI.hide('scr-pause');
       G.Audio.sfx('levelup');
-      const shop = !level;
-      const cards = shop ? G.LevelUp.shopOffer(pl) : G.LevelUp.offer(pl);
+      const item = level < 0;
+      const shop = level === 0;
+      const cards = item ? G.Items.towerOffer(pl, 2) : shop ? G.LevelUp.shopOffer(pl) : G.LevelUp.offer(pl);
       G.RunUI.showLevelUp(level, cards, card => {
-        G.Audio.sfx(card.type === 'berry' ? 'heal' : 'confirm');
+        G.Audio.sfx(item ? 'legend' : card.type === 'berry' ? 'heal' : 'confirm');
         card.apply(pl);
         G.Coop.localPicked();
-      }, true, { shop });
+      }, true, { shop, item });
     },
     waiting(names) { G.RunUI.setWaiting(names); },
     resume() {
@@ -551,14 +552,16 @@ G.Game = (() => {
     G.Audio.music(null);
     G.Audio.sfx(dead ? 'gameover' : 'back');
     const save = G.DB.save;
-    const mul = pl.coinMul;
+    const mul = pl.coinMul || 1;
     const parts = {
       tiempo: Math.floor(time / 5),
       derrotados: Math.floor(pl.kills * 0.25),
       jefes: pl.bosses * 80,
       recogidas: pl.coins
     };
-    let coins = Math.round((parts.tiempo + parts.derrotados + parts.jefes + parts.recogidas) * mul);
+    const baseGold = parts.tiempo + parts.derrotados + parts.jefes + parts.recogidas;
+    let coins = Math.round(baseGold * mul);
+    const pay = { base: baseGold, mul: mul.toFixed(2).replace('.', ','), got: coins };
     const tower = G.Towers.take();
     let towerInfo = null;
     if (tower && !tower.duel) {
@@ -605,7 +608,9 @@ G.Game = (() => {
       }
       if (rw.gold) {
         coins += rw.gold;
-        towerExtra += ' · +' + G.U.num(rw.gold) + ' Pokémonedas';
+        const tier = rw.tier || 1;
+        const goldBase = rw.goldBase != null ? rw.goldBase : Math.round(rw.gold / tier);
+        pay.prize = { base: goldBase, tier, gold: rw.gold };
       }
       if (rw.ticket) {
         save.tickets = Object.assign({ t1: 0, t10: 0, tb: 0, tg: 0 }, save.tickets);
@@ -649,8 +654,8 @@ G.Game = (() => {
         dealt: pl.dmgBy[m.id] || 0, added: pl.buffAdd[m.id] || 0
       })),
       team: teamBoard,
+      pay,
       breakdown: Object.entries(parts).filter(([, v]) => v).map(([k, v]) => `${k} ${G.U.num(v)}`).join(' · ') +
-                 (mul > 1 ? ` · ×${mul.toFixed(2)} Fortuna` : '') +
                  (caughtName ? ' · ' + caughtName + ' atrapado' : '') + towerExtra
     }, () => { pl = null; G.Flow.afterRun(); });
   }
@@ -693,6 +698,26 @@ G.Game = (() => {
     }
     if (pl.dead) return;
     openCards(0, G.LevelUp.shopOffer(pl), true);
+  }
+
+  /** Torres: al caer un jefe, 2 objetos y 1 cambio, para todos. */
+  function maybeTowerItemShop() {
+    if (state !== 'playing' || !G.Towers.wantItem || !G.Towers.wantItem()) return;
+    if (G.Coop.active) {
+      if (G.Coop.players().every(p => p.dead)) return;
+      G.Towers.clearItem();
+      G.Coop.levelStart(-1);
+      return;
+    }
+    if (pl.dead) return;
+    G.Towers.clearItem();
+    state = 'levelup';
+    G.Audio.sfx('levelup');
+    G.RunUI.showLevelUp(0, G.Items.towerOffer(pl, 2), card => {
+      G.Audio.sfx('legend');
+      card.apply(pl);
+      state = 'playing';
+    }, false, { item: true });
   }
 
   // ---------------- vínculos ----------------
@@ -961,6 +986,11 @@ G.Game = (() => {
   function update(dt) {
     const coop = G.Coop.active;
     if (flashT > 0) flashT -= dt;
+    // El ángel solo gasta la vida cuando ya no hay quien te levante.
+    if (pl.dead && pl.angelLeft > 0 && G.Towers.active() && !pl.mateCanRaise()) {
+      pl.angelSave();
+      deathT = 0;
+    }
     // Tras caer, deja que se vea la animación de Faint antes del resumen.
     // (En la arena de la grieta no: allí caer sólo te echa de vuelta.)
     if (pl.dead && !coop && !G.Rift.inArena) {
@@ -1026,6 +1056,7 @@ G.Game = (() => {
 
     G.Audio.music(G.Rift.inArena || G.Towers.active() ? 'rift' : G.EnemyMgr.bossAlive() ? 'boss' : G.BIOME_MUSIC[biome % G.BIOME_MUSIC.length]);
     if (!coop || G.Coop.isHost) {
+      maybeTowerItemShop();
       maybeTowerShop();
       maybeLevelUp();
     }
@@ -1033,10 +1064,12 @@ G.Game = (() => {
     if (G.Coop.isHost) checkAllDown(dt);
   }
 
-  /** Caído en grupo: un compañero a tu lado te va levantando. */
+  /** Caído en grupo: un compañero a tu lado te va levantando.
+   *  En la torre, cada uno que esté a tu lado acorta el tiempo (3 s, 1,5 s, 1 s…). */
   function reviveTick(dt) {
-    const helper = G.Coop.puppets().some(p => !p.dead && G.U.dist2(p.x, p.y, pl.x, pl.y) < 56 * 56);
-    pl.reviveT = helper ? (pl.reviveT || 0) + dt : Math.max(0, (pl.reviveT || 0) - dt * 0.5);
+    const n = G.Coop.puppets().filter(p => !p.dead && G.U.dist2(p.x, p.y, pl.x, pl.y) < 56 * 56).length;
+    const rate = n > 0 && G.Towers.active() ? n : (n > 0 ? 1 : 0);
+    pl.reviveT = rate ? (pl.reviveT || 0) + dt * rate : Math.max(0, (pl.reviveT || 0) - dt * 0.5);
     if (pl.reviveT >= G.Player.REVIVE_TIME) pl.revive(0.5);
   }
 
@@ -1044,7 +1077,9 @@ G.Game = (() => {
   function checkAllDown(dt) {
     if (G.Rift.inArena || !G.Coop.players().every(p => p.dead)) { deathT = 0; return; }
     deathT += dt;
-    if (deathT > 1.6) {
+    // Si alguien aún tiene el ángel, su ordenador lo levanta y avisa. Se espera ese aviso.
+    const angel = G.Towers.active() && G.Coop.players().some(p => (p.angelLeft || 0) > 0);
+    if (deathT > (angel ? 3.5 : 1.6)) {
       deathT = 0;
       const tw = towerNet();
       G.Coop.over(Object.assign(summary(), tw ? { tw } : {}));
@@ -1077,6 +1112,7 @@ G.Game = (() => {
       if (it.prop) G.World.drawProp(ctx, it.prop, t);
       else it.ent.draw(ctx);
     }
+    G.Towers.drawAir(ctx);
   }
 
   function render() {
@@ -1229,20 +1265,33 @@ G.Game = (() => {
     quit() { if (state !== 'ui' && state !== 'over') quitRun(); },
     /** Para grabar vídeos: abre las cartas de subir de nivel. */
     debugLevelUp() { pl.level++; pendingLevels++; },
+    /** Suma monedas de esta run. Sirve para probar el bloqueo de la consola. */
+    debugCoins(n = 100000) { if (pl) pl.coins += Math.floor(n) || 0; },
     toUI() { state = 'ui'; Backdrop.restore(); },
-    get state() { return state; }, get player() { return pl; },
+    get state() { return state; },
+    get player() { return pl && G.Guard ? G.Guard.wrap(pl) : pl; },
     /** Shinies conseguidos en esta run: { dex, isNew }. */
     get caught() { return caught; },
     queueGoldWheel, st, salvageCrash, flushRank
   };
 })();
+if (G.Guard) G.Guard.sealCalls(G.Game);
 
 /* ============ Flow — transiciones entre pantallas ============ */
 G.Flow = {
   boot() {
     G.UI.initChrome();
     G.LoginUI.init(); G.TestUI.init(); G.MenuUI.init(); G.GachaUI.init();
-    G.SocialUI.init(); G.RankingUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init(); G.SupportUI.init(); G.NewsUI.init(); G.PassUI.init(); G.Updater.init();
+    G.SocialUI.init(); G.RankingUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init();
+    if (G.QA) G.QA.init();
+    if (G.Admin) G.Admin.init();
+    else if (/dev\.html$/i.test(location.pathname)) {
+      const adm = document.createElement('script');
+      adm.src = 'js/ui/admin.js';
+      adm.onload = () => { if (G.Admin) G.Admin.init(); };
+      document.body.appendChild(adm);
+    }
+    G.SupportUI.init(); G.NewsUI.init(); G.PassUI.init(); G.Updater.init();
     // Tu nombre arriba a la derecha abre tu perfil.
     document.getElementById('user-pill').onclick = () => G.GoalsUI.open('profile');
     G.Audio.music('village');     // suena tras el primer clic (lo exige el navegador)

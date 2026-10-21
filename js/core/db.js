@@ -46,6 +46,8 @@ G.DB = (() => {
     try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; }
     catch (e) { storageOk = false; return null; }
   }
+  function consoleCall() { return !!(G.Guard && G.Guard.fromConsole()); }
+
   function write(k, v) {
     try { localStorage.setItem(k, JSON.stringify(v)); return true; }
     catch (e) { storageOk = false; return false; }
@@ -87,6 +89,7 @@ G.DB = (() => {
       tower100: {},           // id de torre -> veces que la superaste
       towerMode: {},          // id -> { normal, hard, mad, wave, waveH, waveM }
       profile: { favs: [], title: '' },   // perfil público: 3 favoritos y título
+      epoch: 0,               // sube al reiniciar la cuenta: la copia vieja del navegador no se fusiona
       stats: { runs: 0, bestTime: 0, bestLevel: 0, totalKills: 0, pulls: 0, coinsEarned: 0, shinies: 0,
                bossesTotal: 0, riftWins: 0, evolutions: 0, missionsDone: 0, groupRuns: 0, bestGroupTime: 0,
                shinyKills: 0, shinyBosses: 0, goldPulls: 0, ticketsGot: 0, bestKills: 0, bestBosses: 0, towerClears: 0, towerBest: 0 }
@@ -284,6 +287,8 @@ G.DB = (() => {
   function merge(a, b) {
     if (!a) return b;
     if (!b) return a;
+    const ea = a.epoch || 0, eb = b.epoch || 0;
+    if (ea !== eb) return ea > eb ? a : b;
     const newer = (a.updated || 0) >= (b.updated || 0) ? a : b;
     const older = newer === a ? b : a;
     const r = JSON.parse(JSON.stringify(newer));
@@ -497,6 +502,7 @@ G.DB = (() => {
     // cuando hay varios escuchas a la vez. El sondeo largo no usa ese protocolo.
     try { fs.settings({ experimentalForceLongPolling: true, merge: true }); } catch (e) { /* ya había peticiones */ }
     rtdb = cfg.databaseURL ? firebase.database() : null;
+    if (G.Guard) G.Guard.sealFirebase();
     // Sólo para pruebas: { ..., emulator: true } usa el emulador local de Firebase.
     if (cfg.emulator) {
       auth.useEmulator('http://127.0.0.1:9099');
@@ -574,6 +580,7 @@ G.DB = (() => {
 
   /** Sube la partida fusionándola con lo que haya en la nube (transacción). */
   function pushNow() {
+    if (consoleCall()) return Promise.resolve();
     if (mode !== 'cloud' || guest || !save || !uid) return Promise.resolve();
     // Si ya hay una subida en marcha, se hace otra justo después (para lo que haya cambiado mientras).
     if (pushing) { pending = true; return pushing.then(() => (pending ? pushNow() : undefined)); }
@@ -754,6 +761,7 @@ G.DB = (() => {
 
   /** Cambia el nombre que se ve en la partida (al elegir apodo). */
   function setName(n) {
+    if (consoleCall()) return;
     if (!save || guest) return;
     save.name = n; user = n;
     commit();
@@ -771,6 +779,7 @@ G.DB = (() => {
    * @param urgent  lo que ha costado algo (tiradas del gacha, mejoras): se sube antes
    */
   function commit(urgent = false) {
+    if (consoleCall()) return false;
     if (guest || !key || !save) return false;
     save.updated = Date.now();
     if (G.Ranking && G.Ranking.touchPurse) G.Ranking.touchPurse();
@@ -844,6 +853,7 @@ G.DB = (() => {
   function owns(dex) { return !!(save && save.owned[dex]); }
 
   function grant(dex, from) {
+    if (consoleCall() || !save) return;
     if (!save.owned[dex]) save.owned[dex] = { at: Date.now(), from };
   }
 
@@ -851,20 +861,22 @@ G.DB = (() => {
 
   /** Mejoras compradas para un Pokémon: { id -> nivel }. */
   function upgradesOf(dex) {
-    if (!save) return {};
+    if (consoleCall() || !save) return {};
     save.pupg = save.pupg || {};
-    return save.pupg[dex] || (save.pupg[dex] = {});
+    const box = save.pupg[dex] || (save.pupg[dex] = {});
+    return G.Guard ? G.Guard.wrap(box) : box;
   }
 
   /** Mejoras de la cuenta (run, grieta y torre): { id -> nivel }. */
   function globalUpgrades() {
-    if (!save) return {};
+    if (consoleCall() || !save) return {};
     save.gupg = save.gupg || {};
-    return save.gupg;
+    return G.Guard ? G.Guard.wrap(save.gupg) : save.gupg;
   }
 
   /** Da la versión shiny (y la normal, si no la tenía). Devuelve true si es nueva. */
   function grantShiny(dex, from) {
+    if (consoleCall()) return false;
     grant(dex, from);
     if (save.shiny[dex]) return false;
     save.shiny[dex] = { at: Date.now(), from };
@@ -887,7 +899,7 @@ G.DB = (() => {
     get syncState() { return syncState; },
     get user() { return user; },
     get guest() { return guest; },
-    get save() { return save; },
+    get save() { return save && G.Guard ? G.Guard.wrap(save) : save; },
     get loggedIn() { return !!save; },
     get storageOk() { return storageOk; },
     START_COINS

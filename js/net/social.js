@@ -78,6 +78,7 @@ G.Social = (() => {
       if (!r.ok) return 'need-nick';
     } else return 'need-nick';
     online();
+    if (G.Ranking && G.Ranking.quiet) G.Ranking.quiet();
     if (G.Game && G.Game.flushRank) G.Game.flushRank();
     return 'ok';
   }
@@ -119,6 +120,7 @@ G.Social = (() => {
     G.DB.setName(name);
     if (started && !beatT) online();
     publishProfile(true);
+    if (G.Ranking && G.Ranking.quiet) G.Ranking.quiet();
     if (G.Game && G.Game.flushRank) G.Game.flushRank();
     return { ok: true };
   }

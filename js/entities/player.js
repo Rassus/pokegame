@@ -27,7 +27,7 @@ G.Player = class Player {
     this.coinMul = perks.coinMul || 1;
     this.ticketAdd = perks.ticketAdd || [0, 0, 0, 0];
     this.chestCut = perks.chestCut || 0;
-    this.angelLeft = perks.angel ? 1 : 0;   // Ángel guardián: una vida extra en la torre
+    this.angelLeft = perks.angel ? 1 : 0;   // Ángel guardián: te salva 1 vez si la torre se iba a perder
 
     const st = grown || mon;
     this.maxHp = st.hp + (perks.hp || 0);
@@ -281,14 +281,6 @@ G.Player = class Player {
       G.FX.dmgText(this.x, this.y - this.bodyH - 16, '¡Banda Focus!', '#ff9a3d', true);
       G.FX.ring(this.x, this.y, 6, 70, '#ff9a3d', 0.5, 4);
     }
-    if (this.hp <= 0 && this.angelLeft > 0 && G.Towers && G.Towers.active()) {
-      this.angelLeft--;
-      this.hp = this.maxHp;
-      this.invuln = 1.4;
-      G.FX.dmgText(this.x, this.y - this.bodyH - 16, '¡Ángel guardián!', '#fff6c8', true);
-      G.FX.ring(this.x, this.y, 8, 90, '#fff6c8', 0.7, 5);
-      G.Spawner.say('¡Ángel guardián! Vuelves a la vida', 2.4, true);
-    }
     if (this.hp <= 0) {
       this.hp = 0; this.dead = true;
       this.anim.play('Faint', { hold: true });
@@ -519,6 +511,31 @@ G.Player = class Player {
     this.anim.loop(this.walking ? 'Walk' : 'Idle', this.walking ? s / 110 : 1);
   }
 
+  /** Hay un compañero en pie que puede levantarte. Caer no gasta el ángel. */
+  mateCanRaise() {
+    return !!(G.Coop && G.Coop.active && G.Coop.players().some(p => p !== this && !p.dead));
+  }
+
+  /**
+   * Ángel guardián. Solo cuando esta caída iba a terminar la torre
+   * (nadie puede levantarte). Devuelve la vida entera.
+   */
+  angelSave() {
+    if (this.angelLeft <= 0) return false;
+    this.angelLeft--;
+    const was = this.dead;
+    this.dead = false;
+    this.hp = this.maxHp;
+    this.invuln = 2;
+    this.reviveT = 0;
+    if (was && this.anim) this.anim._start('Idle', false);
+    G.FX.dmgText(this.x, this.y - this.bodyH - 16, '¡Ángel guardián!', '#fff6c8', true);
+    G.FX.ring(this.x, this.y, 8, 90, '#fff6c8', 0.7, 5);
+    G.Spawner.say('¡Ángel guardián! Vuelves a la vida', 2.4, true);
+    G.Audio.sfx('heal');
+    return true;
+  }
+
   /** Vuelve a levantarse (lo revive un compañero en cooperativo). */
   revive(frac = 0.5) {
     this.dead = false;
@@ -550,6 +567,7 @@ G.Player = class Player {
     this.hp = n.hp; this.maxHp = n.maxHp;
     if (n.dmg != null) this.dmgDealt = n.dmg;
     if (n.down != null) this.deadTime = n.down;
+    if (n.angel != null) this.angelLeft = n.angel ? 1 : 0;
     this.magnet = n.mag || this.magnet;
     this.reviveT = n.rev || 0;
     if (n.dead && !this.dead) { this.dead = true; this.anim.play('Faint', { hold: true }); G.Projectiles.clearOrbs(this); }

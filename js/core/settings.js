@@ -7,14 +7,15 @@
  *   calm        true/false                        menos sacudidas y destellos
  *   fps         true/false                        contador de FPS
  *   stick       0.8 | 1 | 1.25                    tamaño del joystick táctil
- *   helpers     true/false                        botones de prueba (monedas, tickets, pokédex)
+ *   helpers     true/false                        botones de prueba viejos (apagados)
+ *   qa          true/false                        ya no se usa: la prueba está en el menú (js/ui/qa.js)
  *
  *   G.Settings.get('quality')  ·  G.Settings.set('fps', true)  ·  G.Settings.on(fn)
  *   G.Settings.fx   nivel efectivo 0 (bajo) .. 2 (alto), ya resuelto el 'auto'
  */
 G.Settings = (() => {
   const KEY = 'ps.settings';
-  const DEF = { quality: 'auto', dmgNumbers: true, calm: false, fps: false, stick: 1, helpers: false };
+  const DEF = { quality: 'auto', dmgNumbers: true, calm: false, fps: false, stick: 1, helpers: false, qa: false };
   let s = Object.assign({}, DEF);
   let helpersWasOn = false;
   try {

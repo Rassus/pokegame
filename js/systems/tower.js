@@ -1,7 +1,8 @@
 /* ============ tower.js — torres en una grieta ============
  * Cada jefe vencido en una grieta tiene su torre. La primera oleada sale al
  * entrar; las siguientes, cada 10 s, aunque queden vivos. Difícil duplica
- * los Pokémon, baja a 5 s y parte al jefe en 10 etapas. Demencial los
+ * los Pokémon, les da ×1,3 de vida y de velocidad de ataque, baja a 5 s y
+ * parte al jefe en 10 etapas. Demencial los
  * cuadruplica, una oleada cada 2 s y un jefe en cada una: se quedan todos.
  * Se juega en una arena de grieta más ancha que la del legendario: las
  * oleadas salen en el borde, lejos de los jugadores. La dificultad sube con
@@ -13,9 +14,11 @@
  * grises. Rayquaza es aparte: 150 oleadas, 100.000 de oro y seis encuentros
  * antes del jefe final.
  *
- * En torres de Kanto, los Pokémon de oleada dan XP ×2, 3 Pokémonedas y un
- * 0,01% de un fragmento de su línea. En todas las torres, la tienda abre cada
+ * Cada Pokémon de oleada tiene un 70% de soltar oro: 3 × la tier + 3 × Oro
+ * extra. La experiencia es la base ×1 en normal, ×0,5 en difícil y ×0,1 en
+ * demencial, y después Exp extra. En Kanto, un 0,01% de un fragmento. La tienda abre cada
  * 10 oleadas (Premio por oleada la adelanta hasta cada 5): 2 mejoras y una baya.
+ * Al caer un jefe no suelta objeto: abre una tienda con 2 objetos y 1 cambio.
  *
  * Al superar la torre el premio sigue la tier: Kanto es 1 y cada región
  * suma una; el difícil empieza en 10 y el demencial en 19. El oro es ×4 del
@@ -30,22 +33,33 @@ G.Towers = (() => {
   const ARENA_R = 16;
   const MODES = [
     { id: 'normal', name: 'Normal', hint: '10 s', pack: 1, every: 10, stages: 0, stack: false },
-    { id: 'hard', name: 'Difícil', hint: '×4 precio', detail: '×4 de precio · ×2 Pokémon · 5 s · jefe en 10 etapas', pack: 2, every: 5, stages: 10, stack: false },
+    { id: 'hard', name: 'Difícil', hint: '×4 precio', detail: '×4 de precio · ×2 Pokémon · ×1,3 vida y ataque · 5 s · jefe en 10 etapas', pack: 2, every: 5, stages: 10, stack: false },
     { id: 'mad', name: 'Demencial', hint: 'sin costo', detail: 'sin costo · ×4 Pokémon · 2 s · jefe en cada oleada', pack: 4, every: 2, stages: 0, stack: true }
   ];
   const CHANSEY = 113;
   const RAYQUAZA = 384;
-  // Cinco luces: la primera tarda 1,5 s y cada una va más rápida. Luego el rayo.
+  const ARTICUNO = 144;
+  // Cinco luces: la primera tarda 1,5 s y cada una va más rápida. Al cerrarse
+  // la última, el rayo marca el carril 1 s y entonces dispara.
   const RAY_PULSE = [1.5, 1.08, 0.78, 0.56, 0.4];
+  const RAY_AIM = 1;
   const RAY_BEAM = 4;
   const RAY_SCORCH = 15;
   const RAY_CD = 30;
+  // Articuno: cinco círculos que se cierran en la boca. Luego un rayo de ancho
+  // fijo barre 45° de ida y vuelve al mismo punto.
+  const ICE_PULSE = [1.05, 0.85, 0.65, 0.48, 0.34];
+  const ICE_ARC = Math.PI / 4;
+  const ICE_PASS = 1.2;
+  const ICE_W = 42;
+  const ICE_CD = 26;
   const CHANSEY_N = { 10: 1, 30: 3, 50: 5, 70: 7, 90: 7 };
   const PLAN = [25, 50, 75, 100];
   const REGIONS = ['', 'Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Teselia', 'Kalos', 'Alola', 'Galar', 'Paldea'];
   const ONE = { hp: 1, spd: 1, dmg: 1 };
-  // Torres de Kanto: más XP/oro por baja y un fragmento muy raro.
-  const KANTO = { xp: 2, gold: 3, fragPct: 0.01 };
+  // Oro de una baja, sin la mejora Oro extra. En Kanto, un fragmento muy raro.
+  const GOLD_BASE = 3;
+  const KANTO_FRAG = 0.01;
 
   function specFor(p) {
     if (p.dex === 384) return { fee: 100000, tickets: 0, waves: 150, plan: [20, 40, 60, 80, 100, 120, 150] };
@@ -219,14 +233,14 @@ G.Towers = (() => {
     return t.plan.slice();
   }
 
-  /** Qué jefe y en qué arena. La llama quien entra. */
-  function prepare(id, modeId) {
+  /** Qué jefe y en qué arena. La llama quien entra. Con force, sin mirar si la torre está abierta (modo prueba). */
+  function prepare(id, modeId, force) {
     const t = LIST.find(x => x.id === id);
     if (!t) return null;
     const dex = t.dexes[0];
-    if (!unlocked(dex)) return null;
+    if (!force && !unlocked(dex)) return null;
     const mode = modeOf(modeId);
-    if (!modeOpen(id, mode.id)) return null;
+    if (!force && !modeOpen(id, mode.id)) return null;
     const pay = due(id, mode.id);
     return {
       id, dex, fee: t.fee, tickets: pay.tickets, waves: t.waves, plan: planFor(t, mode),
@@ -268,7 +282,7 @@ G.Towers = (() => {
       plan, phases: plan.length, fee: cfg.fee || 0,
       every: cfg.every || EVERY, pack: cfg.pack || 1, stack: !!cfg.stack, mode: cfg.mode || 'normal',
       tier: cfg.tier || tierOf(gen, cfg.mode),
-      wave: 0, wait: 0.4, cleared: false, done: false, reward: null,
+      wave: 0, wait: 0.4, cleared: false, done: false, reward: null, itemShops: 0,
       bosses: [], finalDown: false, aura: 0, fx: null, duel: !!cfg.duel,
       ax: cfg.arena.tx * tile + tile / 2, ay: cfg.arena.ty * tile + tile / 2, ar: cfg.arena.r
     };
@@ -384,24 +398,29 @@ G.Towers = (() => {
   /** Cada oleada es un 3% más fuerte que la anterior, en vida y en daño. */
   function growOf(k) { return Math.pow(1.03, Math.max(0, k - 1)); }
 
-  function kantoLoot() {
-    return run && !run.duel && run.gen === 1 ? KANTO : null;
+  function modeXp() {
+    if (!run) return 1;
+    if (run.mode === 'hard') return 0.5;
+    if (run.mode === 'mad') return 0.1;
+    return 1;
   }
 
   function waveDef(p, k, mul, behavior) {
     const grow = growOf(k);
     const far = (p.types || []).some(t => ['psychic', 'electric', 'fire', 'water', 'ice', 'ghost', 'dragon'].includes(t));
     const beh = behavior || (far ? 'ranged' : 'chase');
-    const loot = kantoLoot();
-    const xp = Math.round((4 + k * 1.4) * (loot ? loot.xp : 1) * G.Upgrades.towerXp());
+    const xp = Math.round((4 + k * 1.4) * modeXp() * G.Upgrades.towerXp());
+    // Difícil: las oleadas pegan más seguido y aguantan más. El daño no cambia.
+    const hard = run && run.mode === 'hard' ? 1.3 : 1;
     return {
       dex: p.dex, name: p.name, behavior: beh,
-      hp: Math.round((26 + k * 12) * mul * grow),
+      hp: Math.round((26 + k * 12) * mul * grow * hard),
       spd: Math.round(G.U.clamp(52 + ((p.spd || 78) - 78) * 0.25, 46, 96)),
       dmg: Math.round((6 + k * 0.85) * mul * grow),
       xp,
       shotDmg: Math.round((4 + k * 0.55) * mul * grow),
-      shotCd: beh === 'healer' ? 3.5 : 2.1,
+      shotCd: (beh === 'healer' ? 3.5 : 2.1) / hard,
+      atkSpd: hard,
       range: beh === 'healer' ? 230 : 200
     };
   }
@@ -430,14 +449,18 @@ G.Towers = (() => {
 
   function wantShop() { return !!(run && run.wantShop && !run.duel); }
   function clearShop() { if (run) run.wantShop = false; }
+  function wantItem() { return !!(run && run.itemShops > 0); }
+  function clearItem() { if (run && run.itemShops > 0) run.itemShops--; }
 
-  /** Botín de oleada: oro extra de la cuenta y, en Kanto, el bono y el fragmento. */
+  /** 70%: oro base × tier + oro base × Oro extra. En Kanto, el fragmento. */
   function onMinionDown(e) {
     if (!run || run.duel || !e || e.boss || e.legend || e.towerPhase) return;
-    const loot = kantoLoot();
-    const gold = (loot ? loot.gold : 0) + G.Upgrades.towerGold();
-    if (gold > 0) G.Pickups.drop('coin', e.x + G.U.rand(-8, 8), e.y + G.U.rand(-6, 6), gold);
-    if (loot && Math.random() * 100 < loot.fragPct) grantFrag(e.dex, true);
+    if (Math.random() < 0.7) {
+      const base = GOLD_BASE;
+      const gold = Math.round(base * (run.tier || 1) + base * G.Upgrades.towerGold());
+      if (gold > 0) G.Pickups.drop('coin', e.x + G.U.rand(-8, 8), e.y + G.U.rand(-6, 6), gold);
+    }
+    if (run.gen === 1 && Math.random() * 100 < KANTO_FRAG) grantFrag(e.dex, true);
   }
 
   function grantFrag(dex, send) {
@@ -479,7 +502,7 @@ G.Towers = (() => {
     const def = {
       dex: mon.dex, name: mon.name, behavior: far ? 'ranged' : 'charger',
       hp: Math.round(4200 * mul), spd: Math.round(G.U.clamp(50 + (mon.spd - 78) * 0.45, 48, 100)),
-      dmg: Math.round(34 * mul), xp: Math.round((360 + phase * 80) * G.Upgrades.towerXp()),
+      dmg: Math.round(34 * mul), xp: Math.round((360 + phase * 80) * modeXp() * G.Upgrades.towerXp()),
       shotDmg: Math.round(18 * mul), shotCd: 1, range: 280
     };
     const [bx, by] = bossSpot();
@@ -489,7 +512,7 @@ G.Towers = (() => {
     e.towerPhase = phase;
     e.maxShield = Math.round(e.maxHp * 0.25);
     e.shield = e.maxShield;
-    e.tower = { meds: 0, med: 0, auraR: 340, cd: 5, cast: null, rad: 0, rayCd: mon.dex === RAYQUAZA ? 20 : 0 };
+    e.tower = { meds: 0, med: 0, auraR: 340, cd: 5, cast: null, rad: 0, rayCd: mon.dex === RAYQUAZA ? 20 : 0, iceCd: mon.dex === ARTICUNO ? 12 : 0 };
     if (run.shiny) e.makeShiny();
     G.EnemyMgr.add(e);
     run.bosses.push({ id: e.id, phase });
@@ -540,10 +563,15 @@ G.Towers = (() => {
       run.fx = null;
     } else if (ev[1] === 'aura') run.aura = 30;
     else if (ev[1] === 'ray' && ev[2] === 'off') {
-      if (run.ray && run.ray.phase === 'ring') run.ray = null;
+      if (run.ray && (run.ray.phase === 'ring' || run.ray.phase === 'aim')) run.ray = null;
     } else if (ev[1] === 'ray' && ev[2] === 'go') {
       run.ray = { phase: 'ring', n: 0, t: 0, dur: RAY_PULSE[0], tick: 0, owner: ev[3] || 0 };
       G.Audio.sfx('boss');
+    } else if (ev[1] === 'ray' && ev[2] === 'aim') {
+      run.ray = {
+        phase: 'aim', t: 0, tick: 0, owner: ev[3] || 0,
+        x: ev[4], y: ev[5], ang: (ev[6] || 0) / 1000, len: ev[7] || 0, w: ev[8] || 0
+      };
     } else if (ev[1] === 'ray' && ev[2] === 'beam') {
       run.ray = {
         phase: 'beam', t: 0, tick: 0.2,
@@ -551,6 +579,19 @@ G.Towers = (() => {
       };
       G.Camera.kick(0.85);
       G.Audio.sfx('shot', { kind: 'beam', type: 'dragon' });
+    } else if (ev[1] === 'ice' && ev[2] === 'off') {
+      run.ice = null;
+    } else if (ev[1] === 'ice' && ev[2] === 'go') {
+      run.ice = { phase: 'in', n: 0, t: 0, dur: ICE_PULSE[0], tick: 0, owner: ev[3] || 0 };
+      G.Audio.sfx('boss');
+    } else if (ev[1] === 'ice' && ev[2] === 'fan') {
+      run.ice = {
+        phase: 'fan', t: 0, tick: 0, owner: ev[3] || 0,
+        a0: (ev[4] || 0) / 1000, len: ev[5] || 0, w: ev[6] || ICE_W, dmg: ev[7] || 8
+      };
+      placeIce(run.ice);
+      G.Camera.kick(0.45);
+      G.Audio.sfx('shot', { kind: 'beam', type: 'ice' });
     }
   }
 
@@ -575,6 +616,20 @@ G.Towers = (() => {
     return bossOf();
   }
 
+  /** Hacia quién apunta al terminar las luces. Ese segundo no se mueve. */
+  function rayAim(e) {
+    const mates = G.Game.everyone().filter(p => p && !p.dead);
+    let tx = e.x + 1, ty = e.y, best = Infinity;
+    for (const p of mates) {
+      const d = G.U.dist2(e.x, e.y, p.x, p.y);
+      if (d < best) { best = d; tx = p.x; ty = p.y; }
+    }
+    return {
+      x: e.x, y: e.y, ang: Math.atan2(ty - e.y, tx - e.x),
+      w: Math.round(spriteW(e.dex)), len: Math.round((run.ar || 11) * ts() * 2.8)
+    };
+  }
+
   function startRay(e) {
     run.ray = { phase: 'ring', n: 0, t: 0, dur: RAY_PULSE[0], tick: 0, owner: e.id };
     net(['tw', 'ray', 'go', e.id]);
@@ -582,21 +637,24 @@ G.Towers = (() => {
     G.Audio.sfx('boss');
   }
 
+  function beginAim(e) {
+    const a = rayAim(e);
+    run.ray = Object.assign({ phase: 'aim', t: 0, tick: 0, owner: e.id }, a);
+    net(['tw', 'ray', 'aim', e.id, Math.round(a.x), Math.round(a.y), Math.round(a.ang * 1000), a.len, a.w]);
+    e.look = a.ang;
+  }
+
   function fireRay(e) {
-    const mates = G.Game.everyone().filter(p => p && !p.dead);
-    let tx = e.x + 1, ty = e.y, best = Infinity;
-    for (const p of mates) {
-      const d = G.U.dist2(e.x, e.y, p.x, p.y);
-      if (d < best) { best = d; tx = p.x; ty = p.y; }
-    }
-    const ang = Math.atan2(ty - e.y, tx - e.x);
-    const w = Math.round(spriteW(e.dex));
-    const len = Math.round((run.ar || 11) * ts() * 2.8);
+    const prev = run.ray && run.ray.ang != null ? run.ray : rayAim(e);
     const dmg = Math.max(8, Math.round(e.shotDmg()));
     const burn = Math.max(5, Math.round(dmg * 0.45));
-    run.ray = { phase: 'beam', t: 0, tick: 0.2, x: e.x, y: e.y, ang, len, w, dmg, burn, owner: e.id };
-    e.look = ang;
-    net(['tw', 'ray', 'beam', Math.round(e.x), Math.round(e.y), Math.round(ang * 1000), len, w, dmg, burn, e.id]);
+    run.ray = {
+      phase: 'beam', t: 0, tick: 0.2,
+      x: prev.x, y: prev.y, ang: prev.ang, len: prev.len, w: prev.w,
+      dmg, burn, owner: e.id
+    };
+    e.look = prev.ang;
+    net(['tw', 'ray', 'beam', Math.round(prev.x), Math.round(prev.y), Math.round(prev.ang * 1000), prev.len, prev.w, dmg, burn, e.id]);
     G.Camera.kick(0.85);
     G.Audio.sfx('shot', { kind: 'beam', type: 'dragon' });
     G.Spawner.say('¡Rayo!', 1.8);
@@ -621,14 +679,27 @@ G.Towers = (() => {
       r.t += dt;
       if (r.t < r.dur) return;
       if (r.n >= RAY_PULSE.length - 1) {
-        if (authority() && e) fireRay(e);
+        if (authority() && e) beginAim(e);
         else r.t = r.dur;
         return;
       }
-      if (e) G.FX.ring(e.x, e.y - e.bodyH * 0.42, spriteW(e.dex) / 2, spriteW(e.dex), '#e8ff9a', 0.4, 3);
+      if (e) {
+        const cy = e.y - e.bodyH * 0.42;
+        G.FX.ring(e.x, cy, spriteW(e.dex) / 2, Math.max(80, spriteW(e.dex)), '#f6ffd0', 0.35, 4);
+        G.FX.burst(e.x, cy, '#d8ff6a', 12, 180);
+      }
       r.n++;
       r.t = 0;
       r.dur = RAY_PULSE[r.n];
+      return;
+    }
+    if (r.phase === 'aim') {
+      const e = rayBoss();
+      if (authority() && (!e || (r.owner && e.id !== r.owner))) { run.ray = null; net(['tw', 'ray', 'off']); return; }
+      r.t += dt;
+      if (r.t < RAY_AIM) return;
+      if (authority() && e) fireRay(e);
+      else r.t = RAY_AIM;
       return;
     }
     if (r.phase === 'beam') {
@@ -641,12 +712,127 @@ G.Towers = (() => {
       r.tick = 0.35;
       const e = rayBoss();
       if (e && e.tower && (!r.owner || e.id === r.owner)) { e.tower.rayCd = RAY_CD; e.look = null; }
-      if (authority()) G.Spawner.say('El suelo arde', 2);
+      if (authority()) G.Spawner.say('La lava cubre el suelo', 2);
       return;
     }
     r.t += dt;
     rayHurt(r, dt, r.burn, 'fire');
     if (r.t >= RAY_SCORCH) run.ray = null;
+  }
+
+  function iceBoss() {
+    const id = run.ice && run.ice.owner;
+    if (!id) return null;
+    const e = G.EnemyMgr.get(id);
+    return e && !e.dead ? e : null;
+  }
+
+  /** 0 en un borde, 1 en el otro y otra vez 0: dos pasadas, mismo punto. */
+  function fanAng(r) {
+    const u = Math.min(1, r.t / (ICE_PASS * 2));
+    const tri = u <= 0.5 ? u * 2 : 2 - u * 2;
+    return r.a0 + tri * ICE_ARC;
+  }
+
+  function mouthAt(e, ang) {
+    const reach = spriteW(e.dex) * 0.2;
+    const a = ang || 0;
+    return {
+      x: e.x + Math.cos(a) * reach,
+      y: e.y - e.bodyH * 0.42 + Math.sin(a) * reach * 0.35
+    };
+  }
+
+  function placeIce(r) {
+    if (!r || r.phase !== 'fan') return;
+    r.ang = fanAng(r);
+    const e = iceBoss();
+    if (!e) return;
+    const m = mouthAt(e, r.ang);
+    r.x = m.x;
+    r.y = m.y;
+  }
+
+  function iceToward(e) {
+    const mates = G.Game.everyone().filter(p => p && !p.dead);
+    let tx = e.x + 1, ty = e.y - e.bodyH * 0.45, best = Infinity;
+    for (const p of mates) {
+      const d = G.U.dist2(e.x, e.y, p.x, p.y);
+      if (d < best) { best = d; tx = p.x; ty = p.y - (p.bodyH || 0) * 0.45; }
+    }
+    const my = e.y - e.bodyH * 0.42;
+    return Math.atan2(ty - my, tx - e.x) - ICE_ARC / 2;
+  }
+
+  /** El rayo va a la altura del cuerpo, no de los pies. */
+  function iceTouches(r, pl) {
+    const h = pl.bodyH || 36;
+    const rad = pl.r || 12;
+    return inRay(r, pl.x, pl.y - h * 0.35, rad)
+      || inRay(r, pl.x, pl.y - h * 0.7, rad);
+  }
+
+  function startIce(e) {
+    run.ice = { phase: 'in', n: 0, t: 0, dur: ICE_PULSE[0], tick: 0, owner: e.id };
+    net(['tw', 'ice', 'go', e.id]);
+    G.Spawner.say('¡Articuno inhala!', 2);
+    G.Audio.sfx('boss');
+  }
+
+  function fireIce(e) {
+    const a0 = iceToward(e);
+    const len = Math.round((run.ar || 11) * ts() * 2.2);
+    const dmg = Math.max(7, Math.round(e.shotDmg()));
+    run.ice = { phase: 'fan', t: 0, tick: 0, owner: e.id, a0, len, w: ICE_W, dmg };
+    placeIce(run.ice);
+    e.look = run.ice.ang;
+    net(['tw', 'ice', 'fan', e.id, Math.round(a0 * 1000), len, ICE_W, dmg]);
+    G.Camera.kick(0.45);
+    G.Audio.sfx('shot', { kind: 'beam', type: 'ice' });
+    G.Spawner.say('¡Rayo congelante!', 1.6);
+  }
+
+  function tickIce(dt) {
+    const r = run && run.ice;
+    if (!r) return;
+    if (r.phase === 'in') {
+      const e = iceBoss();
+      if (authority() && (!e || (r.owner && e.id !== r.owner))) { run.ice = null; net(['tw', 'ice', 'off']); return; }
+      r.t += dt;
+      if (r.t < r.dur) return;
+      if (r.n >= ICE_PULSE.length - 1) {
+        if (authority() && e) fireIce(e);
+        else r.t = r.dur;
+        return;
+      }
+      if (e) {
+        const m = e.look != null ? mouthAt(e, e.look) : { x: e.x, y: e.y - e.bodyH * 0.42 };
+        G.FX.ring(m.x, m.y, 18, Math.max(70, spriteW(e.dex) * 0.45), '#9fd8ff', 0.3, 3);
+      }
+      r.n++;
+      r.t = 0;
+      r.dur = ICE_PULSE[r.n];
+      return;
+    }
+    const e = iceBoss();
+    if (r.owner && !e) {
+      run.ice = null;
+      if (authority()) net(['tw', 'ice', 'off']);
+      return;
+    }
+    r.t += dt;
+    placeIce(r);
+    if (e) e.look = r.ang;
+    const pl = G.Game.player;
+    if (pl && !pl.dead && r.x != null && iceTouches(r, pl)) {
+      pl.slowT = Math.max(pl.slowT || 0, 1.2);
+      if (r.tick <= 0) { pl.hurt(r.dmg, 'ice'); r.tick = 0.45; }
+      else r.tick -= dt;
+    } else r.tick = 0;
+    if (r.t < ICE_PASS * 2) return;
+    if (e && e.tower && (!r.owner || e.id === r.owner)) e.tower.iceCd = ICE_CD;
+    run.ice = null;
+    if (authority()) net(['tw', 'ice', 'off']);
   }
 
   function startCast(e, pl, id) {
@@ -688,9 +874,12 @@ G.Towers = (() => {
   function hold(e, dt, pl) {
     const t = e.tower;
     if (!t || !run) return null;
-    const rayOn = run.ray && (run.ray.phase === 'ring' || run.ray.phase === 'beam');
+    const rayOn = run.ray && (run.ray.phase === 'ring' || run.ray.phase === 'aim' || run.ray.phase === 'beam');
     const mine = rayOn && (!run.ray.owner || run.ray.owner === e.id);
+    const iceOn = run.ice && (run.ice.phase === 'in' || run.ice.phase === 'fan');
+    const iceMine = iceOn && (!run.ice.owner || run.ice.owner === e.id);
     if (e.dex === RAYQUAZA && !rayOn && t.rayCd > 0) t.rayCd -= dt;
+    if (e.dex === ARTICUNO && !iceOn && t.iceCd > 0) t.iceCd -= dt;
     if (t.med > 0) {
       t.med -= dt;
       e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.25 * dt / 4);
@@ -725,12 +914,23 @@ G.Towers = (() => {
     if (mine) {
       if (e.ai) e.ai.cast = null;
       e.guard = 0;
-      e.look = run.ray.phase === 'beam' ? run.ray.ang : null;
+      e.look = (run.ray.phase === 'aim' || run.ray.phase === 'beam') && run.ray.ang != null ? run.ray.ang : null;
       return [0, 0, run.ray.phase === 'beam' ? 'Shoot' : 'Charge'];
     }
+    if (iceMine) {
+      if (e.ai) e.ai.cast = null;
+      e.guard = 0;
+      if (run.ice.phase === 'fan' && run.ice.ang != null) e.look = run.ice.ang;
+      else if (pl) e.look = Math.atan2(pl.y - e.y, pl.x - e.x);
+      return [0, 0, run.ice.phase === 'fan' ? 'Shoot' : 'Charge'];
+    }
     e.look = null;
-    if (e.dex === RAYQUAZA && t.rayCd <= 0 && !rayOn) {
+    if (e.dex === RAYQUAZA && t.rayCd <= 0 && !rayOn && !iceOn) {
       startRay(e);
+      return [0, 0, 'Charge'];
+    }
+    if (e.dex === ARTICUNO && t.iceCd <= 0 && !iceOn && !rayOn) {
+      startIce(e);
       return [0, 0, 'Charge'];
     }
     e.guard = 0;
@@ -775,10 +975,14 @@ G.Towers = (() => {
       b.down = true;
       run.aura = 0;
       run.fx = null;
-      if (run.ray && run.ray.phase === 'ring' && (!run.ray.owner || run.ray.owner === b.id)) {
+      if (run.ray && (run.ray.phase === 'ring' || run.ray.phase === 'aim') && (!run.ray.owner || run.ray.owner === b.id)) {
         run.ray = null; net(['tw', 'ray', 'off']);
       }
+      if (run.ice && (!run.ice.owner || run.ice.owner === b.id)) {
+        run.ice = null; net(['tw', 'ice', 'off']);
+      }
       grantBond(true);
+      run.itemShops = (run.itemShops || 0) + 1;
       if (b.phase < run.phases) {
         if (!run.stack) G.Spawner.say('Se retira… volverá más adelante', 2.4);
       } else run.finalDown = true;
@@ -799,7 +1003,9 @@ G.Towers = (() => {
     const tier = run.tier || 1;
     const frags = Math.random() < 0.6 ? Math.round(G.U.randInt(45, 100) * 1.5 * tier) : 0;
     const ticket = Math.round(0.8 * tier);
-    return { frags, caught, caughtShiny, gold: Math.round((run.fee || 0) * 4 * tier), ticket };
+    const goldBase = Math.round((run.fee || 0) * 4);
+    const gold = Math.round(goldBase * tier);
+    return { frags, caught, caughtShiny, gold, goldBase, tier, ticket };
   }
 
   function finish() {
@@ -821,6 +1027,7 @@ G.Towers = (() => {
   function update(dt, pl) {
     if (!run || run.done) return;
     tickRay(dt);
+    tickIce(dt);
     const me = pl || G.Game.player;
     if (!me) return;
     if (me.dead && !G.Coop.active) return;
@@ -857,7 +1064,7 @@ G.Towers = (() => {
 
   /** La torre está limpia: el jefe final cayó y no queda nadie. */
   function clearReady() {
-    return authority() && !!run && !run.done && run.wave >= run.waves && run.finalDown && !anyAlive();
+    return authority() && !!run && !run.done && run.wave >= run.waves && run.finalDown && !anyAlive() && !(run.itemShops > 0);
   }
 
   function grantBond(send) {
@@ -896,47 +1103,250 @@ G.Towers = (() => {
       ctx.stroke();
       ctx.restore();
     }
-    drawRay(ctx);
+    drawRayGround(ctx);
   }
 
-  function drawRay(ctx) {
+  /** El rayo, por encima de los personajes. El suelo quemado se queda abajo. */
+  function drawAir(ctx) {
+    if (!run) return;
+    drawRayAir(ctx);
+    drawIceAir(ctx);
+  }
+
+  const rayStep = k => k > 0.66 ? 1 : k > 0.33 ? 0.66 : k > 0.08 ? 0.33 : 0;
+
+  function pixRing(ctx, x, y, rad, color, size, spin) {
+    const PX = G.Sprites.PX;
+    const n = Math.max(14, Math.ceil(rad * 6.2832 / (PX * 2)));
+    ctx.fillStyle = color;
+    for (let i = 0; i < n; i++) {
+      const a = spin + i / n * 6.2832;
+      ctx.fillRect(Math.round((x + Math.cos(a) * rad) / PX) * PX, Math.round((y + Math.sin(a) * rad) / PX) * PX, size, size);
+    }
+  }
+
+  /** Anillos de luz que se cierran sobre Rayquaza. */
+  function drawCharge(ctx, r) {
+    const e = rayBoss();
+    if (!e) return;
+    const PX = G.Sprites.PX;
+    const endR = spriteW(e.dex) / 2;
+    const startR = Math.max(260, endR * 3.4);
+    const u = Math.min(1, r.t / Math.max(0.05, r.dur));
+    const rad = startR + (endR - startR) * u;
+    const cy = e.y - e.bodyH * 0.42;
+    const now = performance.now() / 1000;
+    const spin = now * (1.4 + r.n * 0.55);
+    ctx.save();
+    pixRing(ctx, e.x, cy, rad, '#f6ffd0', PX * 2, spin);
+    if (rad > 24) pixRing(ctx, e.x, cy, rad + PX * 4, '#7dff32', PX, -spin * 0.7);
+    if (G.Settings.fx > 0 && rad > 40) pixRing(ctx, e.x, cy, rad * 0.62 + endR, '#e8ff9a', PX, spin * 1.6);
+    const spokes = G.Settings.fx > 1 ? 10 : 6;
+    ctx.globalAlpha = 0.66;
+    for (let i = 0; i < spokes; i++) {
+      const a = spin * 0.35 + i / spokes * 6.2832;
+      for (let d = endR * 0.55; d < rad; d += PX * 4) {
+        ctx.fillStyle = (i + (d / (PX * 4) | 0)) % 3 === 0 ? '#ffffff' : '#c6ff55';
+        ctx.fillRect(Math.round((e.x + Math.cos(a) * d) / PX) * PX, Math.round((cy + Math.sin(a) * d) / PX) * PX, PX, PX);
+      }
+    }
+    const core = PX * (2 + Math.round(u * 5));
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#9dff4a';
+    ctx.fillRect(Math.round(e.x) - core * 2, Math.round(cy) - core * 2, core * 4, core * 4);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(Math.round(e.x) - core, Math.round(cy) - core, core * 2, core * 2);
+    ctx.restore();
+  }
+
+  /** Río de lava en el carril: corteza oscura y un cauce que corre. */
+  function drawLava(ctx, r) {
+    if (r.ang == null || !(r.len > 0)) return;
+    const PX = G.Sprites.PX;
+    const fade = Math.min(1, Math.max(0, (RAY_SCORCH - r.t) / 2));
+    const a = rayStep(fade);
+    if (!a) return;
+    const now = performance.now() / 1000;
+    const hw = Math.max(PX * 3, Math.round(r.w / 2 / PX) * PX);
+    const seg = PX * 2;
+    ctx.save();
+    ctx.translate(Math.round(r.x), Math.round(r.y));
+    ctx.rotate(r.ang);
+    ctx.globalAlpha = a;
+    for (let d = 0; d < r.len; d += seg) {
+      const hh = Math.max(PX * 2, Math.round(hw * 0.86));
+      ctx.fillStyle = '#3a140c';
+      ctx.fillRect(d, -hh, seg, hh * 2);
+      const flow = Math.sin(d * 0.03 - now * 0.45);
+      const river = Math.round(flow * hh * 0.08);
+      const rw = Math.max(PX * 2, Math.round(hh * 0.38));
+      ctx.fillStyle = '#c43a12';
+      ctx.fillRect(d, river - rw, seg, rw * 2);
+      ctx.fillStyle = '#e87828';
+      const iw = Math.max(PX, Math.round(rw * 0.4));
+      ctx.fillRect(d, river - iw, seg, iw * 2);
+      if (G.U.hash(d | 0, (now * 0.5) | 0, 6) > 0.92) {
+        ctx.fillStyle = '#ffd08a';
+        ctx.fillRect(d, river, PX, PX);
+      }
+    }
+    ctx.restore();
+  }
+
+  /** En el suelo: el aviso del segundo, y la lava después. Nada mientras concentra la luz. */
+  function drawRayGround(ctx) {
     const r = run.ray;
-    if (!r) return;
-    if (r.phase === 'ring') {
-      const e = rayBoss();
-      if (!e) return;
-      const endR = spriteW(e.dex) / 2;
-      const startR = Math.max(260, endR * 3.4);
-      const u = Math.min(1, r.t / Math.max(0.05, r.dur));
-      const rad = startR + (endR - startR) * u;
-      const cy = e.y - e.bodyH * 0.42;
+    if (!r || r.phase === 'ring') return;
+    if (r.phase === 'aim') {
+      const u = Math.min(1, r.t / RAY_AIM);
+      drawLane(ctx, r, u);
       ctx.save();
-      ctx.globalAlpha = 0.14 + 0.2 * u;
-      ctx.fillStyle = '#d8ff6a';
-      ctx.beginPath(); ctx.arc(e.x, cy, rad, 0, 6.2832); ctx.fill();
-      ctx.globalAlpha = 0.5 + 0.45 * u;
-      ctx.strokeStyle = '#f6ffd0';
-      ctx.lineWidth = 3 + 8 * (1 - u);
-      ctx.beginPath(); ctx.arc(e.x, cy, rad, 0, 6.2832); ctx.stroke();
+      ctx.globalAlpha = 0.72;
+      drawPixelBeam(ctx, r, 1, false);
       ctx.restore();
       return;
     }
-    const hot = r.phase === 'scorch';
-    const fade = hot ? Math.min(1, Math.max(0, (RAY_SCORCH - r.t) / 2)) : 1;
-    const flick = hot ? 0.22 + Math.sin(performance.now() / 90) * 0.07 : 0.75 + Math.sin(performance.now() / 45) * 0.2;
+    if (r.phase === 'scorch') drawLava(ctx, r);
+  }
+  function drawPixelBeam(ctx, r, scale, bolts) {
+    if (r.ang == null || !(r.len > 0) || !(r.w > 0)) return;
+    const PX = G.Sprites.PX;
+    const now = performance.now() / 1000;
     ctx.save();
-    ctx.translate(r.x, r.y);
+    ctx.translate(Math.round(r.x), Math.round(r.y));
     ctx.rotate(r.ang);
-    ctx.globalAlpha = (hot ? flick : 0.4 * flick) * fade;
-    ctx.fillStyle = hot ? '#ff6a2a' : '#c6ff55';
-    ctx.fillRect(0, -r.w / 2, r.len, r.w);
-    ctx.globalAlpha = (hot ? Math.min(0.5, flick + 0.12) : 0.92) * fade;
-    ctx.fillStyle = hot ? '#ffd08a' : '#f7ffe6';
-    ctx.fillRect(0, -r.w * (hot ? 0.14 : 0.18), r.len, r.w * (hot ? 0.28 : 0.36));
+    const seg = PX * 2;
+    const full = Math.max(PX * 2, Math.round(r.w / 2 / PX) * PX);
+    for (let d = 0; d < r.len; d += seg) {
+      const wob = 0.94 + 0.1 * Math.sin(d * 0.11 + now * 26);
+      const hw = Math.max(PX * 2, Math.round(full * scale * wob));
+      ctx.fillStyle = '#14300c';
+      ctx.fillRect(d, -hw - PX, seg, hw * 2 + PX * 2);
+      ctx.fillStyle = '#6ee028';
+      ctx.fillRect(d, -hw + PX, seg, Math.max(PX, hw * 2 - PX * 2));
+      ctx.fillStyle = '#e4ff8a';
+      const iw = Math.max(PX, Math.round(hw * 0.38 / PX) * PX);
+      ctx.fillRect(d, -iw, seg, iw * 2);
+      ctx.fillStyle = Math.sin(d * 0.22 + now * 36) > 0 ? '#ffffff' : '#f4ffc8';
+      ctx.fillRect(d, -PX, seg, PX * 2);
+    }
+    if (bolts && G.Settings.fx > 0) {
+      const gap = G.Settings.fx > 1 ? 52 : 88;
+      const off = (now * 460) % gap;
+      for (let d = off; d < r.len - 8; d += gap) {
+        const yo = Math.sin(d * 0.08 + now * 5) * r.w * 0.16 * scale;
+        G.VFX.draw(ctx, 'bolt', 'electric', d, yo, { scale: 1.7, frame: (d / gap + now * 12) | 0 });
+      }
+    }
+    ctx.restore();
+  }
+
+  /** Bordes del carril completo, para ver hasta dónde llega antes de que dispare. */
+  function drawLane(ctx, r, u) {
+    if (r.ang == null || !(r.len > 0)) return;
+    const PX = G.Sprites.PX;
+    const blink = Math.sin(performance.now() / (u > 0.72 ? 45 : 90)) > 0;
+    ctx.save();
+    ctx.translate(Math.round(r.x), Math.round(r.y));
+    ctx.rotate(r.ang);
+    ctx.globalAlpha = blink ? 1 : 0.55;
+    ctx.fillStyle = '#f6ffd0';
+    const hw = r.w / 2;
+    const seg = PX * 2;
+    for (let d = 0; d < r.len; d += seg * 2) {
+      ctx.fillRect(d, Math.round(-hw - PX), seg, PX);
+      ctx.fillRect(d, Math.round(hw), seg, PX);
+    }
+    ctx.restore();
+  }
+
+  /** Cinco círculos, del más grande al más chico, cerrándose en la boca. */
+  function drawInhale(ctx, r) {
+    const e = iceBoss();
+    if (!e) return;
+    const PX = G.Sprites.PX;
+    const m = e.look != null ? mouthAt(e, e.look) : { x: e.x, y: e.y - e.bodyH * 0.42 };
+    const endR = Math.max(PX * 4, spriteW(e.dex) * 0.16);
+    const startR = Math.max(150, endR * (3.6 - r.n * 0.42));
+    const u = Math.min(1, r.t / Math.max(0.05, r.dur));
+    const rad = startR + (endR - startR) * u;
+    const now = performance.now() / 1000;
+    const spin = now * (0.6 + r.n * 0.25);
+    ctx.save();
+    pixRing(ctx, m.x, m.y, rad, '#d4eef6', PX * 2, spin);
+    if (rad > 28) pixRing(ctx, m.x, m.y, rad + PX * 3, '#1a4a60', PX, -spin * 0.5);
+    if (rad > 48) pixRing(ctx, m.x, m.y, rad * 0.72, '#7eb8cc', PX, spin * 1.3);
+    const core = PX * (2 + Math.round(u * 4));
+    ctx.fillStyle = '#2f7494';
+    ctx.fillRect(Math.round(m.x) - core * 2, Math.round(m.y) - core * 2, core * 4, core * 4);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(Math.round(m.x) - core, Math.round(m.y) - core, core * 2, core * 2);
+    ctx.restore();
+  }
+
+  /** Rayo de hielo de ancho fijo. Solo cambia el ángulo. */
+  function drawIceBeam(ctx, r) {
+    if (r.ang == null || !(r.len > 0) || !(r.w > 0)) return;
+    const PX = G.Sprites.PX;
+    const now = performance.now() / 1000;
+    ctx.save();
+    ctx.translate(Math.round(r.x), Math.round(r.y));
+    ctx.rotate(r.ang);
+    const seg = PX * 2;
+    const hw = Math.max(PX * 2, Math.round(r.w / 2 / PX) * PX);
+    for (let d = 0; d < r.len; d += seg) {
+      ctx.fillStyle = '#0c2430';
+      ctx.fillRect(d, -hw - PX, seg, hw * 2 + PX * 2);
+      ctx.fillStyle = '#1a4a60';
+      ctx.fillRect(d, -hw + PX, seg, Math.max(PX, hw * 2 - PX * 2));
+      ctx.fillStyle = '#2f7494';
+      const mw = Math.max(PX, Math.round(hw * 0.55 / PX) * PX);
+      ctx.fillRect(d, -mw, seg, mw * 2);
+      ctx.fillStyle = Math.sin(d * 0.2 + now * 18) > 0 ? '#ffffff' : '#d4eef6';
+      ctx.fillRect(d, -PX, seg, PX * 2);
+    }
+    if (G.Settings.fx > 0) {
+      const gap = G.Settings.fx > 1 ? 64 : 96;
+      const off = (now * 220) % gap;
+      for (let d = off; d < r.len - 10; d += gap) {
+        G.VFX.draw(ctx, 'shard', 'iceDark', d, 0, { scale: 1.15, frame: (d / gap + now * 8) | 0, angle: 0.4 });
+      }
+    }
+    const mouth = PX * 4;
+    ctx.fillStyle = '#d4eef6';
+    ctx.fillRect(-mouth, -mouth, mouth * 2, mouth * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-PX * 2, -PX * 2, PX * 4, PX * 4);
+    ctx.restore();
+  }
+
+  function drawIceAir(ctx) {
+    const r = run.ice;
+    if (!r) return;
+    if (r.phase === 'in') { drawInhale(ctx, r); return; }
+    if (r.phase === 'fan') drawIceBeam(ctx, r);
+  }
+
+  function drawRayAir(ctx) {
+    const r = run.ray;
+    if (!r) return;
+    if (r.phase === 'ring') { drawCharge(ctx, r); return; }
+    if (r.phase !== 'beam') return;
+    drawPixelBeam(ctx, r, 1, true);
+    const PX = G.Sprites.PX;
+    ctx.save();
+    ctx.translate(Math.round(r.x), Math.round(r.y));
+    ctx.rotate(r.ang);
+    const mouth = PX * 5;
+    ctx.fillStyle = '#f6ffd0';
+    ctx.fillRect(-mouth, -mouth, mouth * 2, mouth * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-PX * 2, -PX * 2, PX * 4, PX * 4);
     ctx.restore();
   }
 
   function drawScreen(ctx, w, h, pl) {
+    drawRayScreen(ctx, w, h);
     const c = run && run.fx;
     if (!c || c.id !== 'amnesia' || !pl) return;
     const u = Math.min(1, c.t / c.dur);
@@ -956,10 +1366,38 @@ G.Towers = (() => {
     }
   }
 
+  /** Fogón al soltar el rayo y un borde de luz en la última carga. */
+  function drawRayScreen(ctx, w, h) {
+    const r = run && run.ray;
+    if (!r) return;
+    if (r.phase === 'beam' && r.t < 0.2) {
+      ctx.save();
+      ctx.fillStyle = '#f4ffd0';
+      if (r.t < 0.05) { ctx.globalAlpha = 0.4; ctx.fillRect(0, 0, w, h); }
+      ctx.globalAlpha = 0.45;
+      ctx.fillStyle = '#d8ff6a';
+      const band = Math.max(12, w * 0.07);
+      ctx.fillRect(0, 0, band, h);
+      ctx.fillRect(w - band, 0, band, h);
+      ctx.restore();
+      return;
+    }
+    if (r.phase === 'ring' && r.n >= RAY_PULSE.length - 1) {
+      const u = Math.min(1, r.t / Math.max(0.05, r.dur));
+      ctx.save();
+      ctx.globalAlpha = u > 0.5 ? 0.33 : 0.16;
+      ctx.fillStyle = '#d8ff6a';
+      const band = Math.max(10, w * 0.06);
+      ctx.fillRect(0, 0, band, h);
+      ctx.fillRect(w - band, 0, band, h);
+      ctx.restore();
+    }
+  }
+
   return {
     LIST, REGIONS, MODES, unlocked, modeOpen, tierOf, due, afford, charge, prepare, peek, arm, claim, reset,
     snapshot, stamp, bestWave, remember,
     begin, active, done, take, markClear, clearReady, finish, hud, update, hold, inAura,
-    draw, drawScreen, onNet, onMinionDown, wantShop, clearShop
+    draw, drawAir, drawScreen, onNet, onMinionDown, wantShop, clearShop, wantItem, clearItem
   };
 })();

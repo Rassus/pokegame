@@ -4,14 +4,23 @@ G.RunUI = (() => {
   let offers = null, offerCb = null, coopMode = false;
 
   let shopMode = false;
+  let itemShop = false, itemRerolls = 0;
 
   /** @param coop  en grupo: tras elegir, se queda esperando a los demás
-   *  @param opts.shop  tienda de torre: título distinto y sin cambiar opciones */
+   *  @param opts.shop  tienda de oleada: título distinto y sin cambiar opciones
+   *  @param opts.item  tienda de objetos del jefe: 2 opciones y 1 cambio */
   function showLevelUp(level, list, cb, coop = false, opts = {}) {
-    offerCb = cb; coopMode = coop; shopMode = !!opts.shop;
+    offerCb = cb; coopMode = coop; shopMode = !!opts.shop; itemShop = !!opts.item;
+    itemRerolls = itemShop ? 1 : 0;
     const title = $('lvl-title');
     const sub = $('lvl-sub');
-    if (shopMode) {
+    if (itemShop) {
+      if (title) title.textContent = '¡Objeto!';
+      const hold = G.Game.player && G.Game.player.item;
+      if (sub) sub.innerHTML = hold
+        ? 'Elige un objeto · o conserva el tuyo · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>'
+        : 'Elige un objeto · <kbd>1</kbd> <kbd>2</kbd>';
+    } else if (shopMode) {
       if (title) title.textContent = '¡Tienda!';
       if (sub) sub.innerHTML = 'Elige una recompensa · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>';
     } else {
@@ -23,7 +32,7 @@ G.RunUI = (() => {
     $('lvl-wait').textContent = '';
     $('lvl-wait').classList.toggle('hidden', !coop);
     $('cards').classList.remove('done');
-    renderCards(list);
+    renderCards(withKeep(list));
     $('lvl-reroll').onclick = reroll;
     G.UI.show('scr-levelup');
   }
@@ -39,6 +48,17 @@ G.RunUI = (() => {
   }
 
   function reroll() {
+    if (itemShop) {
+      if (!offers || itemRerolls <= 0) return;
+      const vote = G.Coop.voteTarget && G.Coop.voteTarget();
+      if (vote && vote === (G.Net && G.Net.uid)) return;
+      itemRerolls--;
+      const p = G.Game.player;
+      const avoid = offers.map(c => c.itemId).filter(Boolean);
+      G.Audio.sfx('select');
+      renderCards(withKeep(G.Items.towerOffer(p, 2, avoid)));
+      return;
+    }
     if (shopMode || !offers || rerollsLeft() <= 0) return;
     const vote = G.Coop.voteTarget && G.Coop.voteTarget();
     if (vote && vote === (G.Net && G.Net.uid)) return;
@@ -48,11 +68,31 @@ G.RunUI = (() => {
     renderCards(G.LevelUp.offer(p));
   }
 
+  /** Si ya llevas un objeto, la tienda del jefe ofrece quedártelo. */
+  function keepItemCard() {
+    const p = G.Game.player;
+    const it = p && p.item && G.Items.BY[p.item];
+    if (!it) return null;
+    return {
+      type: 'item', key: 'keep:' + it.id, itemId: it.id, keep: true,
+      icon: it.id, color: '#9fb1c9', tag: 'El tuyo',
+      title: 'Conservar objeto',
+      desc: it.name + '. ' + it.desc,
+      apply() { G.Spawner.say('Sigues con ' + it.name, 2, true); }
+    };
+  }
+
+  function withKeep(list) {
+    if (!itemShop) return list;
+    const keep = keepItemCard();
+    return keep ? list.concat(keep) : list;
+  }
+
   function renderCards(list) {
     offers = list;
-    const left = rerollsLeft();
+    const left = itemShop ? itemRerolls : rerollsLeft();
     $('lvl-rr-n').textContent = left;
-    $('lvl-reroll').classList.toggle('hidden', shopMode || left <= 0);
+    $('lvl-reroll').classList.toggle('hidden', itemShop ? left <= 0 : (shopMode || left <= 0));
     const box = $('cards');
     box.innerHTML = '';
     list.forEach((c, i) => {
@@ -60,7 +100,7 @@ G.RunUI = (() => {
       el.className = 'card';
       const tag = c.type === 'new'
         ? `<span class="tag-chip" style="background:${c.color}">Nuevo · ${c.tag}</span>`
-        : c.type === 'up' || c.type === 'evo' || c.type === 'berry'
+        : c.type === 'up' || c.type === 'evo' || c.type === 'berry' || c.type === 'item'
           ? `<span class="tag-chip" style="background:${c.color}">${c.tag}</span>`
           : `<span class="tag-chip" style="background:${c.color === '#ffd23f' ? '#ffd23f' : '#9fb1c9'}">${c.tag}</span>`;
       if (c.type === 'evo' || (c.type === 'berry' && c.tag === 'Dorada')) el.classList.add('evo');
@@ -102,7 +142,7 @@ G.RunUI = (() => {
   }
 
   function closeLevelUp() {
-    offers = null; offerCb = null; shopMode = false;
+    offers = null; offerCb = null; shopMode = false; itemShop = false; itemRerolls = 0;
     $('cards').classList.remove('done');
     G.UI.hide('scr-levelup');
   }
@@ -153,7 +193,7 @@ G.RunUI = (() => {
       <div><span>Jefes</span><b>${r.bosses}</b></div>
       <div style="grid-column:1/-1"><span>Pokémonedas ganadas</span>
         <b class="gold"><span class="coin"></span> +${G.U.num(r.coins)}</b>
-        <div style="font-size:12px;color:var(--muted)">${r.breakdown}</div></div>
+        <div style="font-size:12px;color:var(--muted)">${r.breakdown || ''}${r.pay ? `<div>${G.U.num(r.pay.base)} × ${r.pay.mul} Fortuna = ${G.U.num(r.pay.got)}</div>` : ''}${r.pay && r.pay.prize ? `<div>${G.U.num(r.pay.prize.base)} × tier ${r.pay.prize.tier} = ${G.U.num(r.pay.prize.gold)}</div>` : ''}</div></div>
       ${r.t1 || r.t10 || r.tb || r.tg ? `<div style="grid-column:1/-1"><span>Tickets del gacha</span><b>
         ${r.t1 ? G.Icons.html('ticket', 22) + ' +' + r.t1 + ' ' : ''}${r.t10 ? G.Icons.html('ticket10', 22) + ' +' + r.t10 + ' ' : ''}${r.tb ? G.Icons.html('ticketb', 22) + ' +' + r.tb + ' ' : ''}${r.tg ? G.Icons.html('ticketg', 22) + ' +' + r.tg : ''}</b></div>` : ''}
       <div style="grid-column:1/-1"><span>Movimientos</span><b style="font-size:15px">

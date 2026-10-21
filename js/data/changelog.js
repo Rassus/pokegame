@@ -6,6 +6,24 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-20', title: ['Torre en grupo', 'Group tower'], new: [
+    ['Articuno, en su torre, inhala con cinco círculos que se cierran en la boca y suelta un Rayo congelante: un rayo de hielo de ancho fijo que barre 45 grados de ida y vuelve al mismo punto.',
+     'In his tower, Articuno inhales with five circles that close on his mouth and fires a Freezing Beam: a fixed-width ice beam that sweeps 45 degrees out and back to the same point.']
+  ], chg: [
+    ['En la torre, cada compañero que te revive acorta el tiempo. Uno tarda 3 s; dos, 1,5 s; tres, 1 s.',
+     'In a tower, each teammate reviving you shortens the time. One takes 3 s; two, 1.5 s; three, 1 s.'],
+    ['En la tienda de objetos de la torre, si ya llevas uno, la tercera opción es conservarlo.',
+     'In the tower item shop, if you already hold one, the third option is to keep it.'],
+    ['Al acabar o perder una run se ve el oro, el multiplicador y el total. Si superas la torre, también el premio por la tier.',
+     'When a run ends or you lose, you see the gold, the multiplier and the total. If you clear a tower, the tier prize is shown too.'],
+    ['En la sala, al elegir torre, se ven las oleadas, el modo y la tier. El ranking de torres en grupo ya no se queda cargando si hay muchos amigos.',
+     'In the room, picking a tower shows the waves, the mode and the tier. The group tower leaderboard no longer stays loading when you have many friends.'],
+    ['Al cerrarse la última luz, el rayo de Rayquaza marca el carril un segundo, con la misma luz, y entonces dispara. El suelo que deja queda en lava.',
+     'When the last light closes, Rayquaza\'s beam marks the lane for one second, with the same light, and then it fires. The ground it leaves behind turns to lava.'],
+  ], fix: [
+    ['El Rayo congelante de Articuno cruzaba el cuerpo y no hacía daño. Ahora pega al tocarte.',
+     'Articuno\'s Freezing Beam crossed your body and dealt no damage. It now hits when it touches you.']
+  ] },
   { d: '2026-10-19', title: ['Hielo oscuro y el equipo', 'Dark ice and the team'], new: [
     ['Al acabar una partida en grupo, Daño tiene la pestaña Equipo: el daño de cada jugador, el MVP, la mochila (el que menos daño hizo) y la alfombra (el que más tiempo pasó caído).',
      'When a group run ends, Damage has a Team tab: each player\'s damage, the MVP, the backpack (least damage) and the carpet (most time down).'],
@@ -13,7 +31,13 @@ G.CHANGELOG = [
      'The tower leaderboard splits solo and group. In a group, the team\'s wave is what counts.']
   ], chg: [
     ['Articuno ataca con un hielo más oscuro: ventisca y ráfaga que te frenan. Su aura, su silencio y su amnesia también se ven más oscuros.',
-     'Articuno attacks with darker ice: a blizzard and a gust that slow you. Its aura, silence and amnesia look darker too.']
+     'Articuno attacks with darker ice: a blizzard and a gust that slow you. Its aura, silence and amnesia look darker too.'],
+    ['El Ángel guardián ya no salta al caer si un compañero puede levantarte. Solo actúa cuando la torre se iba a perder.',
+     'Guardian angel no longer triggers when you go down if a teammate can revive you. It only acts when the tower was about to be lost.'],
+    ['Al vencer al jefe de una torre no suelta un objeto: abre una tienda con 2 objetos y 1 cambio para todos. No salen Ganzúa, Llave Maestra, Moneda Amuleto ni Piedra Evolución.',
+     'Beating a tower boss no longer drops an item: it opens a shop with 2 items and 1 reroll for everyone. Lockpick, Master Key, Amulet Coin and Evolution Stone do not appear.'],
+    ['En difícil, el oro al superar la torre se multiplica por 4. Las oleadas tienen ×1,3 de vida y de velocidad de ataque.',
+     'On hard, the gold for clearing the tower is multiplied by 4. Waves have ×1.3 HP and attack speed.']
   ], fix: [
     ['En el pase, el oro y los tickets salían iguales para todo el mundo. Ahora cada jugador tiene su propia tirada. Lo que ya habías recogido se queda; lo que no, se vuelve a sortear.',
      'On the pass, gold and tickets came out the same for everyone. Each player now has their own roll. What you already claimed stays; what you have not is rolled again.']

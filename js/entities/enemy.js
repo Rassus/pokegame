@@ -171,9 +171,11 @@
       if (this.boss) {
         G.Camera.kick(0.9);
         for (let i = 0; i < G.Items.coinRolls(10); i++) G.Pickups.drop('coin', this.x + G.U.rand(-40, 40), this.y + G.U.rand(-30, 30), 5);
-        // Los jefes siempre sueltan un objeto equipable.
-        if (Math.random() * 100 < G.Items.DROP.boss) G.Pickups.drop('item', this.x - 26, this.y - 10, G.Items.roll());
-        G.Pickups.maybeEvoStone(this.x + 26, this.y - 10);
+        // Los jefes sueltan un objeto. En la torre no: al caer abren la tienda.
+        if (!this.towerPhase) {
+          if (Math.random() * 100 < G.Items.DROP.boss) G.Pickups.drop('item', this.x - 26, this.y - 10, G.Items.roll());
+          G.Pickups.maybeEvoStone(this.x + 26, this.y - 10);
+        }
       }
       G.Pickups.dropXp(this.x, this.y, this.xp, this.boss, !!this.legend);
       G.Pickups.maybeRareCandy(this.x, this.y);
@@ -342,10 +344,11 @@
       if (this.boss) {
         [vx, vy, animBase] = this.bossMove(dt, pl, dist, dx, dy, spd);
       } else if (this.behavior === 'charger') {
+        const as = this.def.atkSpd || 1;
         this.pt -= dt;
         if (this.phase === 'walk') {
           if (dist < 200 && this.pt <= 0) {
-            this.phase = 'aim'; this.pt = 0.55;
+            this.phase = 'aim'; this.pt = 0.55 / as;
             this.anim.play('Charge', { speed: 1.6 });
           }
         } else if (this.phase === 'aim') {
@@ -358,7 +361,7 @@
           }
         } else if (this.phase === 'dash') {
           vx = this.dx * spd * 3.4; vy = this.dy * spd * 3.4;
-          if (this.pt <= 0) { this.phase = 'walk'; this.pt = 1.1; }
+          if (this.pt <= 0) { this.phase = 'walk'; this.pt = 1.1 / as; }
         }
       } else if (this.keepsDistance()) {
         const range = this.def.range || 200;
