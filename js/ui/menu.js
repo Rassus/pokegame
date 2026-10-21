@@ -5,7 +5,7 @@ G.MenuUI = (() => {
   let dexFilter = 'all', dexGen = 1, dexSel = null;
 
   function init() {
-    const ICON = { play: 'ball', dex: 'book', upgrades: 'up', gacha: 'ball4', items: 'leftovers', towers: 'tower', goals: 'medal3', friends: 'friends', rank: 'trophy', settings: 'gear' };
+    const ICON = { play: 'ball', dex: 'book', upgrades: 'up', gacha: 'ball4', items: 'leftovers', towers: 'tower', goals: 'medal3', friends: 'friends', rank: 'trophy', settings: 'gear', qa: 'star' };
     document.querySelectorAll('#scr-menu [data-go]').forEach(b => {
       b.insertAdjacentHTML('afterbegin', `<span class="mi-ico">${G.Icons.html(ICON[b.dataset.go], 26)}</span>`);
       b.dataset.sfx = b.dataset.go === 'play' ? 'confirm' : 'click';
@@ -21,6 +21,7 @@ G.MenuUI = (() => {
         else if (go === 'friends') G.FriendsUI.open();
         else if (go === 'rank') G.RankingUI.open();
         else if (go === 'settings') G.SettingsUI.open();
+        else if (go === 'qa' && G.QA) G.QA.open();
       };
     });
     document.querySelectorAll('[data-back]').forEach(b => { b.onclick = open; });
@@ -103,11 +104,13 @@ G.MenuUI = (() => {
     $('menu-goals-sub').textContent = pend ? pend + (pend === 1 ? ' premio por recoger' : ' premios por recoger') : 'Misiones, logros y perfil';
     $('menu-goals-sub').classList.toggle('gold', pend > 0);
     if (G.PassUI) G.PassUI.open();
+    if (G.QA) G.QA.sync();
     // Con cuenta en la nube: amigos en línea, invitaciones y (una vez) el apodo.
     if (G.DB.online && !G.Social.started) {
       G.Social.start().then(r => {
         if (r === 'need-nick' && !G.NickUI.skipped && G.UI.isOpen('scr-menu')) G.NickUI.open();
         socialLine();
+        if (G.QA) G.QA.sync();
       });
     }
     G.InvitePop.refresh();

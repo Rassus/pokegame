@@ -141,7 +141,6 @@ G.SettingsUI = (() => {
       + `<div class="set-row"><div class="grow"><b>Apodo</b><small>Es único y no se puede cambiar.</small></div><span class="gold" translate="no">${esc(nick)}</span></div>`
       + `<div class="set-row"><div class="grow"><b>Tipo de cuenta</b></div><span>${esc(kind)}</span></div>`
       + `<div class="set-row"><div class="grow"><b>Partida</b></div><span>${esc(SYNC[st] || st)}</span></div>`
-      + (G.QA && G.QA.allowed() ? toggle('qa', 'Modo prueba', 'Añade botones para oro, tickets, fragmentos y misiones. Solo en esta cuenta.') : '')
       + (G.Admin && G.Admin.allowed() ? G.Admin.form() : '')
       + `<div class="row wrap" style="gap:8px;margin-top:12px">
            <button class="btn" id="set-logout">Cerrar sesión</button>

@@ -1112,6 +1112,7 @@ G.Game = (() => {
       if (it.prop) G.World.drawProp(ctx, it.prop, t);
       else it.ent.draw(ctx);
     }
+    G.Towers.drawAir(ctx);
   }
 
   function render() {
@@ -1283,12 +1284,6 @@ G.Flow = {
     G.LoginUI.init(); G.TestUI.init(); G.MenuUI.init(); G.GachaUI.init();
     G.SocialUI.init(); G.RankingUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init();
     if (G.QA) G.QA.init();
-    else if (/dev\.html$/i.test(location.pathname)) {
-      const qa = document.createElement('script');
-      qa.src = 'js/ui/qa.js';
-      qa.onload = () => { if (G.QA) G.QA.init(); };
-      document.body.appendChild(qa);
-    }
     if (G.Admin) G.Admin.init();
     else if (/dev\.html$/i.test(location.pathname)) {
       const adm = document.createElement('script');

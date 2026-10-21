@@ -193,6 +193,7 @@
         <button class="menu-item" data-go="friends">Amigos<small id="menu-friends-sub">Juega en grupo, hasta 8</small></button>
         <button class="menu-item" data-go="rank">Ranking<small>Quién aguanta más</small></button>
         <button class="menu-item" data-go="settings">Ajustes<small>Sonido, gráficos, controles y cuenta</small></button>
+        <button class="menu-item hidden" id="menu-qa" data-go="qa">Modo prueba<small>Oro, colección, torres y jefes</small></button>
       </div>
     </div>
     <div class="box" style="padding:14px 18px">
@@ -219,6 +220,14 @@
   <div class="box news-box">
     <div class="row between"><h2>Novedades</h2><button class="btn small ghost" id="news-close">Cerrar</button></div>
     <div id="news-body" class="news-body"></div>
+  </div>
+</section>
+
+<!-- ====== Modo prueba (solo el apodo asus27; el botón del menú lo enseña qa.js) ====== -->
+<section id="scr-qa" class="scr dim hidden">
+  <div class="box settings">
+    <div class="row between"><h2>Modo prueba</h2><button class="btn small ghost" id="qa-close" type="button">Cerrar</button></div>
+    <div id="qa-body" class="set-body"></div>
   </div>
 </section>
 
@@ -677,6 +686,7 @@
 <script defer src="js/ui/ranking-ui.js"></script>
 <script defer src="js/ui/goals-ui.js"></script>
 <script defer src="js/ui/pass-ui.js"></script>
+<script defer src="js/ui/qa.js"></script>
 <script defer src="js/ui/settings-ui.js"></script>
 <script defer src="js/ui/support-ui.js"></script>
 <script defer src="js/ui/news-ui.js"></script>
