@@ -18,7 +18,14 @@ const dev = fs.readFileSync(DEV, 'utf8');
 const i = dev.indexOf(BEGIN), j = dev.indexOf(END);
 if (i < 0 || j < 0) throw new Error('dev.html no tiene las marcas ' + BEGIN + ' / ' + END);
 const block = dev.slice(i, j + END.length);
-const files = [...block.matchAll(/<script[^>]*src="(js\/[^"]+\.js)"/g)].map(m => m[1]);
+// qa.js y admin.js no van al repo (ver .gitignore). En local se empaquetan;
+// en el servidor no están, y el build sigue sin ellos.
+const LOCAL_ONLY = new Set(['js/ui/qa.js', 'js/ui/admin.js']);
+const files = [...block.matchAll(/<script[^>]*src="(js\/[^"]+\.js)"/g)].map(m => m[1]).filter(f => {
+  if (fs.existsSync(path.join(ROOT, f))) return true;
+  if (LOCAL_ONLY.has(f)) { console.log('omitido (solo local): ' + f); return false; }
+  throw new Error('falta el script ' + f);
+});
 
 // Une los archivos en orden; cada uno separado por ';' por si alguno no acaba en punto y coma.
 const joined = files.map(f => `/* ${f} */\n` + fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n;\n');

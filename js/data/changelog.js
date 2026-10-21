@@ -20,6 +20,8 @@ G.CHANGELOG = [
      'In the room, picking a tower shows the waves, the mode and the tier. The group tower leaderboard no longer stays loading when you have many friends.'],
     ['Al cerrarse la última luz, el rayo de Rayquaza marca el carril un segundo, con la misma luz, y entonces dispara. El suelo que deja queda en lava.',
      'When the last light closes, Rayquaza\'s beam marks the lane for one second, with the same light, and then it fires. The ground it leaves behind turns to lava.'],
+    ['Las oleadas de la run suben cada segundo desde el minuto 15. No pegan un salto al 30, al 60 ni al 90. Al 75 un Pokémon del tramo final va por 223.750 de vida, 2.100 de daño y 259 por segundo; al 135, por 1.750.000 / 22.500 / 725. El aviso del minuto 60 ya no sale.',
+     'Run waves rise every second from minute 15. They do not jump at 30, 60 or 90. At 75 a final-tier Pokémon is at 223,750 HP, 2,100 damage and 259 spawns per second; at 135, at 1,750,000 / 22,500 / 725. The minute-60 warning no longer appears.'],
   ], fix: [
     ['El Rayo congelante de Articuno cruzaba el cuerpo y no hacía daño. Ahora pega al tocarte.',
      'Articuno\'s Freezing Beam crossed your body and dealt no damage. It now hits when it touches you.']

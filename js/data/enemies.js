@@ -202,18 +202,21 @@ G.Enemies = (() => {
   }
 
   /**
-   * Desde el minuto 15 las oleadas dejan la curva de antes y caminan de tramo
-   * en tramo. Cada fila es un Pokémon normal del último tramo (250 de vida y
-   * 28 de daño de plantilla). Entre dos filas, vida, daño y ritmo suben en
-   * línea recta. A partir del 150, los tres suman un 1% cada 5 minutos.
+   * Desde el minuto 15 las oleadas suben cada segundo. Las filas son muestras,
+   * no saltos: al llegar al minuto no cambia de golpe. Entre dos filas, vida,
+   * daño y ritmo van en línea recta. El 75 y el 135 parten por la mitad los
+   * tramos de 30 minutos (60→90 y 120→150). A partir del 150, los tres suman
+   * un 1% cada 5 minutos. Cada fila es un Pokémon normal del último tramo.
    *   minuto   vida        daño     salen/s
    *   15       13.100      210      16
    *   30       24.900      355      40
    *   45       48.600      640      109
    *   60       122.500     1.250    197
+   *   75       223.750     2.100    259
    *   90       325.000     2.950    320
    *   105      425.888     4.236    425
    *   120      1.000.000   15.000   600
+   *   135      1.750.000   22.500   725
    *   150      2.500.000   30.000   850
    */
   const WAVE_FROM = 15 * 60;
@@ -222,9 +225,11 @@ G.Enemies = (() => {
     [30, 24900, 355, 40],
     [45, 48600, 640, 109],
     [60, 122500, 1250, 197],
+    [75, 223750, 2100, 258.5],
     [90, 325000, 2950, 320],
     [105, 425888, 4236, 425],
     [120, 1000000, 15000, 600],
+    [135, 1750000, 22500, 725],
     [150, 2500000, 30000, 850]
   ];
   function waveAt(t) {

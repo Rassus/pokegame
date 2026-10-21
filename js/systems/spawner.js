@@ -184,10 +184,6 @@ G.Spawner = (() => {
     preloadT -= dt;
     if (preloadT <= 0) { preloadT = 10; G.Sprites.preload(G.Enemies.upcomingDex(t, 60)); }
 
-    // Aviso al minuto 60: desde aquí el tramo de las oleadas se empina.
-    const lf = G.Enemies.LATE_FROM * 60;
-    if (t >= lf && t - dt < lf) { say('¡Los Pokémon salvajes se vuelven cada vez más fuertes!', 3.6); G.Audio.sfx('boss'); }
-
     runScripted(t);
 
     // --- jefes (no justo al salir de una grieta: saldrían en la arena) ---
