@@ -5,10 +5,10 @@
  *   (se van guardando según se usan: no se descarga todo de golpe).
  * - Firebase y demás servicios de fuera no se tocan.
  */
-const CODE = 'ps-code-v1', ART = 'ps-art-v1';
+const CODE = 'ps-code-v2', ART = 'ps-art-v1';
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CODE).then(c => c.addAll(['./', './index.html', './css/style.css', './manifest.webmanifest'])).catch(() => {}));
+  e.waitUntil(caches.open(CODE).then(c => c.addAll(['./css/style.css', './manifest.webmanifest'])).catch(() => {}));
   self.skipWaiting();
 });
 
@@ -33,15 +33,20 @@ self.addEventListener('fetch', e => {
     }));
     return;
   }
-  e.respondWith(fetch(req).then(res => {
-    if (res.ok) { const copy = res.clone(); caches.open(CODE).then(c => c.put(req, copy)); }
-    return res;
-  }).catch(async () => {
-    // Sin red: la copia guardada. La página de inicio sólo sirve de respaldo
-    // al abrir la web (nunca en lugar de un script o una imagen).
-    const hit = await caches.match(req);
-    if (hit) return hit;
-    if (req.mode === 'navigate') return (await caches.match('./index.html')) || Response.error();
-    return Response.error();
-  }));
+  // La página y version.json no se sirven de la copia guardada: si no, el
+  // juego ve una versión nueva, recarga la página vieja y lo repite.
+  const fresh = req.mode === 'navigate' || /\/(index\.html|version\.json|sw\.js)$/.test(url.pathname) || url.pathname.endsWith('/');
+  e.respondWith((async () => {
+    try {
+      const res = await fetch(req, fresh ? { cache: 'no-store' } : undefined);
+      if (res && res.ok) {
+        const copy = res.clone();
+        caches.open(CODE).then(c => c.put(fresh ? new Request(url.pathname) : req, copy)).catch(() => {});
+        return res;
+      }
+    } catch (err) { /* sin red */ }
+    const hit = await caches.match(req) || await caches.match(url.pathname)
+      || (req.mode === 'navigate' ? await caches.match('./index.html') : null);
+    return hit || Response.error();
+  })());
 });

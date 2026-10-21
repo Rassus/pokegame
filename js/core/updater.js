@@ -21,7 +21,11 @@ G.Updater = (() => {
   const EVERY = 5 * 60 * 1000, COUNTDOWN = 5;
   const tag = document.querySelector('script[src*="app.min.js?v="]');
   const mine = tag ? (tag.getAttribute('src').match(/v=([0-9a-f]+)/) || [])[1] : null;
-  let pending = false, lastCheck = 0, timer = 0, counting = false;
+  let pending = false, remote = '', lastCheck = 0, timer = 0, counting = false;
+
+  function tried() {
+    try { return sessionStorage.getItem('ps-upd') || ''; } catch (e) { return ''; }
+  }
 
   async function check() {
     if (!mine || pending) return;
@@ -30,7 +34,12 @@ G.Updater = (() => {
       const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
       if (!r.ok) return;
       const j = await r.json();
-      if (j && j.v && j.v !== mine) { pending = true; console.log('[Actualizar] versión nueva', j.v, '(esta es', mine + ')'); }
+      // Ya recargamos por esta huella y la página sigue en la anterior: la
+      // copia guardada no se soltó. No entrar en bucle cada medio minuto.
+      if (!j || !j.v || j.v === mine || tried() === j.v) return;
+      remote = j.v;
+      pending = true;
+      console.log('[Actualizar] versión nueva', j.v, '(esta es', mine + ')');
     } catch (e) { /* sin red: se mira la próxima vez */ }
   }
 
@@ -49,7 +58,12 @@ G.Updater = (() => {
     // Que lo guardado suba a la nube antes de recargar (como mucho 6 s).
     const dirty = G.DB.syncState && G.DB.syncState !== 'ok' && G.DB.syncState !== 'local';
     if (dirty) { try { await Promise.race([G.DB.flush(), new Promise(r => setTimeout(r, 6000))]); } catch (e) { /* queda en este navegador */ } }
-    location.reload();
+    try { sessionStorage.setItem('ps-upd', remote); } catch (e) {}
+    // Una dirección distinta, para no volver a abrir la página que el
+    // navegador ya tenía guardada (si no, la huella no cambia y se repite).
+    const u = new URL(location.href);
+    u.searchParams.set('upd', remote || String(Date.now()));
+    location.replace(u.pathname + u.search + u.hash);
   }
 
   function countdown() {

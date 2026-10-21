@@ -6,6 +6,10 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-21', title: ['La página ya no se recarga sola', 'The page no longer reloads on its own'], fix: [
+    ['Si había una versión nueva, el juego recargaba la página guardada y a los 30 segundos lo intentaba otra vez. Ahora pide la página nueva una sola vez.',
+     'When a new version was out, the game reloaded the saved page and tried again 30 seconds later. It now asks for the new page once.']
+  ] },
   { d: '2026-10-20', title: ['Torre en grupo', 'Group tower'], new: [
     ['Articuno, en su torre, inhala con cinco círculos que se cierran en la boca y suelta un Rayo congelante: un rayo de hielo de ancho fijo que barre 45 grados de ida y vuelve al mismo punto.',
      'In his tower, Articuno inhales with five circles that close on his mouth and fires a Freezing Beam: a fixed-width ice beam that sweeps 45 degrees out and back to the same point.']
