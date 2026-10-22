@@ -223,6 +223,18 @@ G.Icons = (() => {
   // Variantes de paleta.
   UI.starDim = { rows: UI.star.rows, pal: { y: '#3a4870', o: '#2a3458', w: '#4a5a88' } };
 
+  // Marcas pequeñas de la colección (8×8): compañero, favorito, shiny, mejoras e IVs.
+  const MARK_STAR = [
+    '....k...', '...kyk..', 'kkyyyykk', '.kyyyok.', '..kyyk..', '.kykyky.', '..k.k.k.', '........'];
+  const MARK_MEDAL = [
+    '.kkkkkk.', 'kywwwwok', 'kywwwwok', 'kywyywok', 'kywwwwok', '.kyyyok.', '..kook..', '.k.kk.k.'];
+  UI.markCrown = { pal: { y: '#ffd23f', o: '#c08a10' }, rows: [
+    'k..k..k.', 'kykykyk.', 'kyyyyyok', '.kyyyok.', '..kyok..', '...kk...', '........', '........'] };
+  UI.markStar = { pal: { y: '#ffd23f', o: '#c08a10' }, rows: MARK_STAR };
+  UI.markShiny = { pal: { y: '#ff4d5e', o: '#b8283a' }, rows: MARK_STAR };
+  UI.markUp = { pal: { y: '#ffd23f', w: '#fff6c8', o: '#c08a10' }, rows: MARK_MEDAL };
+  UI.markIv = { pal: { y: '#4fb4ff', w: '#d6efff', o: '#1d6cb5' }, rows: MARK_MEDAL };
+
   // ---------------- glifos de tipo (8×8, blancos sobre el emblema) ----------------
   const TYPE_GLYPH = {
     normal:   ['..####..', '.#....#.', '#......#', '#..##..#', '#..##..#', '#......#', '.#....#.', '..####..'],

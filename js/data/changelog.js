@@ -6,6 +6,14 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-22', title: ['Favoritos en Pokémon', 'Favorites in Pokémon'], new: [
+    ['En Pokémon, el botón Favoritos (a la izquierda de Volver) enseña los que marcaste. La estrella del cuadro del sprite los añade o los quita.',
+     'In Pokémon, the Favorites button (left of Back) shows the ones you marked. The star on the sprite box adds or removes them.'],
+    ['En Pokémon, Filtros abre un panel a la izquierda. Ahí se marcan varias rarezas y varios tipos, y se combinan con Todos, Tengo, Me faltan y Shiny.',
+     'In Pokémon, Filters opens a panel on the left. You can mark several rarities and several types, and they combine with All, Owned, Missing and Shiny.'],
+    ['En la ficha de cada Pokémon caben sus marcas a la vez: corona de compañero, estrella de favorito, estrella roja de shiny, medalla de mejoras al máximo y medalla azul de IVs al máximo.',
+     'A Pokémon\'s card can show all its marks at once: partner crown, favorite star, red shiny star, max-upgrades medal and blue max-IVs medal.']
+  ] },
   { d: '2026-10-21', title: ['La página ya no se recarga sola', 'The page no longer reloads on its own'], fix: [
     ['Si había una versión nueva, el juego recargaba la página guardada y a los 30 segundos lo intentaba otra vez. Ahora pide la página nueva una sola vez.',
      'When a new version was out, the game reloaded the saved page and tried again 30 seconds later. It now asks for the new page once.']

@@ -89,6 +89,7 @@ G.DB = (() => {
       tower100: {},           // id de torre -> veces que la superaste
       towerMode: {},          // id -> { normal, hard, mad, wave, waveH, waveM }
       profile: { favs: [], title: '' },   // perfil público: 3 favoritos y título
+      dexFav: {},             // dex -> ms: favorito de la colección (>0 marcado, <0 quitado)
       epoch: 0,               // sube al reiniciar la cuenta: la copia vieja del navegador no se fusiona
       stats: { runs: 0, bestTime: 0, bestLevel: 0, totalKills: 0, pulls: 0, coinsEarned: 0, shinies: 0,
                bossesTotal: 0, riftWins: 0, evolutions: 0, missionsDone: 0, groupRuns: 0, bestGroupTime: 0,
@@ -268,6 +269,16 @@ G.DB = (() => {
         else u[id] = Math.min(def.max, n(u[id]));
       }
     }
+    // Favoritos de la colección. El signo guarda el último toque: >0 marcado, <0 quitado.
+    s.dexFav = s.dexFav && typeof s.dexFav === 'object' && !Array.isArray(s.dexFav) ? s.dexFav : {};
+    const favClean = {};
+    for (const d of Object.keys(s.dexFav)) {
+      if (!/^\d{1,4}$/.test(d) || (G.DEX_BY && !G.DEX_BY[d])) continue;
+      const t = Math.trunc(Number(s.dexFav[d]));
+      if (!Number.isFinite(t) || !t) continue;
+      favClean[d] = Math.max(-8.64e15, Math.min(8.64e15, t));
+    }
+    s.dexFav = favClean;
     s.gupg = s.gupg && typeof s.gupg === 'object' ? s.gupg : {};
     if (G.Upgrades) for (const id of Object.keys(s.gupg)) {
       const def = G.Upgrades.BY[id];
@@ -320,6 +331,12 @@ G.DB = (() => {
     for (const k in older.gupg || {}) r.gupg[k] = Math.max(r.gupg[k] || 0, older.gupg[k] || 0);
     r.gupgSplit = r.gupgSplit || older.gupgSplit;
     // Lo conseguido nunca se pierde: unión de legendarios, arenas, objetos, logros...
+    // Favoritos: manda el último toque de cada Pokémon (marcar o quitar).
+    r.dexFav = r.dexFav || {};
+    for (const k in older.dexFav || {}) {
+      const mine = r.dexFav[k] || 0, o = older.dexFav[k] || 0;
+      if (Math.abs(o) > Math.abs(mine)) r.dexFav[k] = o;
+    }
     for (const coll of ['legends', 'arenas', 'itemsFound', 'evoMoves', 'ach']) {
       r[coll] = r[coll] || {};
       for (const k in older[coll] || {}) if (!r[coll][k]) r[coll][k] = older[coll][k];

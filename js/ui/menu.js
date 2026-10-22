@@ -2,7 +2,32 @@
 G.MenuUI = (() => {
   const $ = G.UI.$;
   const GEN_NAMES = ['Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Teselia', 'Kalos', 'Alola', 'Galar', 'Paldea'];
-  let dexFilter = 'all', dexGen = 1, dexSel = null;
+  let dexFilter = 'all', dexGen = 1, dexSel = null, dexFavOn = false, dexFilterOpen = false;
+  const dexRarities = new Set(), dexTypes = new Set();
+
+  /** Todas las mejoras de ese Pokémon (las de monedas) están al máximo. */
+  function monFullUp(dex) {
+    const lv = (G.DB.save.pupg && G.DB.save.pupg[dex]) || {};
+    return G.Upgrades.LIST.every(u => u.cat !== 'mon' || (lv[u.id] || 0) >= u.max);
+  }
+
+  /** Vida, ataque y velocidad están en el tope de fragmentos. */
+  function monFullIv(p) {
+    return ['hp', 'atk', 'spd'].every(st => G.Gacha.atCap(p, G.DB.save, st));
+  }
+
+  function dexMarked(dex) {
+    const f = G.DB.save && G.DB.save.dexFav;
+    return !!(f && f[dex] > 0);
+  }
+
+  function toggleDexFav(dex) {
+    const s = G.DB.save;
+    if (!s) return;
+    s.dexFav = s.dexFav || {};
+    s.dexFav[dex] = dexMarked(dex) ? -Date.now() : Date.now();
+    G.DB.commit(true);
+  }
 
   function init() {
     const ICON = { play: 'ball', dex: 'book', upgrades: 'up', gacha: 'ball4', items: 'leftovers', towers: 'tower', goals: 'medal3', friends: 'friends', rank: 'trophy', settings: 'gear', qa: 'star' };
@@ -158,7 +183,7 @@ G.MenuUI = (() => {
     const owned = Object.keys(s.owned).filter(d => G.DEX_BY[d]).length;
     $('dex-total').textContent = `${owned} / ${G.DEX.length}`;
     // Obtener toda la colección: sólo en local, y se esconde si ya la tienes completa.
-    const head = document.querySelector('#scr-dex .row.between');
+    const head = $('dex-head-actions');
     let allBtn = $('dex-grant-all');
     if (G.UI.helpersOn() && owned < G.DEX.length) {
       if (!allBtn) {
@@ -167,7 +192,7 @@ G.MenuUI = (() => {
         allBtn.className = 'btn small gold';
         allBtn.title = 'Herramienta de prueba';
         allBtn.textContent = 'Obtener todos';
-        head.insertBefore(allBtn, head.lastElementChild);
+        head.insertBefore(allBtn, head.firstElementChild);
       }
       allBtn.onclick = () => {
         if (!G.DB.save) return;
@@ -180,6 +205,16 @@ G.MenuUI = (() => {
       };
     } else if (allBtn) allBtn.remove();
 
+    const favBtn = $('dex-favs');
+    if (favBtn && !favBtn.dataset.ready) {
+      favBtn.dataset.ready = '1';
+      favBtn.insertAdjacentHTML('afterbegin', G.Icons.html('star', 14));
+    }
+    if (favBtn) {
+      favBtn.classList.toggle('on', dexFavOn);
+      favBtn.onclick = () => { dexFavOn = !dexFavOn; openDex(); };
+    }
+
     // Pestañas de generación, con cuántos tienes de cada una.
     const tabs = $('dex-gens');
     tabs.innerHTML = '';
@@ -189,24 +224,13 @@ G.MenuUI = (() => {
       const have = G.DEX.filter(p => p.gen === g && s.owned[p.dex]).length;
       const b = document.createElement('button');
       const closed = g > G.Progress.region();
-      b.className = 'gen-tab' + (g === dexGen ? ' on' : '') + (closed ? ' locked' : '');
+      b.className = 'gen-tab' + (!dexFavOn && g === dexGen ? ' on' : '') + (closed ? ' locked' : '');
       b.innerHTML = `<b>${name}</b><small>${closed ? 'Cerrada' : have + '/' + total}</small>`;
-      b.onclick = () => { dexGen = g; openDex(); };
+      b.onclick = () => { dexFavOn = false; dexGen = g; openDex(); };
       tabs.appendChild(b);
     });
 
-    const F = [['all', 'Todos'], ['own', 'Tengo'], ['miss', 'Me faltan'], ['shiny', 'Shiny'],
-               ['5', 5], ['4', 4], ['3', 3], ['2', 2], ['1', 1]];
-    const fb = $('dex-filters');
-    fb.innerHTML = '';
-    for (const [k, label] of F) {
-      const c = document.createElement('button');
-      c.className = 'chip' + (k === dexFilter ? ' on' : '');
-      c.innerHTML = k === 'shiny' ? G.Icons.html('shiny', 12) + ' Shiny'
-                  : typeof label === 'number' ? G.Icons.rarity(label, 12) + ' ' + G.Gacha.RARITY_NAME[label] : label;
-      c.onclick = () => { dexFilter = k; openDex(); };
-      fb.appendChild(c);
-    }
+    paintDexFilters();
     let lock = $('dex-lock');
     if (!lock) {
       lock = document.createElement('p');
@@ -214,7 +238,7 @@ G.MenuUI = (() => {
       lock.className = 'sub';
       $('dex-grid').before(lock);
     }
-    if (dexGen > G.Progress.region()) {
+    if (!dexFavOn && dexGen > G.Progress.region()) {
       lock.classList.remove('hidden');
       lock.textContent = 'Región cerrada. Completa la misión en Región para abrirla.';
     } else lock.classList.add('hidden');
@@ -222,23 +246,120 @@ G.MenuUI = (() => {
     showDetail(dexSel);
   }
 
+  /** Fila Todos/Tengo/Me faltan/Shiny y el panel de rareza y tipo. */
+  function paintDexFilters() {
+    const fb = $('dex-filters');
+    const pop = $('dex-filter-pop');
+    const popTop = pop.scrollTop;
+    const n = dexRarities.size + dexTypes.size;
+    fb.innerHTML = '';
+    const tool = document.createElement('button');
+    tool.type = 'button';
+    tool.id = 'dex-filter-btn';
+    tool.className = 'chip' + (dexFilterOpen || n ? ' on' : '');
+    tool.innerHTML = 'Filtros' + (n ? ' <b>' + n + '</b>' : '');
+    tool.onclick = () => {
+      dexFilterOpen = !dexFilterOpen;
+      pop.classList.toggle('hidden', !dexFilterOpen);
+      tool.classList.toggle('on', dexFilterOpen || dexRarities.size || dexTypes.size);
+    };
+    fb.appendChild(tool);
+    for (const [k, label] of [['all', 'Todos'], ['own', 'Tengo'], ['miss', 'Me faltan'], ['shiny', 'Shiny']]) {
+      const c = document.createElement('button');
+      c.type = 'button';
+      c.className = 'chip' + (k === dexFilter ? ' on' : '');
+      c.innerHTML = k === 'shiny' ? G.Icons.html('shiny', 12) + ' Shiny' : label;
+      c.onclick = () => { dexFilter = k; paintDexFilters(); refreshDexGrid(); };
+      fb.appendChild(c);
+    }
+
+    pop.classList.toggle('hidden', !dexFilterOpen);
+    pop.innerHTML = `
+      <div class="row between dex-filter-head"><h3>Filtros</h3>
+        <button type="button" class="btn small ghost" id="dex-filter-close">Cerrar</button></div>
+      <p class="dex-filter-label">Rareza</p>
+      <div class="dex-filter-opts" id="dex-filter-rarity"></div>
+      <div class="dex-filter-line"></div>
+      <p class="dex-filter-label">Tipo</p>
+      <div class="dex-filter-opts" id="dex-filter-types"></div>
+      <button type="button" class="btn small ghost" id="dex-filter-clear">Limpiar</button>`;
+    const rar = pop.querySelector('#dex-filter-rarity');
+    for (const r of [5, 4, 3, 2, 1]) {
+      const c = document.createElement('button');
+      c.type = 'button';
+      c.className = 'chip' + (dexRarities.has(r) ? ' on' : '');
+      c.innerHTML = G.Icons.rarity(r, 12) + ' ' + G.Gacha.RARITY_NAME[r];
+      c.onclick = () => {
+        if (dexRarities.has(r)) dexRarities.delete(r); else dexRarities.add(r);
+        paintDexFilters();
+        refreshDexGrid();
+      };
+      rar.appendChild(c);
+    }
+    const types = pop.querySelector('#dex-filter-types');
+    for (const t of Object.keys(G.U.TYPE_NAME)) {
+      const c = document.createElement('button');
+      c.type = 'button';
+      c.className = 'chip type-opt' + (dexTypes.has(t) ? ' on' : '');
+      c.style.setProperty('--type', G.U.TYPE_COLOR[t]);
+      c.textContent = G.U.TYPE_NAME[t];
+      c.onclick = () => {
+        if (dexTypes.has(t)) dexTypes.delete(t); else dexTypes.add(t);
+        paintDexFilters();
+        refreshDexGrid();
+      };
+      types.appendChild(c);
+    }
+    pop.querySelector('#dex-filter-close').onclick = () => {
+      dexFilterOpen = false;
+      pop.classList.add('hidden');
+      const b = $('dex-filter-btn');
+      if (b) b.classList.toggle('on', dexRarities.size + dexTypes.size > 0);
+    };
+    const clear = pop.querySelector('#dex-filter-clear');
+    clear.disabled = !n;
+    clear.onclick = () => {
+      dexRarities.clear();
+      dexTypes.clear();
+      paintDexFilters();
+      refreshDexGrid();
+    };
+    pop.scrollTop = popTop;
+  }
+
+  function refreshDexGrid() {
+    const grid = $('dex-grid');
+    const top = grid.scrollTop;
+    renderGrid();
+    grid.scrollTop = top;
+  }
+
   function renderGrid() {
     const s = G.DB.save;
     const grid = $('dex-grid');
     grid.innerHTML = '';
+    const anyFav = Object.values(s.dexFav || {}).some(t => t > 0);
     for (const p of G.DEX) {
-      if (p.gen !== dexGen) continue;
+      if (dexFavOn) { if (!dexMarked(p.dex)) continue; }
+      else if (p.gen !== dexGen) continue;
       const own = !!s.owned[p.dex], sh = !!(s.shiny && s.shiny[p.dex]);
       if (dexFilter === 'own' && !own) continue;
       if (dexFilter === 'miss' && own) continue;
       if (dexFilter === 'shiny' && !sh) continue;
-      if (/^\d$/.test(dexFilter) && p.rarity !== +dexFilter) continue;
+      // Varias rarezas o tipos: vale cualquiera. Se cruzan entre sí y con Todos, Tengo, Me faltan y Shiny.
+      if (dexRarities.size && !dexRarities.has(p.rarity)) continue;
+      if (dexTypes.size && !p.types.some(t => dexTypes.has(t))) continue;
 
       const cell = document.createElement('div');
       cell.className = 'cell' + (own ? '' : ' locked') + (p.dex === dexSel ? ' on' : '');
       cell.insertAdjacentHTML('beforeend', `<span class="no">${String(p.dex).padStart(3, '0')}</span>`);
-      if (p.dex === s.partner) cell.insertAdjacentHTML('beforeend', `<span class="badge-r" title="Compañero">${G.Icons.html('crown', 14)}</span>`);
-      else if (sh) cell.insertAdjacentHTML('beforeend', `<span class="badge-r" title="Tienes su shiny">${G.Icons.html('shiny', 12)}</span>`);
+      const marks = [];
+      if (p.dex === s.partner) marks.push(['markCrown', 'Compañero']);
+      if (dexMarked(p.dex)) marks.push(['markStar', 'Favorito']);
+      if (sh) marks.push(['markShiny', 'Shiny']);
+      if (own && monFullUp(p.dex)) marks.push(['markUp', 'Mejoras al máximo']);
+      if (own && monFullIv(p)) marks.push(['markIv', 'IVs al máximo']);
+      if (marks.length) cell.insertAdjacentHTML('beforeend', `<span class="cell-marks">${marks.map(([id, t]) => `<i title="${t}">${G.Icons.html(id, 8)}</i>`).join('')}</span>`);
       const useShiny = sh && p.dex === s.partner && s.partnerShiny;
       cell.appendChild(G.UI.spriteCanvas(p.dex, 92, 80, { scale: 2, silhouette: !own, shadow: own, shiny: useShiny }));
       const fr = G.Gacha.lineFrags(s, p.dex);
@@ -252,7 +373,11 @@ G.MenuUI = (() => {
       };
       grid.appendChild(cell);
     }
-    if (!grid.children.length) grid.innerHTML = '<p class="sub" style="grid-column:1/-1">Ninguno con este filtro.</p>';
+    if (!grid.children.length) {
+      grid.innerHTML = dexFavOn && !anyFav
+        ? '<p class="sub" style="grid-column:1/-1">Ninguno en favoritos.</p>'
+        : '<p class="sub" style="grid-column:1/-1">Ninguno con este filtro.</p>';
+    }
   }
 
   // Variante que se está viendo en la ficha (normal o shiny) y movimiento elegido.
@@ -316,9 +441,13 @@ G.MenuUI = (() => {
       `<div class="stat"><span>${label}</span><div class="bar"><i style="width:${Math.min(100, v / Math.max(v, cap) * 100)}%"></i></div><span class="stat-n">${txt}</span>${own ? growBtn(p, s, stat) : ''}</div>`;
     const usingThis = isPartner && (!hasSh || !!s.partnerShiny === viewShiny);
 
+    const fav = dexMarked(dex);
     const box = $('dex-detail');
     box.innerHTML = `
-      <canvas id="dex-big" class="stage" width="220" height="190"></canvas>
+      <div class="stage-wrap">
+        <canvas id="dex-big" class="stage" width="220" height="190"></canvas>
+        <button type="button" class="dex-star${fav ? ' on' : ''}" id="dex-star" data-sfx="none" title="${fav ? 'Quitar de favoritos' : 'Añadir a favoritos'}">${G.Icons.html(fav ? 'star' : 'starDim', 12)}</button>
+      </div>
       ${hasSh ? `<div class="seg">
           <button class="${viewShiny ? '' : 'on'}" data-v="0">Normal</button>
           <button class="${viewShiny ? 'on' : ''}" data-v="1">${G.Icons.html('shiny', 12)} Shiny</button></div>` : ''}
@@ -349,6 +478,16 @@ G.MenuUI = (() => {
             ${haveF ? `<p class="center stat-have">${G.Icons.html('frag', 16)} Fragmentos de la línea ${haveF} / ${G.Gacha.fragNeed(p.rarity)} · esta etapa da ×${fragMul}</p>` : ''}
             ${G.UI.helpersOn() ? '<button id="dex-grant" class="btn gold" style="width:100%;margin-top:8px">Obtener este</button>' : ''}`}
     `;
+    const starBtn = $('dex-star');
+    if (starBtn) starBtn.onclick = () => {
+      toggleDexFav(dex);
+      G.Audio.sfx('select');
+      const grid = $('dex-grid');
+      const top = grid.scrollTop;
+      renderGrid();
+      grid.scrollTop = top;
+      showDetail(dex);
+    };
     $('dex-big').style.setProperty('--stage-c', !own ? '#5b83d6' : viewShiny ? '#9ae6ff' : G.U.TYPE_COLOR[p.types[0]]);
     $('dex-big').classList.toggle('shiny', own && viewShiny);
     G.UI.sprite($('dex-big'), dex, { lively: own, spin: own, silhouette: !own, scale: 3, hero: true, shiny: own && viewShiny });

@@ -435,8 +435,10 @@
 
 <!-- ====== Colección ====== -->
 <section id="scr-dex" class="scr dim hidden">
+  <div class="dex-row">
+  <aside id="dex-filter-pop" class="box dex-filter-pop hidden"></aside>
   <div class="box wide">
-    <div class="row between"><h2>Pokémon <span id="dex-total" class="sub" style="font-size:15px"></span></h2><button class="btn small ghost" data-back>Volver</button></div>
+    <div class="row between"><h2>Pokémon <span id="dex-total" class="sub" style="font-size:15px"></span></h2><div class="row" id="dex-head-actions"><button type="button" class="btn small ghost" id="dex-favs">Favoritos</button><button class="btn small ghost" data-back>Volver</button></div></div>
     <div class="gen-tabs" id="dex-gens"></div>
     <div class="split" style="margin-top:8px">
       <div>
@@ -445,6 +447,7 @@
       </div>
       <div class="panel" id="dex-detail"></div>
     </div>
+  </div>
   </div>
 </section>
 
