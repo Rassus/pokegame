@@ -339,7 +339,11 @@ G.I18n.add({
   'Proyecto de fan sin ánimo de lucro · Sprites: SpriteCollab (CC BY-NC 4.0) · Pokémon © Nintendo/Creatures/GAME FREAK ·': 'Non-profit fan project · Sprites: SpriteCollab (CC BY-NC 4.0) · Pokémon © Nintendo/Creatures/GAME FREAK ·',
   'Aviso legal': 'Legal notice',
   // colección
-  'Volver': 'Back', 'Todos': 'All', 'Tengo': 'Owned', 'Me faltan': 'Missing', 'Legendaria': 'Legendary', 'Épica': 'Epic', 'Rara': 'Rare',
+  'Volver': 'Back', 'Favoritos': 'Favorites', 'Favorito': 'Favorite', 'Añadir a favoritos': 'Add to favorites', 'Quitar de favoritos': 'Remove from favorites',
+  'Ninguno en favoritos.': 'None in favorites.',
+  'Filtros': 'Filters', 'Rareza': 'Rarity', 'Tipo': 'Type', 'Limpiar': 'Clear',
+  'Mejoras al máximo': 'Max upgrades', 'IVs al máximo': 'Max IVs',
+  'Todos': 'All', 'Tengo': 'Owned', 'Me faltan': 'Missing', 'Legendaria': 'Legendary', 'Épica': 'Epic', 'Rara': 'Rare',
   'Poco común': 'Uncommon', 'Común': 'Common', 'Ninguno con este filtro.': 'None with this filter.', 'Ataque': 'Attack', 'Vida': 'HP', 'Velocidad': 'Speed',
   'Empieza con': 'Starts with', 'Es tu compañero': 'It\'s your partner', 'Elegir de compañero{x}': 'Choose as partner{x}', '(shiny)': '(shiny)',
   'Obtener todos': 'Get all', 'Obtener este': 'Get this one', 'Solo en este ordenador': 'Only on this computer',

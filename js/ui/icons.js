@@ -223,6 +223,24 @@ G.Icons = (() => {
   // Variantes de paleta.
   UI.starDim = { rows: UI.star.rows, pal: { y: '#3a4870', o: '#2a3458', w: '#4a5a88' } };
 
+  // Marcas de la colección, dibujadas a 14×14 (el tamaño al que se ven): si se estiran, el píxel queda irregular.
+  const MARK_STAR = [
+    '..............', '......kk......', '.....kyyk.....', '....kyyyyk....', '...kyyyyyyk...', 'kkyyyyyyyyyykk',
+    '.kyyyyyyyyyok.', '..kyyyyyyyok..', '...kyyyyyok...', '..kyyyookyyk..', '.kyyk....kyyk.', '..kk......kk..',
+    '..............', '..............'];
+  const MARK_MEDAL = [
+    '..............', '.....kkkk.....', '....kyyyyk....', '...kywwwyok...', '..kywwyywwok..', '..kywwyywwok..',
+    '...kyyyyyok...', '....kyyyok....', '.....kkkk.....', '......kk......', '.....k..k.....', '....ky..yk....',
+    '.....k..k.....', '..............'];
+  UI.markCrown = { pal: { y: '#ffd23f', o: '#c08a10' }, rows: [
+    '..............', '..k...kk...k..', '.kyk.kyyk.kyk.', 'kyyyyyyyyyyyyk', 'kyyyyyyyyyyyok', 'kyyyyyyyyyyyok',
+    '.kyyyyyyyyyok.', '..kyyyyyyyok..', '...kyyyyyok...', '....kkkkkk....', '..kooooooook..', '...kkkkkkkk...',
+    '..............', '..............'] };
+  UI.markStar = { pal: { y: '#ffd23f', o: '#c08a10' }, rows: MARK_STAR };
+  UI.markShiny = { pal: { y: '#ff4d5e', o: '#b8283a' }, rows: MARK_STAR };
+  UI.markUp = { pal: { y: '#ffd23f', w: '#fff6c8', o: '#c08a10' }, rows: MARK_MEDAL };
+  UI.markIv = { pal: { y: '#4fb4ff', w: '#d6efff', o: '#1d6cb5' }, rows: MARK_MEDAL };
+
   // ---------------- glifos de tipo (8×8, blancos sobre el emblema) ----------------
   const TYPE_GLYPH = {
     normal:   ['..####..', '.#....#.', '#......#', '#..##..#', '#..##..#', '#......#', '.#....#.', '..####..'],
