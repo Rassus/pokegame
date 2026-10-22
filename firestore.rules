@@ -109,15 +109,17 @@ service cloud.firestore {
     }
 
     // Mejoras del Pokémon al hacer la marca (Vitalidad, Fuerza…). Una por compañero.
+    // region es la tier de la torre (Kanto 1 … Paldea 9, difícil 10-18, demencial 19-27).
     function lvl(s, k, max) {
       return !(k in s) || (s[k] is int && s[k] >= 1 && s[k] <= max);
     }
     function validSheet(s) {
-      return s == null || (s is map && s.size() <= 12
-        && s.keys().hasOnly(['hp', 'atk', 'spd', 'cd', 'def', 'regen', 'magnet', 'xp', 'moves', 'crit', 'reroll', 'ban'])
+      return s == null || (s is map && s.size() <= 13
+        && s.keys().hasOnly(['hp', 'atk', 'spd', 'cd', 'def', 'regen', 'magnet', 'xp', 'moves', 'crit', 'reroll', 'ban', 'region'])
         && lvl(s, 'hp', 40) && lvl(s, 'atk', 40) && lvl(s, 'spd', 8) && lvl(s, 'cd', 8)
         && lvl(s, 'def', 40) && lvl(s, 'regen', 10) && lvl(s, 'magnet', 12) && lvl(s, 'xp', 40)
-        && lvl(s, 'moves', 1) && lvl(s, 'crit', 40) && lvl(s, 'reroll', 6) && lvl(s, 'ban', 3));
+        && lvl(s, 'moves', 1) && lvl(s, 'crit', 40) && lvl(s, 'reroll', 6) && lvl(s, 'ban', 3)
+        && lvl(s, 'region', 27));
     }
     function validSheets(st, n) {
       return st is list && st.size() == n && st.size() <= 8

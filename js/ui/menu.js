@@ -359,7 +359,7 @@ G.MenuUI = (() => {
       if (sh) marks.push(['markShiny', 'Shiny']);
       if (own && monFullUp(p.dex)) marks.push(['markUp', 'Mejoras al máximo']);
       if (own && monFullIv(p)) marks.push(['markIv', 'IVs al máximo']);
-      if (marks.length) cell.insertAdjacentHTML('beforeend', `<span class="cell-marks">${marks.map(([id, t]) => `<i title="${t}">${G.Icons.html(id, 8)}</i>`).join('')}</span>`);
+      if (marks.length) cell.insertAdjacentHTML('beforeend', `<span class="cell-marks">${marks.map(([id, t]) => `<i title="${t}">${G.Icons.html(id, 14)}</i>`).join('')}</span>`);
       const useShiny = sh && p.dex === s.partner && s.partnerShiny;
       cell.appendChild(G.UI.spriteCanvas(p.dex, 92, 80, { scale: 2, silhouette: !own, shadow: own, shiny: useShiny }));
       const fr = G.Gacha.lineFrags(s, p.dex);
