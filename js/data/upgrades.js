@@ -20,7 +20,7 @@ G.Upgrades = (() => {
     { cat: 'mon', id: 'atk',    icon: 'fist', name: 'Fuerza',         unit: '+4% daño',           max: 40, base: 80,  grow: 1.38 },
     { cat: 'mon', id: 'spd',    icon: 'boot', name: 'Velocidad',      unit: '+3% velocidad',      max: 8, base: 70,  grow: 1.4 },
     { cat: 'mon', id: 'cd',     icon: 'clock', name: 'Reflejos',       unit: '-3% recarga',        max: 8, base: 90,  grow: 1.42 },
-    { cat: 'mon', id: 'def',    icon: 'shield', name: 'Defensa',        unit: '+1% defensa',        max: 40, base: 80,  grow: 1.4 },
+    { cat: 'mon', id: 'def',    icon: 'shield', name: 'Defensa',        unit: '+1,2% defensa',      max: 40, base: 80,  grow: 1.4 },
     { cat: 'mon', id: 'regen',  icon: 'sprout', name: 'Síntesis',       unit: '+0.2 vida/s',        max: 10, base: 120, grow: 1.5 },
     { cat: 'mon', id: 'magnet', icon: 'magnet', name: 'Imán',           unit: '+8% recogida',       max: 12, base: 50,  grow: 1.4 },
     { cat: 'mon', id: 'xp',     icon: 'book', name: 'Sabiduría',      unit: '+2% experiencia',    max: 40, base: 100, grow: 1.42 },
@@ -30,11 +30,11 @@ G.Upgrades = (() => {
     { cat: 'mon', id: 'ban',    icon: 'ban', name: 'Veto',           unit: 'Bloquea 1 movimiento: no te sale en las cartas', max: 3, base: 300, grow: 1.9 },
 
     { cat: 'run', id: 'coins',  icon: 'coin', name: 'Fortuna',        unit: '+3,5% Pokémonedas',  max: 40, base: 120, grow: 1.45 },
-    { cat: 'run', id: 'tluck',  icon: 'ticket', name: 'Fortuna de tickets', unit: '+2% gris, +0,1% morado, +0,05% azul, +0,001% dorado (cofres y jefes)', max: 10, base: 8000, grow: 1.7 },
-    { cat: 'run', id: 'chest',  icon: 'clock', name: 'Rapidez para abrir cofres', unit: '−1 / −1,25 / −1,75 / −2,25 / −3,25 s', max: 5, costs: [9999, 25000, 100000, 450000, 999999] },
-    { cat: 'run', id: 'chests', icon: 'chest', name: 'Cantidad de cofres', unit: '×1,2 / ×1,4 / ×1,7 cofres en el mapa', max: 3, costs: [100000, 300000, 600000] },
+    { cat: 'run', id: 'tluck',  icon: 'ticket', name: 'Fortuna de tickets', unit: 'Más tickets', max: 10, base: 8000, grow: 1.7 },
+    { cat: 'run', id: 'chest',  icon: 'clock', name: 'Rapidez para abrir cofres', unit: 'Abres más rápido los cofres', max: 5, costs: [9999, 25000, 100000, 450000, 999999] },
+    { cat: 'run', id: 'chests', icon: 'chest', name: 'Cantidad de cofres', unit: 'Aparecen más cofres', max: 3, costs: [100000, 300000, 600000] },
     { cat: 'run', id: 'bfind',  icon: 'star', name: 'Rastro de jefes', unit: 'Una flecha amarilla marca a cada jefe', max: 1, costs: [1000] },
-    { cat: 'run', id: 'candy',  icon: 'candy', name: 'Willy Wonka es mi pastor, nada me faltará, Amén', unit: '+0,001% / +0,002% / +0,005% de Caramelo Raro', max: 3, costs: [5000, 45000, 450000] },
+    { cat: 'run', id: 'candy',  icon: 'candy', name: 'Willy Wonka es mi pastor, nada me faltará, Amén', unit: 'Más posibilidad de Caramelo Raro', max: 3, costs: [5000, 45000, 450000] },
 
     { cat: 'rift', id: 'spring', icon: 'wrain', name: 'Fuente de agua', unit: 'Un manantial en cada grieta', max: 1, costs: [3500] },
 
@@ -83,8 +83,20 @@ G.Upgrades = (() => {
     return o;
   }
 
-  /** Cuántos cofres más: 1, 1,2, 1,4 o 1,7. */
-  function chestMul() { return [1, 1.2, 1.4, 1.7][lvl('chests')] || 1; }
+  /**
+   * Cofres de más. En solitario: ×1,26 / ×1,53 / ×1,84.
+   * En grupo cada jugador suma el suyo (0,05 / 0,10 / 0,14), no el de los demás:
+   * ocho con el nivel 1 dan ×1,4; con el 2, ×1,8; con el 3, ×2,12.
+   */
+  function chestMul() {
+    const SOLO = [1, 1.26, 1.53, 1.84];
+    const ADD = [0, 0.05, 0.1, 0.14];
+    const party = G.Coop && G.Coop.active && G.Coop.members;
+    if (!party || party.length < 2) return SOLO[lvl('chests')] || 1;
+    let add = 0;
+    for (const m of party) add += ADD[Math.max(0, Math.min(3, Math.floor(+m.cx) || 0))] || 0;
+    return Math.round((1 + add) * 100) / 100;
+  }
 
   /** Experiencia de los Pokémon de la torre. */
   function towerXp() { return 1 + lvl('txp') * 0.05; }
@@ -95,8 +107,8 @@ G.Upgrades = (() => {
   /** Cada cuántas oleadas abre la tienda (10, y baja hasta 5). */
   function shopEvery() { return Math.max(5, 10 - lvl('twave')); }
 
-  /** Probabilidad extra (en %) de Caramelo Raro: 0, 0,001, 0,002 o 0,005. */
-  function candyAdd() { return [0, 0.001, 0.002, 0.005][lvl('candy')] || 0; }
+  /** Probabilidad extra (en %) de Caramelo Raro: 0, 0,1, 0,2 o 0,5. */
+  function candyAdd() { return [0, 0.1, 0.2, 0.5][lvl('candy')] || 0; }
 
   /** Niveles del Pokémon + los de la cuenta -> modificadores para G.Player. */
   function perks(levels = {}, global) {
@@ -108,7 +120,7 @@ G.Upgrades = (() => {
       atkMul: 1 + L('atk') * 0.04,
       spdMul: 1 + L('spd') * 0.03,
       cdMul: 1 - L('cd') * 0.03,
-      dmgReduce: L('def') * 0.01,
+      dmgReduce: L('def') * 0.012,
       regen: L('regen') * 0.2,
       magnetMul: 1 + L('magnet') * 0.08,
       xpMul: 1 + L('xp') * 0.02,
@@ -118,7 +130,7 @@ G.Upgrades = (() => {
       bans: L('ban'),
       coinMul: 1 + G('coins') * 0.035,
       ticketAdd: [G('tluck') * 2, G('tluck') * 0.1, G('tluck') * 0.05, G('tluck') * 0.001],
-      chestCut: [0, 1, 1.25, 1.75, 2.25, 3.25][G('chest')] || 0,
+      chestCut: [0, 0.75, 1.05, 1.3, 1.6, 2][G('chest')] || 0,
       angel: G('angel') > 0
     };
   }

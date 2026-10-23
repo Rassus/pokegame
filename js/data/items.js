@@ -50,7 +50,7 @@ G.Items = (() => {
     { id: 'saunatowel', name: 'Toalla de Sauna', desc: 'La lava no te hace daño y recuperas 4 de vida por segundo.',
       on: () => {}, off: () => {} }
   ];
-  // Hueco propio (no entra en el sorteo del objeto normal). 0,01% en cofres y jefes.
+  // Hueco propio (no entra en el sorteo del objeto normal). 1,5% en cofres y jefes.
   const STONE = { id: 'evostone', name: 'Piedra Evolución', desc: 'Hueco aparte. Un básico evoluciona desde el nivel 65 y una segunda etapa desde el 135.',
     on: () => {}, off: () => {} };
   const BY = {};
@@ -58,7 +58,7 @@ G.Items = (() => {
   BY[STONE.id] = STONE;
 
   // Probabilidad (en %) de que aparezca un objeto normal, y la de la piedra (aparte).
-  const DROP = { small: 8, big: 50, boss: 100, stone: 0.01 };
+  const DROP = { small: 8, big: 50, boss: 100, stone: 1.5 };
   /** Probabilidad (en %) de un objeto concreto de la lista en esa fuente. */
   function each(source) { return DROP[source] / LIST.length; }
 

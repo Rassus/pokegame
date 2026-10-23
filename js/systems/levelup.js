@@ -44,7 +44,7 @@ G.LevelUp = (() => {
           w: 10, type: 'new', key: 'new:' + id,
           icon: 'move:' + id, color: G.U.TYPE_COLOR[d.type],
           tag: G.U.TYPE_NAME[d.type],
-          title: d.name, desc: d.desc,
+          title: d.name, desc: G.Moves.blurb(d),
           apply: p => p.addMove(id)
         });
       }

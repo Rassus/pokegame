@@ -75,6 +75,8 @@ G.MenuUI = (() => {
     };
     G.Settings.on(k => { if (k === 'helpers') syncHelpers(); });
     syncHelpers();
+    const pop = $('move-pop');
+    if (pop) pop.addEventListener('click', e => { if (e.target === pop) closeMove(); });
   }
 
   function syncHelpers() {
@@ -87,6 +89,7 @@ G.MenuUI = (() => {
   // ---------------- menú principal ----------------
 
   function open() {
+    closeMove();
     const s = G.DB.save;
     const mon = G.DEX_BY[s.partner];
     const shiny = !!s.partnerShiny && G.DB.ownsShiny(mon.dex);
@@ -157,8 +160,7 @@ G.MenuUI = (() => {
   }
 
   function pct(n) {
-    const whole = Math.abs(n - Math.round(n)) < 1e-9;
-    return n.toLocaleString('es', { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 }) + '%';
+    return n.toLocaleString('es', { maximumFractionDigits: 2 }) + '%';
   }
 
   function openItems() {
@@ -380,14 +382,62 @@ G.MenuUI = (() => {
     }
   }
 
-  // Variante que se está viendo en la ficha (normal o shiny) y movimiento elegido.
-  let viewShiny = false, moveSel = null;
+  // Variante que se está viendo en la ficha (normal o shiny) y movimiento de la ventana.
+  let viewShiny = false, moveSel = null, movePeek = 1;
+
+  function moveOpen() {
+    const pop = $('move-pop');
+    return !!(pop && !pop.classList.contains('hidden'));
+  }
+
+  function markMove() {
+    const box = $('dex-detail');
+    if (!box) return;
+    box.querySelectorAll('[data-move]').forEach(b => b.classList.toggle('on', b.dataset.move === moveSel));
+  }
+
+  /** Cierra la ventana del movimiento. Devuelve true si estaba abierta. */
+  function closeMove() {
+    const was = moveOpen();
+    moveSel = null;
+    movePeek = 1;
+    const pop = $('move-pop');
+    if (pop) pop.classList.add('hidden');
+    markMove();
+    return was;
+  }
+
+  function paintMove() {
+    const pop = $('move-pop');
+    const card = $('move-card');
+    if (!pop || !card || !moveSel) return;
+    const def = G.Moves.BY_ID[moveSel];
+    if (!def) { closeMove(); return; }
+    const shown = G.Moves.preview(def.id, movePeek);
+    const steps = G.Moves.ladder(def.id);
+    card.innerHTML = `
+      <div class="row between">
+        <h3>${shown.name}</h3>
+        <button type="button" class="btn small ghost" id="move-close">Cerrar</button>
+      </div>
+      <div style="margin:6px 0">${G.UI.typeChips([def.type])}</div>
+      <div class="move-ladder">${steps.map(s => `<button type="button" data-step="${s.step}" class="${s.step === movePeek ? 'on' : ''}"><b>${s.label}</b> ${s.text}</button>`).join('')}</div>
+      ${shown.desc ? `<p class="sub move-desc">${shown.desc}</p>` : ''}
+      ${G.Moves.effects(shown).map(e => `<p class="move-fx ${e.kind}">${e.text}</p>`).join('')}
+      <div class="move-facts">${moveFacts(shown).map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join('')}</div>`;
+    pop.classList.remove('hidden');
+    $('move-close').onclick = () => { G.Audio.sfx('back'); closeMove(); };
+    card.querySelectorAll('[data-step]').forEach(b => {
+      b.onclick = () => { movePeek = +b.dataset.step; G.Audio.sfx('select'); paintMove(); };
+    });
+  }
 
   /** Números del movimiento al nivel 1, para la ficha. */
   function moveFacts(m) {
     const sec = v => v.toLocaleString('es', { maximumFractionDigits: 2 }) + ' s';
     const rows = [];
-    if (m.dmg != null) rows.push(['Daño', m.dmg]);
+    const n1 = v => Math.round(v * 10) / 10;
+    if (m.dmg != null) rows.push(['Daño', n1(m.dmg)]);
     if (m.cd != null) rows.push(['Recarga', sec(m.cd)]);
     if (m.kind === 'buff') {
       const STAT = { atk: 'Ataque', spd: 'Velocidad', def: 'Defensa', regen: 'Regeneración' };
@@ -397,7 +447,7 @@ G.MenuUI = (() => {
       if (m.stacks) rows.push(['Acumulaciones', m.stacks]);
     } else {
       if (m.count) rows.push(['Cantidad', m.count]);
-      if (m.radius) rows.push(['Alcance', m.radius]);
+      if (m.radius) rows.push(['Alcance', n1(m.radius)]);
       if (m.pierce) rows.push(['Perforación', m.pierce]);
       if (m.dur) rows.push(['Duración', sec(m.dur)]);
     }
@@ -423,7 +473,7 @@ G.MenuUI = (() => {
     const own = !!s.owned[dex];
     const hasSh = G.DB.ownsShiny(dex);
     const isPartner = dex === s.partner;
-    if (dex !== showDetail.last) moveSel = null;
+    if (dex !== showDetail.last) closeMove();
     if (!hasSh) viewShiny = false;
     else if (isPartner && dex !== showDetail.last) viewShiny = !!s.partnerShiny;
     showDetail.last = dex;
@@ -431,8 +481,7 @@ G.MenuUI = (() => {
     const moves = G.Moves.poolFor(p);
     const startId = G.startMoveOf(dex);
     if (moves.indexOf(startId) < 0) moves.unshift(startId);
-    if (moveSel && moves.indexOf(moveSel) < 0) moveSel = null;
-    const picked = moveSel && G.Moves.BY_ID[moveSel];
+    if (moveSel && moves.indexOf(moveSel) < 0) closeMove();
 
     const gstat = G.Gacha.grown(p, s);
     const haveF = G.Gacha.lineFrags(s, dex);
@@ -445,7 +494,7 @@ G.MenuUI = (() => {
     const box = $('dex-detail');
     box.innerHTML = `
       <div class="stage-wrap">
-        <canvas id="dex-big" class="stage" width="220" height="190"></canvas>
+        <canvas id="dex-big" class="stage" width="156" height="132"></canvas>
         <button type="button" class="dex-star${fav ? ' on' : ''}" id="dex-star" data-sfx="none" title="${fav ? 'Quitar de favoritos' : 'Añadir a favoritos'}">${G.Icons.html(fav ? 'star' : 'starDim', 12)}</button>
       </div>
       ${hasSh ? `<div class="seg">
@@ -465,11 +514,6 @@ G.MenuUI = (() => {
         <p style="font-size:14px;margin:10px 0 4px">Empieza con <b class="gold">${G.Moves.BY_ID[G.startMoveOf(dex)].name}</b></p>
         <div class="move-icons" title="Movimientos que puede aprender">
           ${moves.map(id => `<button type="button" class="move-ico${id === moveSel ? ' on' : ''}" data-move="${id}" title="${G.Moves.BY_ID[id].name}">${G.Icons.html('move:' + id, 16)}</button>`).join('')}</div>
-        ${picked ? `<div class="move-info">
-          <div><b>${picked.name}</b> ${G.UI.typeChips([picked.type])} <span class="sub">Nivel 1</span></div>
-          <p>${picked.desc}</p>
-          <div class="move-facts">${moveFacts(picked).map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join('')}</div>
-        </div>` : ''}
         ${usingThis
           ? '<button class="btn grow" disabled style="width:100%">Es tu compañero</button>'
           : `<button id="dex-pick" class="btn gold" data-sfx="confirm" style="width:100%">Elegir de compañero${viewShiny ? ' (shiny)' : ''}</button>`}
@@ -496,9 +540,9 @@ G.MenuUI = (() => {
     });
     box.querySelectorAll('[data-move]').forEach(b => {
       b.onclick = () => {
-        moveSel = b.dataset.move === moveSel ? null : b.dataset.move;
+        if (b.dataset.move === moveSel && moveOpen()) closeMove();
+        else { moveSel = b.dataset.move; movePeek = 1; markMove(); paintMove(); }
         G.Audio.sfx('select');
-        showDetail(dex);
       };
     });
     box.querySelectorAll('[data-grow]').forEach(b => {
@@ -734,5 +778,5 @@ G.MenuUI = (() => {
     return el;
   }
 
-  return { init, open, GEN_NAMES };
+  return { init, open, closeMove, GEN_NAMES };
 })();

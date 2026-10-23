@@ -150,13 +150,13 @@ G.Pickups = (() => {
     else if (r < 0.026) push(orb('bomb', x, y, 0));
   }
 
-  /** 0,01%: la Piedra Evolución, en su propio hueco (cofres y jefes). */
+  /** 1,5%: la Piedra Evolución, en su propio hueco (cofres y jefes). */
   function maybeEvoStone(x, y) {
     if (Math.random() * 100 < G.Items.DROP.stone) drop('evostone', x, y, 1);
   }
 
-  /** 0,001% (más la mejora de run): Caramelo Raro. El imán no lo atrae. */
-  const CANDY_P = 0.001;
+  /** 0,1% (más la mejora de run): Caramelo Raro. El imán no lo atrae. */
+  const CANDY_P = 0.1;
   function maybeRareCandy(x, y) {
     if (G.Coop && G.Coop.active && !G.Coop.isHost) return;
     const add = (G.Upgrades && G.Upgrades.candyAdd) ? G.Upgrades.candyAdd() : 0;

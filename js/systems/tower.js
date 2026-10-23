@@ -109,6 +109,16 @@ G.Towers = (() => {
     return { share: fee ? Math.ceil(fee / party()) : 0, tickets, fee: t.fee };
   }
 
+  /** Ha superado al menos una torre (cualquier modo). */
+  function hasClear() {
+    const s = G.DB.save;
+    if (!s) return false;
+    if ((s.stats && s.stats.towerClears) > 0) return true;
+    const t = s.tower100;
+    if (t) for (const id in t) if (t[id] > 0) return true;
+    return false;
+  }
+
   /** La difícil pide esa torre en normal; la demencial, en difícil. */
   function modeOpen(id, modeId) {
     const mode = modeOf(modeId).id;
@@ -1395,7 +1405,7 @@ G.Towers = (() => {
   }
 
   return {
-    LIST, REGIONS, MODES, unlocked, modeOpen, tierOf, due, afford, charge, prepare, peek, arm, claim, reset,
+    LIST, REGIONS, MODES, unlocked, hasClear, modeOpen, tierOf, due, afford, charge, prepare, peek, arm, claim, reset,
     snapshot, stamp, bestWave, remember,
     begin, active, done, take, markClear, clearReady, finish, hud, update, hold, inAura,
     draw, drawAir, drawScreen, onNet, onMinionDown, wantShop, clearShop, wantItem, clearItem
