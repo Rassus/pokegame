@@ -1,17 +1,17 @@
-/* ============ qa.js — modo prueba, solo el apodo asus27 ============
+/* ============ qa.js — modo prueba, solo apodos de la lista ============
  * En el menú sale "Modo prueba". Abre una ventana aparte (no botones
  * sobre la pantalla). El apodo se comprueba en cada acción: un ajuste
  * guardado en el navegador no sirve en otra cuenta.
  */
 G.QA = (() => {
-  const NICK = 'asus27';
+  const NICKS = new Set(['asus27', 'frodo', 'frodo1']);
   let gen = 1;
 
   function nick() {
     const me = G.Social && G.Social.me;
     return String(me && me.name || '').trim().toLowerCase();
   }
-  function allowed() { return nick() === NICK; }
+  function allowed() { return NICKS.has(nick()); }
   function isOpen() {
     const s = document.getElementById('scr-qa');
     return !!(s && !s.classList.contains('hidden'));
