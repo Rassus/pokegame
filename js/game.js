@@ -10,13 +10,13 @@
  * 'levelup', 'paused', 'over'.
  *
  * Cooperativo (G.Coop.active): el anfitrión lleva enemigos, objetos y
- * experiencia; cada uno su Pokémon. La pausa no para el juego, las cartas de
  * nivel esperan a que elijan todos y un compañero caído se levanta si otro
  * se queda a su lado. Ver net/coop.js.
  */
 G.Game = (() => {
   let cv, ctx, dpr = 1, w = 0, h = 0;
   let state = 'ui';
+  let connectionPaused = false;
   let time = 0, last = 0, pendingLevels = 0;
   let pl = null;
   let caught = [];          // shinies conseguidos en esta run
@@ -74,6 +74,7 @@ G.Game = (() => {
   const laterItems = [];             // objetos recogidos con las cartas de nivel abiertas
 
   function togglePause() {
+    if (connectionPaused) return;
     // En grupo la pausa no para el juego (los demás siguen jugando).
     // También durante las cartas: así se puede sacar a quien no elige.
     if (G.Coop.active) {
@@ -90,9 +91,11 @@ G.Game = (() => {
 
   /** @param coop  { seed, host, members } para una partida en grupo */
   function startRun(coop = null) {
-    salvageCrash();
+    connectionPaused = false;
+    if (!coop || !coop.resume) salvageCrash();
+    const resuming = !!(coop && coop.resume);
     const towerCfg = (coop && coop.tower) || G.Towers.peek();
-    if (towerCfg && !G.Towers.charge(towerCfg)) {
+    if (towerCfg && !resuming && !G.Towers.charge(towerCfg)) {
       const why = G.Towers.afford(towerCfg);
       G.UI.toast(why === 'tickets'
         ? 'No tienes tickets grises para la torre (' + (towerCfg.tickets || 0) + ')'
@@ -100,7 +103,7 @@ G.Game = (() => {
       if (coop && G.Social.room) G.LobbyUI.open();
       return;
     }
-    if (G.Pass) {
+    if (G.Pass && !resuming) {
       const mon0 = G.DEX_BY[G.DB.save.partner];
       G.Pass.beginRun(mon0 && mon0.dex, mon0 && mon0.types);
       if (towerCfg) G.Pass.towerPlayed(towerCfg, !!coop);
@@ -151,6 +154,17 @@ G.Game = (() => {
 
     if (coop) {
       G.Coop.begin(coop, pl, coopApi);
+      if (coop.authoritySnapshot) {
+        if (!restoreCoopCheckpoint(coop.authoritySnapshot)) {
+          G.UI.toast('No se pudo restaurar la copia local de la partida.', 5000);
+          G.Coop.end(true);
+          state = 'ui';
+          G.UI.chrome(true);
+          G.LobbyUI.openRecovery();
+          return;
+        }
+        G.Coop.reconnectCheckpointPeers();
+      }
       G.Social.setPlaying(true);
     }
     G.Camera.x = pl.x; G.Camera.y = pl.y; G.Camera.shake = 0;
@@ -158,7 +172,7 @@ G.Game = (() => {
     G.Sprites.preload([mon.dex], 8000, pl.shiny);
     G.Audio.music(G.BIOME_MUSIC[0]);
     deathT = 0;
-    if (towerCfg) G.Towers.begin(towerCfg);
+    if (towerCfg && !resuming) G.Towers.begin(towerCfg);
 
     state = 'playing';
     // El invitado no tiene partida que recuperar: no se toca la copia de una cuenta.
@@ -168,7 +182,17 @@ G.Game = (() => {
     noteCkpt(true);
   }
 
-  function quitRun() {
+  async function quitRun() {
+    if (G.Coop.active && G.Coop.isHost) {
+      try {
+        await G.Coop.leave();
+      } catch (e) {
+        console.warn('[Coop] No se pudo registrar la salida del anfitrión:', e);
+        G.UI.toast('No se pudo registrar la sala para reconectar; revisa tu conexión.', 4500);
+      }
+      G.Flow.goMenu();
+      return;
+    }
     if (G.Coop.active) G.Coop.leave();
     endRun(false);
   }
@@ -191,6 +215,52 @@ G.Game = (() => {
     return { time, level: pl.level, xp: pl.xp, xpNext: pl.xpNext, kills: pl.kills, bosses: pl.bosses, coins: pl.coins, t1: pl.t1, t10: pl.t10, tb: pl.tb, tg: pl.tg };
   }
   function summary() { return { t: time, ki: pl.kills, bo: pl.bosses, co: pl.coins, lv: pl.level, t1: pl.t1, t10: pl.t10, tb: pl.tb, tg: pl.tg }; }
+
+  function restoreCoopCheckpoint(snapshot) {
+    if (!snapshot || !snapshot.frame || !snapshot.world || !Array.isArray(snapshot.enemies) || !Array.isArray(snapshot.pickups)) return false;
+    if (!G.World.restore(snapshot.world)) return false;
+    if (!G.EnemyMgr.restoreSnapshot(snapshot.enemies) || !G.Pickups.restoreSnapshot(snapshot.pickups)) return false;
+
+    G.Projectiles.clear();
+    G.Hazards.clear();
+    G.Combat.clearFields();
+    G.Events.reset();
+    G.Rift.reset();
+    G.Weather.reset();
+    G.Spawner.reset();
+    G.Path.clear();
+    G.RunUI.closeLevelUp();
+    G.RunUI.closeVote();
+    G.UI.hide('scr-item');
+    G.UI.hide('scr-pause');
+    state = 'playing';
+    holdBy = [];
+    openItem = null;
+    laterItems.length = 0;
+
+    const f = snapshot.frame;
+    time = Number(f.t) || 0;
+    if (f.lv != null) coopApi.syncTeam({
+      time, level: Number(f.lv) || 1, xp: Number(f.xp) || 0, xpNext: Number(f.xn) || 1,
+      kills: Number(f.ki) || 0, bosses: Number(f.bo) || 0, coins: Number(f.co) || 0
+    });
+    const own = f.p && f.p[G.Net.uid];
+    if (own && pl) {
+      pl.x = Number(own[0]) || 0;
+      pl.y = Number(own[1]) || 0;
+      pl.moveAngle = Number(own[2]) || pl.moveAngle;
+      const hp = Number(own[4]);
+      if (Number.isFinite(hp)) pl.hp = G.U.clamp(hp, 0, pl.maxHp);
+      pl.dead = !!own[6] || pl.hp <= 0;
+      pl.magnet = Number(own[9]) || pl.magnet;
+      pl.aim = Number(own[10]) || pl.aim;
+      pl.item = own[13] || null;
+      if (pl.dead) pl.anim.play('Faint', { hold: true });
+    }
+    if (pl) { G.Camera.x = pl.x; G.Camera.y = pl.y; }
+    if (connectionPaused && G.ConnectionUI) G.ConnectionUI.open();
+    return true;
+  }
 
   /** Oleada de la torre, para que el invitado use la del anfitrión. */
   function towerNet() {
@@ -319,6 +389,11 @@ G.Game = (() => {
     item(id) { offerItem(id); },
     stone() { equipStone(); },
     mateLeft() {},
+    connectionPause(paused) {
+      connectionPaused = !!paused;
+      if (paused && G.ConnectionUI) G.ConnectionUI.open();
+      else if (G.ConnectionUI && G.ConnectionUI.isOpen()) G.ConnectionUI.close(true);
+    },
     grantTicket(key, n) { addTickets(key, n); },
     wheel(dur, win, names) {
       state = 'wheel';
@@ -541,12 +616,14 @@ G.Game = (() => {
 
   function endRun(dead = true) {
     if (state === 'over' || !pl) return;
+    connectionPaused = false;
     if (G.Social.resumeWatch) G.Social.resumeWatch();
     const coop = !!pl.uid;                    // sólo las partidas en grupo le ponen uid
     const wasHost = !!pl.coopHost;
     const team = coop ? G.Coop.members.slice() : [];
     const teamBoard = coop && G.Coop.scoreboard ? G.Coop.scoreboard() : null;
     if (G.Coop.active) G.Coop.end();
+    if (coop && G.Social.clearRecoveryTicket) G.Social.clearRecoveryTicket();
     if (coop) G.Social.setPlaying(false);
     state = 'over';
     G.Audio.music(null);
@@ -963,18 +1040,18 @@ G.Game = (() => {
     const real = (ts - last) / 1000 || 0;
     const dt = Math.min(1 / 30, real) * speedK;
     last = ts;
-    if (state === 'playing') G.Settings.sample(real);
+    if (state === 'playing' && !connectionPaused) G.Settings.sample(real);
     fpsAcc += real; fpsN++;
     if (fpsAcc >= 0.5) { fpsShown = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
-    frameDt = state === 'playing' ? dt : 0;
+    frameDt = state === 'playing' && !connectionPaused ? dt : 0;
 
     handleKeys();
     G.RunUI.tick(Math.min(0.05, real));
 
-    if (state === 'playing') update(dt);
+    if (state === 'playing' && !connectionPaused) update(dt);
     else if (pl && state !== 'ui') { G.FX.update(dt * 0.25); pl.anim.update(dt * 0.25); }
     // La red se atiende siempre (también con las cartas de nivel abiertas).
-    if (G.Coop.active && pl && state !== 'ui' && state !== 'over') G.Coop.tick(dt);
+    if (G.Coop.active && pl && state !== 'over') G.Coop.tick(dt);
 
     if (pl && state !== 'ui') render(); else Backdrop.render(ctx, w, h, dpr, dt);
     G.UI.tick(dt);
@@ -984,6 +1061,7 @@ G.Game = (() => {
   }
 
   function update(dt) {
+    if (connectionPaused) return;
     const coop = G.Coop.active;
     if (flashT > 0) flashT -= dt;
     // El ángel solo gasta la vida cuando ya no hay quien te levante.
@@ -1272,7 +1350,7 @@ G.Game = (() => {
     get player() { return pl && G.Guard ? G.Guard.wrap(pl) : pl; },
     /** Shinies conseguidos en esta run: { dex, isNew }. */
     get caught() { return caught; },
-    queueGoldWheel, st, salvageCrash, flushRank
+    queueGoldWheel, st, salvageCrash, flushRank, restoreCoopCheckpoint
   };
 })();
 if (G.Guard) G.Guard.sealCalls(G.Game);
@@ -1282,6 +1360,7 @@ G.Flow = {
   boot() {
     G.UI.initChrome();
     G.LoginUI.init(); G.TestUI.init(); G.MenuUI.init(); G.GachaUI.init();
+
     G.SocialUI.init(); G.RankingUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init();
     if (G.QA) G.QA.init();
     if (G.Admin) G.Admin.init();
@@ -1291,7 +1370,9 @@ G.Flow = {
       adm.onload = () => { if (G.Admin) G.Admin.init(); };
       document.body.appendChild(adm);
     }
-    G.SupportUI.init(); G.NewsUI.init(); G.PassUI.init(); G.Updater.init();
+
+    G.SocialUI.init(); G.ConnectionUI.init(); G.RankingUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init(); G.SupportUI.init(); G.NewsUI.init(); G.PassUI.init(); G.Updater.init();
+
     // Tu nombre arriba a la derecha abre tu perfil.
     document.getElementById('user-pill').onclick = () => G.GoalsUI.open('profile');
     G.Audio.music('village');     // suena tras el primer clic (lo exige el navegador)
@@ -1327,7 +1408,7 @@ G.Flow = {
   toLogin() { G.Audio.music('village'); G.LoginUI.open(); },
   afterLogin() {
     G.Audio.music('village');
-    const kept = G.Game.salvageCrash();
+    const kept = G.Social.recoveryTicket() ? null : G.Game.salvageCrash();
     if (kept) G.UI.toast('La partida anterior se cortó y se ha guardado hasta ' + G.U.mmss(kept.time) + ' (' + G.U.num(kept.coins) + ' Pokémonedas).', 6000);
     if (!G.DB.save.partner) G.TestUI.start();
     else this.goMenu();
@@ -1349,9 +1430,26 @@ G.Flow = {
   play() { G.Game.startRun(); },
   /** Empieza la partida en grupo (el anfitrión la manda a todos). */
   startCoop(cfg) {
+    if (!cfg.runId) {
+      G.UI.toast('No se pudo identificar la partida cooperativa. Vuelve al menú.', 4000);
+      return;
+    }
     if (G.Game.state !== 'ui' || !G.Social.room) return;
+    if (cfg.resume && cfg.tower) {
+      G.Social.finishRecovery();
+      G.UI.toast('La reconexión de torres todavía no está disponible. Puedes salir de la sala.', 4500);
+      return;
+    }
+    try {
+      G.Social.rememberRun(cfg.runId);
+    } catch (e) {
+      G.UI.toast('No se pudo guardar la información para reconectar.', 4000);
+      console.error('[Coop] Ticket de reconexión:', e);
+      return;
+    }
     G.Social.setReady(false);
     G.LobbyUI.close();
     G.Game.startRun(cfg);
+    if (cfg.resume) G.Social.finishRecovery();
   }
 };

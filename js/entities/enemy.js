@@ -792,6 +792,38 @@
     const byId = new Map();
     function clear() { list = []; corpses = []; grid.clear(); byId.clear(); }
     function all() { return list; }
+    function snapshot() {
+      return list.filter(e => !e.dead && !e.remote).map(e => {
+        const fields = {};
+        for (const [key, value] of Object.entries(e)) {
+          if (['anim', 'net', 'minions', 'def', 'sc', 'remote'].includes(key)) continue;
+          if (value == null || ['string', 'number', 'boolean'].includes(typeof value)) fields[key] = value;
+          else if (Array.isArray(value) || Object.getPrototypeOf(value) === Object.prototype) {
+            try { fields[key] = JSON.parse(JSON.stringify(value)); } catch (e) { /* transient value */ }
+          }
+        }
+        return { id: e.id, def: e.def, sc: e.sc, x: e.x, y: e.y, boss: e.boss, fields };
+      });
+    }
+    function restoreSnapshot(saved) {
+      if (!Array.isArray(saved)) return false;
+      clear();
+      nextId = 1;
+      for (const data of saved) {
+        if (!data || !data.def || !data.sc || !Number.isFinite(data.id)) continue;
+        const e = new Enemy(data.def, Number(data.x) || 0, Number(data.y) || 0, data.sc, !!data.boss);
+        for (const [key, value] of Object.entries(data.fields || {})) {
+          if (key !== 'id' && key !== 'def' && key !== 'sc' && key !== 'anim' && key !== 'net' && key !== 'minions') e[key] = value;
+        }
+        e.id = data.id;
+        e.remote = false;
+        e.anim = new G.Sprites.Animator(e.dex, e.scale, !!e.shiny);
+        list.push(e);
+        byId.set(e.id, e);
+        nextId = Math.max(nextId, e.id + 1);
+      }
+      return true;
+    }
     function add(e) {
       list.push(e);
       byId.set(e.id, e);
@@ -1055,7 +1087,7 @@
     function bossAlive() { return list.some(e => e.boss && !e.dead); }
     function shinies() { return list.filter(e => e.shiny && !e.dead); }
 
-    return { clear, all, add, get, addRemote, removeRemote, stash, restore, scatterFrom, clearRemote, update, drawables, queryCircle, rebuildGrid, bossAlive, shinies, nearestPlayer,
+    return { clear, all, add, get, addRemote, removeRemote, stash, restore, snapshot, restoreSnapshot, scatterFrom, clearRemote, update, drawables, queryCircle, rebuildGrid, bossAlive, shinies, nearestPlayer,
              get count() { return list.length; } };
   })();
 })();

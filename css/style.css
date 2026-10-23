@@ -1072,5 +1072,99 @@ a.btn { text-decoration: none; display: inline-block; color: var(--ink); }
   /* El botón de elegir, pegado abajo de la ficha: se ve aunque la ficha no quepa. */
   #dex-detail .btn { position: sticky; bottom: 0; order: 9; margin-top: auto; padding: 8px 6px; font-size: 15px;
     box-shadow: 0 -6px 10px rgba(5,10,25,.6); }
-  #dex-detail #dex-cash { position: static; order: 0; box-shadow: none; margin-top: 0; }
+  #dex-detail #dex-cash { position: static; order: 0; box-shadow: none; margin-top: 0; }    
+}
+
+.connection-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 8, 24, .62);
+}
+
+.connection-panel.hidden {
+  display: none;
+}
+
+.connection-box {
+  width: min(760px, 100%);
+  max-height: min(90dvh, 720px);
+  overflow-y: auto;
+}
+
+.connection-members {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.connection-member {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 2px solid rgba(244, 248, 255, .18);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .18);
+}
+
+.connection-member b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.connection-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #9aa5bd;
+}
+
+.connection-dot.online {
+  background: #66df8a;
+  box-shadow: 0 0 8px #66df8a;
+}
+
+.connection-dot.reconnecting {
+  background: #ffd15c;
+  box-shadow: 0 0 8px #ffd15c;
+  animation: connection-pulse 1s infinite alternate;
+}
+
+.connection-dot.offline {
+  background: #ff7180;
+}
+
+.connection-ping {
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.connection-status {
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.connection-countdown {
+  color: var(--gold);
+  font-size: 14px;
+}
+
+#connection-countdown {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+@keyframes connection-pulse {
+  from { opacity: .35; }
+  to { opacity: 1; }
 }

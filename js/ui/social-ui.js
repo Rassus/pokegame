@@ -2,6 +2,7 @@
 (() => {
   const $ = G.UI.$;
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const RECOVERY_KEY = 'ps.coop.recovery';
 
   /** ¿Se puede usar lo online? Si no, explica por qué. */
   function needOnline() {
@@ -144,6 +145,7 @@
   G.LobbyUI = (() => {
     let membersKey = '';
     let playUiKey = '';
+    let recoveryMode = false;
     let lastTower = { id: '', mode: 'normal' };
     let pickGen = 1;
 
@@ -374,6 +376,32 @@
         G.MenuUI.open();
       };
       $('lobby-menu').onclick = () => G.MenuUI.open();
+      $('lobby-recovery-retry').onclick = () => {
+        const room = G.Social.room;
+        if (room && room.isHost) {
+          G.Coop.resumeAsHost();
+          return;
+        }
+        if (!room || !G.Net.retry(room.host)) {
+          G.UI.toast('No se pudo iniciar el reintento. Espera un momento y vuelve a probar.', 3200);
+          return;
+        }
+        $('lobby-recovery-note').textContent = 'Intentando conectar con el anfitrión…';
+      };
+      $('lobby-recovery-abandon').onclick = async () => {
+        if (!G.Social.recoveryTicket()) return;
+        if (!confirm('¿Abandonar esta partida cooperativa? Tu jugador saldrá de la sala.')) return;
+        try {
+          await G.Social.abandonRecovery();
+          G.Net.close();
+          recoveryMode = false;
+          G.UI.toast('Has abandonado la partida cooperativa.', 2800);
+          G.MenuUI.open();
+        } catch (e) {
+          console.error('[Lobby] Error al abandonar la reconexión:', e);
+          G.UI.toast('No se pudo abandonar la partida. Inténtalo de nuevo.', 3500);
+        }
+      };
       $('lobby-start').onclick = start;
       $('lobby-start').dataset.sfx = 'confirm';
       const towerBack = $('lobby-tower-back');
@@ -405,6 +433,17 @@
     }
 
     function open() {
+      recoveryMode = false;
+      show();
+    }
+
+    function openRecovery() {
+      if (!G.Social.room || !G.Social.recoveryTicket()) { G.MenuUI.open(); return; }
+      recoveryMode = true;
+      show();
+    }
+
+    function show() {
       if (!G.Social.room) { G.MenuUI.open(); return; }
       G.Social.refreshMember();
       G.Social.refreshPresence();
@@ -414,7 +453,10 @@
       render();
     }
 
-    function close() { G.UI.hide('scr-lobby'); }
+    function close() {
+      recoveryMode = false;
+      G.UI.hide('scr-lobby');
+    }
 
     async function removeMember(uid, name) {
       if (!confirm('¿Sacar a ' + name + ' de la sala?')) return;
@@ -543,6 +585,25 @@
         : !allReady ? 'Poneos listos. La partida empieza cuando lo estéis todos (' + nReady + '/' + ms.length + ').'
         : room.isHost ? 'Todos listos. La partida empieza para todos a la vez.'
         : 'Todos listos. El anfitrión puede empezar.';
+      $('lobby-play').classList.toggle('hidden', recoveryMode);
+      $('lobby-recovery-actions').classList.toggle('hidden', !recoveryMode);
+      $('lobby-inv-title').classList.toggle('hidden', recoveryMode || !canInvite);
+      $('lobby-invite').classList.toggle('hidden', recoveryMode || !canInvite);
+      $('lobby-room-controls').classList.toggle('hidden', recoveryMode);
+      $('lobby-note').classList.toggle('hidden', recoveryMode);
+      $('lobby-menu').classList.toggle('hidden', recoveryMode);
+      $('lobby-leave').classList.toggle('hidden', recoveryMode);
+      if (recoveryMode) {
+        $('lobby-sub').textContent = 'Tu grupo sigue aquí. Usa los botones para reconectar o abandonar esta partida.';
+        const retry = $('lobby-recovery-retry');
+        retry.textContent = room.isHost ? 'Recuperar como anfitrión' : 'Reconectar';
+        const mode = G.Net.mode(room.host);
+        $('lobby-recovery-note').textContent = room.isHost
+          ? 'Eres el anfitrión de la sala. Pulsa para cargar tu último checkpoint local.'
+          : mode === 'direct' || mode === 'relay'
+            ? 'Conexión con el anfitrión establecida. Esperando la partida…'
+            : 'Tu plaza está reservada. Pulsa Reconectar si no vuelves automáticamente.';
+      }
     }
 
     function start() {
@@ -558,16 +619,16 @@
         if (!tower) return;
       }
       const cfg = {
-        k: 'start', seed: Math.floor(Math.random() * 1e6), host: room.host,
+        k: 'start',runId: Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) , seed: Math.floor(Math.random() * 1e6), host: room.host,
         members: room.members.map(m => ({ uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny, st: m.st == null ? null : G.Upgrades.sheet(m.st) }))
       };
       if (tower) cfg.tower = tower;
-      G.Social.setOpen(false);
+      G.Social.setActiveRun(cfg.runId);
       G.Net.broadcast(cfg);
       G.Flow.startCoop(cfg);
     }
 
-    return { init, open, close, render };
+    return { init, open, openRecovery, close, render };
   })();
 
   // ======================= INVITACIONES =======================

@@ -183,7 +183,10 @@
     <div class="box">
       <button type="button" id="menu-fold" class="menu-fold" data-sfx="click">Menú</button>
       <div class="menu-list">
-        <button class="menu-item play" data-go="play">Jugar<small>Entra en la mazmorra</small></button>
+        <button class="menu-item play" data-go="play">
+          <span id="menu-play-label">Jugar</span>
+          <small id="menu-play-sub">Entra en la mazmorra</small>
+        </button>
         <button class="menu-item" data-go="dex">Pokémon<small id="menu-dex-count">Tu colección</small></button>
         <button class="menu-item" data-go="upgrades">Mejoras<small>Haz más fuerte cada run</small></button>
         <button class="menu-item" data-go="gacha">Gacha<small>9 regiones · Pokémon y shinies</small></button>
@@ -361,11 +364,18 @@
     <div class="row between"><h2>Sala</h2>
       <div class="row"><button id="lobby-menu" class="btn small ghost">Menú</button><button id="lobby-leave" class="btn small ghost">Salir de la sala</button></div></div>
     <p class="sub" id="lobby-sub"></p>
+    <div id="lobby-recovery-actions" class="hidden">
+      <p id="lobby-recovery-note" class="note">Tu plaza está reservada. Reconecta para volver a la partida.</p>
+      <div class="row">
+        <button id="lobby-recovery-retry" class="btn gold grow" type="button">Reconectar</button>
+        <button id="lobby-recovery-abandon" class="btn ghost grow" type="button">Abandonar partida</button>
+      </div>
+    </div>
     <div id="lobby-play" class="lobby-play"></div>
     <div id="lobby-members" class="lobby-members"></div>
     <h3 id="lobby-inv-title" style="margin:14px 0 6px">Invitar amigos</h3>
     <div id="lobby-invite" class="fr-list"></div>
-    <div class="row" style="margin-top:14px">
+    <div id="lobby-room-controls" class="row" style="margin-top:14px">
       <button id="lobby-ready" class="btn gold grow">Listo</button>
       <button id="lobby-start" class="btn gold grow">Empezar partida</button>
     </div>
@@ -578,6 +588,26 @@
   </div>
 </section>
 
+<section id="connection-panel" class="connection-panel hidden" aria-live="polite">
+  <div class="box connection-box">
+    <div class="row between">
+      <h2>Grupo</h2>
+      <button id="connection-close" class="btn small ghost" type="button">Cerrar</button>
+    </div>
+
+    <p id="connection-message" class="sub"></p>
+
+    <div id="connection-members" class="connection-members"></div>
+
+    <div id="connection-actions" class="row end hidden">
+      <button id="connection-retry" class="btn gold" type="button">Reconectar</button>
+      <button id="connection-leave" class="btn ghost" type="button">Abandonar partida</button>
+      <button id="connection-resume" class="btn gold hidden" type="button">Reanudar partida</button>
+    </div>
+    <p id="connection-countdown" class="connection-countdown hidden" aria-live="assertive"></p>
+  </div>
+</section>
+
 <section id="scr-wheel" class="scr dim hidden">
   <div class="box center" style="width:min(520px,100%)">
     <h2>Ticket dorado</h2>
@@ -686,6 +716,7 @@
 <script defer src="js/ui/gacha-ui.js"></script>
 <script defer src="js/ui/run-ui.js"></script>
 <script defer src="js/ui/social-ui.js"></script>
+<script defer src="js/ui/connection-ui.js"></script>
 <script defer src="js/ui/ranking-ui.js"></script>
 <script defer src="js/ui/goals-ui.js"></script>
 <script defer src="js/ui/pass-ui.js"></script>

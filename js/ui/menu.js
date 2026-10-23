@@ -36,7 +36,32 @@ G.MenuUI = (() => {
       b.dataset.sfx = b.dataset.go === 'play' ? 'confirm' : 'click';
       b.onclick = () => {
         const go = b.dataset.go;
-        if (go === 'play') { if (G.Social.room) G.LobbyUI.open(); else G.Flow.play(); }
+        if (go === 'play') {
+          const ticket = G.Social.recoveryTicket();
+          if (ticket) {
+            const play = document.querySelector('#scr-menu [data-go=play]');
+            if (!play || play.disabled) return;
+            play.disabled = true;
+            G.Social.resumeRoom(ticket).then(result => {
+              if (!result.ok) {
+                G.UI.toast(result.error || 'No se pudo volver a la partida.', 4000);
+                play.disabled = false;
+                socialLine();
+                return;
+              }
+              play.disabled = false;
+              if (result.recovery === false || !G.Social.recoveryTicket()) G.LobbyUI.open();
+              else G.LobbyUI.openRecovery();
+            }).catch(e => {
+              console.error('[Menu] Error al reconectar:', e);
+              G.UI.toast('No se pudo volver a la partida. Comprueba la conexión e inténtalo de nuevo.', 4000);
+              play.disabled = false;
+              socialLine();
+            });
+            return;
+          }
+          if (G.Social.room) G.LobbyUI.open(); else G.Flow.play();
+        }
         else if (go === 'dex') openDex();
         else if (go === 'upgrades') openUpgrades();
         else if (go === 'gacha') G.GachaUI.open();
@@ -145,7 +170,11 @@ G.MenuUI = (() => {
   function socialLine() {
     const room = G.Social.room;
     const play = document.querySelector('#scr-menu [data-go=play] small');
-    if (play) play.textContent = room ? 'Volver a tu sala (' + room.members.length + '/' + G.Social.MAX_PLAYERS + ')' : 'Entra en la mazmorra';
+    const label = document.getElementById('menu-play-label');
+    const ticket = G.Social.recoveryTicket();
+    if (label) label.textContent = ticket ? 'Reconectar' : 'Jugar';
+    if (play) play.textContent = ticket ? 'Volver a la partida cooperativa' :
+      room ? 'Volver a tu sala (' + room.members.length + '/' + G.Social.MAX_PLAYERS + ')' : 'Entra en la mazmorra';
     const fr = G.Social.friends;
     const on = fr.filter(f => f.status === 'ok' && f.online).length;
     const req = fr.filter(f => f.status === 'in').length;

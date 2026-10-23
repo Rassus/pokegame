@@ -91,11 +91,11 @@ G.TowerUI = (() => {
     G.Audio.sfx('confirm');
     if (room && n >= 2) {
       const startCfg = {
-        k: 'start', seed: Math.floor(Math.random() * 1e6), host: room.host,
+        k: 'start',runId: Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) ,seed: Math.floor(Math.random() * 1e6), host: room.host,
         members: room.members.map(m => ({ uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny, st: m.st == null ? null : G.Upgrades.sheet(m.st) })),
         tower: cfg
       };
-      G.Social.setOpen(false);
+      G.Social.setActiveRun(startCfg.runId);
       G.Net.broadcast(startCfg);
       G.Flow.startCoop(startCfg);
       return;

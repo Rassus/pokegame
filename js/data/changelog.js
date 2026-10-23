@@ -6,6 +6,7 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+
   { d: '2026-10-22', title: ['Favoritos en Pokémon', 'Favorites in Pokémon'], new: [
     ['En Pokémon, el botón Favoritos (a la izquierda de Volver) enseña los que marcaste. La estrella del cuadro del sprite los añade o los quita.',
      'In Pokémon, the Favorites button (left of Back) shows the ones you marked. The star on the sprite box adds or removes them.'],
@@ -53,6 +54,26 @@ G.CHANGELOG = [
   ], fix: [
     ['En el pase, el oro y los tickets salían iguales para todo el mundo. Ahora cada jugador tiene su propia tirada. Lo que ya habías recogido se queda; lo que no, se vuelve a sortear.',
      'On the pass, gold and tickets came out the same for everyone. Each player now has their own roll. What you already claimed stays; what you have not is rolled again.']
+
+  ] },
+  { d: '2026-10-21', title: ['Reconexión cooperativa', 'Co-op reconnection'], new: [], chg: [], fix: [
+    ['Si se corta la conexión durante una partida cooperativa, la run se pausa para el grupo. El anfitrión puede reanudar cuando todos vuelvan o venza el plazo de 45 segundos; el estado se sincroniza y hay una cuenta atrás de 3 segundos.',
+     'If a connection drops during a co-op run, the run pauses for the group. The host can resume when everyone returns or the 45-second window expires; the game state is synchronized and a 3-second countdown follows.'],
+    ['La conexión de un jugador se detecta también por falta de latidos; el juego sigue detenido mientras se reconecta.',
+     'A player connection is also detected by missing heartbeats; the game stays paused while they reconnect.'],
+    ['Si la sala ya no existe o terminó la partida, se limpia el ticket de reconexión y el menú permite volver a jugar o entrar en la sala disponible.',
+     'If the room no longer exists or the run has ended, the reconnection ticket is cleared and the menu lets you play again or re-enter the available lobby.'],
+    ['La sala registra la desconexión del anfitrión; si alguien intenta volver después de 45 segundos, se limpia la sala vencida.',
+     'The room records when the host disconnects; if someone tries to return after 45 seconds, the expired room is cleaned up.'],
+    ['Cada jugador guarda una copia local periódica de la partida. Si el anfitrión se va, uno de los jugadores conectados puede tomar el relevo y continuar desde el último checkpoint compartido; los ataques y eventos temporales se reinician.',
+     'Each player stores a periodic local copy of the run. If the host leaves, one connected player can take over and continue from the latest shared checkpoint; attacks and temporary events are reset.'],
+    ['El anfitrión puede volver a su sala y restaurar el último checkpoint local; al salir voluntariamente desde el menú se conservan la copia y el ticket de reconexión.',
+     'The host can return to their room and restore the latest local checkpoint; leaving voluntarily through the menu keeps the checkpoint and reconnection ticket.'],
+    ['Los checkpoints cooperativos también se guardan durante eventos y climas, y se transfieren en fragmentos para evitar que una copia grande se descarte.',
+     'Co-op checkpoints are also saved during events and weather, and are transferred in chunks so large copies are not dropped.'],
+    ['La recuperación del anfitrión comprueba la plaza directamente en la sala antes de cargar el checkpoint, evitando errores mientras se actualiza la lista local de jugadores.',
+     'Host recovery checks the room membership directly before loading the checkpoint, avoiding errors while the local player list is updating.']
+
   ] },
   { d: '2026-10-18', title: ['Ranking de torres', 'Tower leaderboard'], new: [
     ['Al terminar una torre se ve tu resultado: la torre, el modo, la oleada y si es tu mejor. El premio y el daño son los tuyos.',

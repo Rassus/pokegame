@@ -68,7 +68,7 @@ G.Net = (() => {
   // ---------------- apertura ----------------
 
   function open(id, host, hostId) {
-    if (roomId === id) return;
+    if (roomId === id && isHost === host && hostUid === hostId) return;
     close();
     const fb = G.DB.fb;
     rtdb = fb.rtdb; uid = fb.uid;
@@ -108,6 +108,26 @@ G.Net = (() => {
     } else if (!uids.includes(hostUid)) {
       drop(hostUid);
     }
+  }
+
+  /** Reintenta el enlace con el anfitrión sin cerrar la sala ni su listener. */
+  function retry(u) {
+    if (!roomId || !u) return false;
+    if (isHost) {
+      drop(u, true);
+      connect(u);
+      return true;
+    }
+    if (u !== hostUid) return false;
+    drop(u, true);
+    const p = { pc: null, dc: null, mode: 'connecting', timer: 0 };
+    p.timer = setTimeout(() => {
+      if (peers.get(hostUid) !== p || p.mode !== 'connecting') return;
+      p.mode = ALLOW_RELAY ? 'relay' : 'failed';
+      emitPeer(hostUid);
+    }, DIRECT_TIMEOUT + 3000);
+    peers.set(hostUid, p);
+    return true;
   }
 
   // ---------------- WebRTC ----------------
@@ -254,7 +274,7 @@ G.Net = (() => {
   }
 
   return {
-    open, close, syncMembers, send, toHost, broadcast,
+    open, close, syncMembers, retry, send, toHost, broadcast,
     on(fn) { handlers.add(fn); }, off(fn) { handlers.delete(fn); },
     onPeer(fn) { peerHandlers.add(fn); },
     mode(u) { const p = peers.get(u); return p ? p.mode : 'closed'; },

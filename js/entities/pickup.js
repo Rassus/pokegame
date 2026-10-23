@@ -87,6 +87,16 @@ G.Pickups = (() => {
 
   function clear() { list = []; }
   function all() { return list; }
+  function snapshot() {
+    return list.map(p => Object.assign({}, p));
+  }
+  function restoreSnapshot(saved) {
+    if (!Array.isArray(saved)) return false;
+    list = saved.filter(p => p && KIND[p.kind] && Number.isFinite(p.id))
+      .map(p => Object.assign({}, p));
+    nextId = list.reduce((id, p) => Math.max(id, p.id + 1), 1);
+    return true;
+  }
 
   function push(o) {
     // En cooperativo sólo el anfitrión crea objetos (las copias llegan por la red).
@@ -273,5 +283,5 @@ G.Pickups = (() => {
     ctx.globalAlpha = 1;
   }
 
-  return { clear, all, dropXp, drop, dropTickets, maybeEvoStone, maybeRareCandy, update, draw, addRemote, removeId, pullAll, KIND, get count() { return list.length; } };
+  return { clear, all, snapshot, restoreSnapshot, dropXp, drop, dropTickets, maybeEvoStone, maybeRareCandy, update, draw, addRemote, removeId, pullAll, KIND, get count() { return list.length; } };
 })();

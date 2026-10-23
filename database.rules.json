@@ -7,7 +7,8 @@
         ".read": "auth != null && data.child('m').child(auth.uid).exists()",
         ".write": "auth != null && ((!data.exists() && newData.child('host').val() === auth.uid) || data.child('host').val() === auth.uid)",
         "host": {
-          ".read": "auth != null"
+          ".read": "auth != null",
+          ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid) || data.val() === auth.uid || (newData.val() === auth.uid && root.child('rooms').child($room).child('m').child(auth.uid).exists() && root.child('rooms').child($room).child('activeRun').exists() && root.child('rooms').child($room).child('m').child(auth.uid).child('snapshotRunId').val() === root.child('rooms').child($room).child('activeRun').val() && root.child('rooms').child($room).child('m').child(data.val()).child('state').val() === 'reconnecting' && root.child('rooms').child($room).child('m').child(data.val()).child('lostAt').val() <= now - 45000))"
         },
         "open": {
           ".read": "auth != null"

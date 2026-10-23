@@ -576,6 +576,28 @@ G.World = (() => {
     fade = null; arena = null;
   }
 
+  // El mundo es determinista por semilla; sólo hay que replicar los cambios
+  // del anfitrión para que el terreno destruido no reaparezca al reconectar.
+  function snapshot() {
+    return {
+      seed,
+      biome,
+      broken: [...broken],
+      arena: arena ? { tx: arena.tx, ty: arena.ty, r: arena.r, type: arena.type } : null
+    };
+  }
+
+  function restore(s) {
+    if (!s || !Number.isFinite(s.seed) || !Array.isArray(s.broken)) return false;
+    reset(s.seed);
+    setBiome(Number.isFinite(s.biome) ? s.biome : 0, true);
+    for (const tile of s.broken) if (typeof tile === 'string') broken.add(tile);
+    arena = s.arena ? Object.assign({}, s.arena, {
+      th: G.Tiles.ARENA_THEMES[s.arena.type] || G.Tiles.ARENA_THEMES.normal
+    }) : null;
+    return true;
+  }
+
   /**
    * @param i        bioma (G.Tiles.ARENA y siguientes son las arenas de la grieta)
    * @param instant  sin fundido (al empezar una run)
@@ -605,7 +627,7 @@ G.World = (() => {
   }
 
   return {
-    TS, CW, reset, setBiome, biomeName, liquidKind, liquidEffect, walkable,
+    TS, CW, reset, snapshot, restore, setBiome, biomeName, liquidKind, liquidEffect, walkable,
     kindAt, isWall, isLiquid, isFree, collide, projectileBlock, propsInCircle, nearestBreakable,
     damageProp, breakAt, specialsNear, update,
     breakProp(p) { if (!broken.has(p.tx + ',' + p.ty)) destroyProp(p); },

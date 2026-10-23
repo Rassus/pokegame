@@ -29,6 +29,7 @@ G.Social = (() => {
   const BEAT = 15 * 60 * 1000;          // latido de presencia (era 10 min: menos escrituras)
   const ONLINE = 22 * 60 * 1000;        // "en línea" si el último latido es más reciente
   const PRES_TTL = 60 * 1000;           // lo leído de los amigos vale 1 min
+  const RECOVERY_KEY = 'ps.coop.recovery.v1';
 
   let fb = null, uid = null;
   let me = null;                    // { uid, name }
@@ -42,6 +43,7 @@ G.Social = (() => {
   const invites = new Map();        // fromUid -> { from, name, room, at }
   const listeners = new Set();
   let started = false;
+  let resumePending = false;
 
   function emit(what) { listeners.forEach(fn => { try { fn(what); } catch (e) { console.warn(e); } }); }
   const ts = () => firebase.database.ServerValue.TIMESTAMP;
@@ -308,7 +310,7 @@ G.Social = (() => {
     const s = G.DB.save;
     const w = wallet();
     const st = G.Upgrades ? G.Upgrades.sheet(s.pupg && s.pupg[s.partner]) : {};
-    return { name: me.name, dex: s.partner, shiny: !!s.partnerShiny && G.DB.ownsShiny(s.partner), ready: false, at: ts(), coins: w.coins, t1: w.t1, st };
+    return { name: me.name, dex: s.partner, shiny: !!s.partnerShiny && G.DB.ownsShiny(s.partner), ready: false, at: ts(), coins: w.coins, t1: w.t1, st , state: 'online', lostAt: 0 };
   }
 
   function playKey(p) {
@@ -365,6 +367,64 @@ G.Social = (() => {
     return { ok: true };
   }
 
+  async function resumeRoom(ticket) {
+    if (!started) {
+      const status = await start();
+      if (status !== 'ok') return { ok: false, error: 'Inicia sesión con la cuenta que estaba en la partida.' };
+    }
+    if (!fb || !uid || !ticket || ticket.uid !== uid) {
+      return { ok: false, error: 'No se pudo validar tu cuenta para volver a la partida.' };
+    }
+
+    rtOn();
+    const roomRef = fb.rtdb.ref('rooms/' + ticket.roomId);
+    try {
+      const [hostSnap, memberSnap, openSnap] = await Promise.all([
+        roomRef.child('host').get(),
+        roomRef.child('m/' + uid).get(),
+        roomRef.child('open').get()
+      ]);
+      const hostId = hostSnap.val();
+      if (!hostId) {
+        await roomRef.remove();
+        clearRecoveryTicket();
+        if (room && room.id === ticket.roomId) dropRoom('room-closed');
+        emit('room');
+        return { ok: false, stale: true, error: 'La sala ya no existe. Puedes iniciar una nueva partida.' };
+      }
+      if (openSnap.val() !== false) {
+        clearRecoveryTicket();
+        if (!memberSnap.exists()) {
+          if (room && room.id === ticket.roomId) dropRoom('room-closed');
+          emit('room');
+          return { ok: false, stale: true, error: 'La partida ya terminó. Puedes iniciar una nueva desde el menú.' };
+        }
+        await roomRef.child('m/' + uid).update({ state: 'online', lostAt: 0 });
+        if (room && room.id !== ticket.roomId) await leaveRoom();
+        if (!room) enterRoom(ticket.roomId, hostId);
+        resumePending = false;
+        return { ok: true, recovery: false };
+      }
+      if (!memberSnap.exists()) {
+        clearRecoveryTicket();
+        if (room && room.id === ticket.roomId) dropRoom('room-closed');
+        emit('room');
+        return { ok: false, stale: true, error: 'Ya no tienes una plaza en esa sala. Puedes iniciar una nueva partida.' };
+      }
+      await roomRef.child('m/' + uid).update({ state: 'online', lostAt: 0 });
+      if (room && room.id === ticket.roomId) {
+        if (G.Net && G.Net.retry) G.Net.retry(hostId);
+      } else {
+        if (room) await leaveRoom();
+        enterRoom(ticket.roomId, hostId);
+      }
+      resumePending = true;
+      return { ok: true };
+    } catch (e) {
+      console.error('[Social] Error al reanudar sala:', e);
+      return { ok: false, error: 'No se pudo comprobar la sala. Revisa la conexión e inténtalo de nuevo.' };
+    }
+  }
   function enterRoom(id, host) {
     room = { id, host, isHost: host === uid, members: [], open: true, play: { kind: 'run' } };
     watchRoomDisconnect();
@@ -382,7 +442,16 @@ G.Social = (() => {
       emit('room');
     }, () => closedRoom());
     const href = fb.rtdb.ref('rooms/' + id + '/host');
-    href.on('value', s => { if (room && room.id === id && !s.val()) closedRoom(); }, () => closedRoom());
+    href.on('value', s => {
+      if (!room || room.id !== id) return;
+      const nextHost = s.val();
+      if (!nextHost) { closedRoom(); return; }
+      if (room.host !== nextHost) {
+        room.host = nextHost;
+        room.isHost = nextHost === uid;
+        emit('room');
+      }
+    }, () => closedRoom());
     const oref = fb.rtdb.ref('rooms/' + id + '/open');
     oref.on('value', s => { if (room && room.id === id) { room.open = s.val() === true; emit('room'); } }, () => {});
     // La partida elegida (run o torre). Si cambia, cada uno se quita el listo.
@@ -417,11 +486,28 @@ G.Social = (() => {
     emit('room');
   }
 
-  /** Si se cierra el navegador, la sala (anfitrión) o tu plaza (invitado) se borran solas. */
+  function setMemberState(state) {
+    if (!room || !uid) return Promise.resolve();
+    const update = {
+      state,
+      lostAt: state === 'reconnecting' ? firebase.database.ServerValue.TIMESTAMP : 0
+    };
+    if (state === 'left') {
+      update.snapshotRunId = null;
+      update.snapshotAt = null;
+    }
+    return fb.rtdb.ref('rooms/' + room.id + '/m/' + uid).update(update);
+  }
+  /** Firebase marca la plaza al desconectar; al volver se valida el plazo de reconexión. */
   function watchRoomDisconnect() {
     if (!room) return;
-    const ref = room.isHost ? fb.rtdb.ref('rooms/' + room.id) : fb.rtdb.ref('rooms/' + room.id + '/m/' + uid);
-    ref.onDisconnect().remove();
+
+    const ref = fb.rtdb.ref('rooms/' + room.id + '/m/' + uid);
+    ref.onDisconnect().update({
+      state: 'reconnecting',
+      lostAt: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => ref.update({ state: 'online', lostAt: 0 }))
+      .catch(e => console.warn('[Social] No se pudo preparar la reconexión:', e.code || e.message));
   }
 
   function detachRoom() {
@@ -434,7 +520,7 @@ G.Social = (() => {
     const r = room;
     detachRoom();
     room = null;
-    const ref = r.isHost ? fb.rtdb.ref('rooms/' + r.id) : fb.rtdb.ref('rooms/' + r.id + '/m/' + uid);
+    const ref = fb.rtdb.ref('rooms/' + r.id + '/m/' + uid);
     ref.onDisconnect().cancel().catch(() => {});
     retractInvites();
     writeStatus();
@@ -452,13 +538,28 @@ G.Social = (() => {
     const r = room;
     detachRoom();
     room = null;
-    const ref = r.isHost ? fb.rtdb.ref('rooms/' + r.id) : fb.rtdb.ref('rooms/' + r.id + '/m/' + uid);
-    ref.onDisconnect().cancel().catch(() => {});
-    await ref.remove().catch(() => {});
+    const ref = fb.rtdb.ref('rooms/' + r.id + '/m/' + uid);
+    await ref.onDisconnect().cancel().catch(() => {});
+    await (r.isHost ? fb.rtdb.ref('rooms/' + r.id) : ref).remove().catch(() => {});
     retractInvites();
     writeStatus();
     rtOff();
     emit('room');
+  }
+
+  async function departHost() {
+    if (!room || !room.isHost) return;
+    const r = room;
+    const ref = fb.rtdb.ref('rooms/' + r.id + '/m/' + uid);
+    detachRoom();
+    room = null;
+    emit('room');
+    await ref.update({
+      state: 'reconnecting',
+      lostAt: firebase.database.ServerValue.TIMESTAMP
+    });
+    writeStatus();
+    rtOff();
   }
 
   /** El anfitrión saca a otra persona. Primero el aviso, luego la plaza. */
@@ -475,7 +576,41 @@ G.Social = (() => {
 
   /** El anfitrión cierra la sala a nuevos jugadores al empezar la partida. */
   function setOpen(open) {
-    if (room && room.isHost) fb.rtdb.ref('rooms/' + room.id + '/open').set(!!open).catch(() => {});
+    if (room && room.isHost) fb.rtdb.ref('rooms/' + room.id).update({
+      open: !!open,
+      ...(open ? { activeRun: null } : {})
+    }).catch(e => console.warn('[Social] No se pudo actualizar la sala:', e.code || e.message));
+  }
+
+  function setActiveRun(runId) {
+    if (room && room.isHost && runId) {
+      fb.rtdb.ref('rooms/' + room.id).update({ activeRun: runId, open: false })
+        .catch(e => console.warn('[Social] No se pudo registrar la partida:', e.code || e.message));
+    }
+  }
+
+  function publishSnapshot(runId) {
+    if (!room || !uid || !runId) return;
+    fb.rtdb.ref('rooms/' + room.id + '/m/' + uid).update({
+      snapshotRunId: runId,
+      snapshotAt: firebase.database.ServerValue.TIMESTAMP
+    }).catch(e => console.warn('[Social] No se pudo anunciar la copia de partida:', e.code || e.message));
+  }
+
+  async function takeOverHost(runId) {
+    if (!room || !uid || !runId) return false;
+    const result = await fb.rtdb.ref('rooms/' + room.id + '/host').transaction(current =>
+      current === uid ? current : uid, undefined, false
+    );
+    return result.committed && result.snapshot.val() === uid;
+  }
+
+  function removeDepartedHost(other) {
+    if (!room || !room.isHost || !other || other === uid) return;
+    const departed = room.members.find(member => member.uid === other);
+    if (!departed) return;
+    fb.rtdb.ref('rooms/' + room.id + '/m/' + other).remove()
+      .catch(e => console.warn('[Social] No se pudo retirar al anfitrión anterior:', e.code || e.message));
   }
 
   /** El anfitrión elige run o torre. Los demás sólo la ven. */
@@ -506,9 +641,59 @@ G.Social = (() => {
   /** Te marcas listo o no. La partida sólo arranca cuando lo estáis todos. */
   function setReady(on) {
     if (!room || !uid) return;
-    fb.rtdb.ref('rooms/' + room.id + '/m/' + uid).update({ ready: !!on }).catch(() => {});
+    fb.rtdb.ref('rooms/' + room.id + '/m/' + uid).update({
+      ready: !!on,
+      state: 'online',
+      lostAt: 0,
+      snapshotRunId: null,
+      snapshotAt: null
+    }).catch(e => console.warn('[Social] No se pudo actualizar tu estado en la sala:', e.code || e.message));
   }
 
+  function recoveryTicket() {
+  try {
+    const ticket = JSON.parse(localStorage.getItem(RECOVERY_KEY) || 'null');
+    const currentUid = uid || (G.DB.fb && G.DB.fb.uid);
+
+    if (!ticket || !currentUid || ticket.uid !== currentUid || !ticket.roomId || !ticket.runId) {
+      return null;
+    }
+
+    return ticket;
+  } catch (e) {
+    console.warn('[Social] No se pudo leer el ticket de reconexión:', e);
+    return null;
+  }
+}
+
+function rememberRun(runId) {
+  if (!room || !uid || !runId) {
+    throw new Error('No se puede guardar la reconexión sin sala, usuario y runId.');
+  }
+
+  const ticket = { uid, roomId: room.id, runId };
+
+  try {
+    localStorage.setItem(RECOVERY_KEY, JSON.stringify(ticket));
+  } catch (e) {
+    console.warn('[Social] No se pudo guardar el ticket de reconexión:', e);
+    throw e;
+  }
+}
+
+function clearRecoveryTicket() {
+  resumePending = false;
+  try {
+    localStorage.removeItem(RECOVERY_KEY);
+  } catch (e) {
+    console.warn('[Social] No se pudo borrar el ticket de reconexión:', e);
+  }
+}
+
+async function abandonRecovery() {
+  clearRecoveryTicket();
+  if (room) await leaveRoom();
+}
   // ---------------- invitaciones ----------------
 
   async function invite(other) {
@@ -621,7 +806,9 @@ G.Social = (() => {
 
   return {
     start, stop, claimNick, request, accept, remove, publishProfile, getProfile, profileData,
-    createRoom, joinRoom, leaveRoom, kick, setOpen, setPlay, refreshMember, setReady, setPlaying, refreshPresence,
+    createRoom, resumeRoom, joinRoom, leaveRoom, recoveryTicket, rememberRun, abandonRecovery,
+    clearRecoveryTicket, finishRecovery() { resumePending = false; }, get resumePending() { return resumePending; },
+    kick, setOpen, setActiveRun, publishSnapshot, takeOverHost, removeDepartedHost, departHost, setPlay, refreshMember, setReady, setPlaying, setMemberState, refreshPresence,
     pauseWatch, resumeWatch,
     invite, acceptInvite, declineInvite,
     on(fn) { listeners.add(fn); }, off(fn) { listeners.delete(fn); },
