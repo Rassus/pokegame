@@ -139,6 +139,22 @@ G.HUD = (() => {
     {
       const edge = w - 16 - (touch ? 56 : 0);
       let ry = sideY;
+      if (pl.berryId && G.Berries && G.Berries.BY[pl.berryId]) {
+        const where = pl.berryWhere === 'tower' ? 'tower' : 'run';
+        const spent = pl.berryId === 'caramel' && where === 'run' && !(pl.candyLeft > 0);
+        const def = G.Berries.BY[pl.berryId];
+        const line = spent ? 'Caramelo se ha gastado' : (def.name + ' · ' + G.Berries.hudLine(pl.berryId, where));
+        ctx.font = F(800, 11);
+        ctx.textAlign = 'left';
+        const tw = ctx.measureText(line).width + 28;
+        const x = edge - tw;
+        roundRect(ctx, x, ry, tw, 18, 7);
+        ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fill();
+        if (!G.Berries.paint(ctx, pl.berryId, x + 2, ry + 1, 16, 16, 'berry')) G.Icons.draw(ctx, 'berry', x + 2, ry + 1, 16);
+        ctx.fillStyle = spent ? '#ffd3e0' : '#ff9eb8';
+        ctx.fillText(line, x + 20, ry + 13);
+        ry += 22;
+      }
       const COL = { atk: '#ff6b4d', spd: '#7fe0ff', def: '#b0b8c8', regen: '#5fe08a' };
       const LBL = { atk: 'ATK', spd: 'VEL', def: 'DEF', regen: 'REG' };
       const chips = [];

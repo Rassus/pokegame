@@ -1,5 +1,6 @@
-/* ============ garden-ui.js — huerto, tienda de semillas y mochila de bayas ============
- * La mochila solo se abre al poner o cambiar la baya de un Pokémon.
+/* ============ garden-ui.js — huerto, tienda de semillas y mochila ============
+ * La mochila (junto al oro) enseña semillas y bayas, con la descripción.
+ * Al elegir la baya de un Pokémon no sale esa descripción.
  */
 G.GardenUI = (() => {
   const $ = G.UI.$;
@@ -27,6 +28,9 @@ G.GardenUI = (() => {
     if (shop) shop.dataset.sig = '';
     if ($('seed-bag') && !$('seed-bag').classList.contains('hidden')) paintSeeds();
     if ($('berry-bag') && !$('berry-bag').classList.contains('hidden')) paintBag();
+    if ($('pack') && !$('pack').classList.contains('hidden')) paintPack();
+    const panel = $('garden-shop-panel');
+    if (panel && !panel.classList.contains('hidden') && G.DB.save) paintShop(G.Garden.shopLeft(G.DB.save));
   }
 
   function load(name) {
@@ -38,11 +42,19 @@ G.GardenUI = (() => {
 
   function init() {
     sheets.bayas = load('bayas.png');
+    sheets.seeds = load('semillas.png');
     sheets.bush = load('arbusto.png');
+    if (G.Berries) { G.Berries.onReady(spritesReady); G.Berries.warm(); }
     $('garden-shop').onclick = openShop;
     $('garden-shop-x').onclick = closeShop;
-    $('berry-bag-x').onclick = closeBag;
+    $('berry-bag-x').onclick = () => closeBag();
     $('seed-bag-x').onclick = closeSeeds;
+    $('pack-x').onclick = closePack;
+    const bag = $('btn-bag');
+    if (bag) {
+      bag.innerHTML = G.Icons.html('bag', 18);
+      bag.onclick = openPack;
+    }
   }
 
   function loop() {
@@ -75,12 +87,41 @@ G.GardenUI = (() => {
   }
 
   function drawBerry(ctx, id, x, y, w, h, bob) {
+    const oy = bob ? Math.sin(performance.now() / 280 + x) * 1.6 : 0;
+    if (G.Berries.paint(ctx, id, x, y + oy, w, h, 'berry')) return;
     const def = G.Berries.BY[id];
     const im = sheets.bayas;
     if (!def || !im || !im.complete) return;
-    const oy = bob ? Math.sin(performance.now() / 280 + x) * 1.6 : 0;
     const [sx, sy, sw, sh] = def.rect;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(im, sx, sy, sw, sh, x, y + oy, w, h);
+    ctx.restore();
+  }
+
+  /** Tamaño real del dibujo, centrado. Estirarla a 40 px rompía el píxel. */
+  function drawSeed(ctx, id) {
+    const def = G.Berries.BY[id];
+    const rect = def && def.seed;
+    if (!rect) return;
+    const [sx, sy, sw, sh] = rect;
+    const cv = ctx.canvas;
+    const x = Math.round((cv.width - sw) / 2);
+    const y = Math.round((cv.height - sh) / 2);
+    if (G.Berries.paint(ctx, id, x, y, sw, sh, 'seed')) return;
+    const im = sheets.seeds;
+    if (!im || !im.complete) return;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(im, sx, sy, sw, sh, x, y, sw, sh);
+    ctx.restore();
+  }
+
+  function berryText(b) {
+    return '<small class="bag-flavor">' + b.blurb + '</small>' +
+      '<small class="bag-line"><b>Run:</b> ' + b.run + '</small>' +
+      '<small class="bag-line"><b>Torre:</b> ' + b.tower + '</small>' +
+      '<small class="bag-line"><b>Expedición:</b> ' + b.exp + '</small>';
   }
 
   function drawSlot(cv, plant) {
@@ -199,6 +240,7 @@ G.GardenUI = (() => {
     const word = got.n === 1 ? '1 ' + name : got.n + ' ' + name;
     G.UI.toast(got.seed ? 'Recoges ' + word + ' y 1 semilla' : 'Recoges ' + word);
     G.Audio.sfx('confirm');
+    plotSig = '';
     paintPlots();
   }
 
@@ -226,7 +268,7 @@ G.GardenUI = (() => {
     }).join('');
     box.querySelectorAll('.bag-item').forEach(btn => {
       const id = btn.dataset.id;
-      drawBerry(btn.querySelector('canvas').getContext('2d'), id, 8, 8, 32, 32, false);
+      drawSeed(btn.querySelector('canvas').getContext('2d'), id);
       btn.onclick = () => {
         if (!G.Garden.plant(s, seedPlot, seedSlot, id)) return;
         G.DB.commit(true);
@@ -261,7 +303,7 @@ G.GardenUI = (() => {
     }).join('');
     box.querySelectorAll('.bag-item').forEach(btn => {
       const i = +btn.dataset.i;
-      drawBerry(btn.querySelector('canvas').getContext('2d'), s.garden.shop[i], 8, 8, 32, 32, false);
+      drawSeed(btn.querySelector('canvas').getContext('2d'), s.garden.shop[i]);
       btn.onclick = () => {
         if (s.garden.sold[i]) return;
         const id = G.Garden.buySeed(s, i);
@@ -293,11 +335,11 @@ G.GardenUI = (() => {
     $('berry-bag').classList.remove('hidden');
     paintBag();
   }
-  function closeBag() {
+  function closeBag(silent) {
     $('berry-bag').classList.add('hidden');
     const done = bagDone;
     bagDone = null;
-    if (done) done();
+    if (done && !silent) done();
   }
 
   function paintBag() {
@@ -314,7 +356,7 @@ G.GardenUI = (() => {
       const n = s.berries[id] || 0;
       return '<button type="button" class="bag-item' + (on ? ' on' : '') + '" data-id="' + id + '">' +
         '<canvas width="48" height="48"></canvas><span><b>' + b.name + (on ? ' · puesta' : '') + '</b>' +
-        '<small>' + (on ? 'En este Pokémon' : 'Tienes ' + n) + '</small><small class="bag-text">' + b.text + '</small></span></button>';
+        '<small>' + (on ? 'En este Pokémon' : 'Tienes ' + n) + '</small></span></button>';
     }).join('');
     box.innerHTML = html;
     box.querySelectorAll('canvas').forEach(cv => {
@@ -343,5 +385,41 @@ G.GardenUI = (() => {
     return id ? G.Berries.BY[id].name : 'Ninguna';
   }
 
-  return { init, open, openBag, label };
+  function openPack() {
+    if (!G.DB.save) return;
+    G.Garden.clean(G.DB.save);
+    $('pack').classList.remove('hidden');
+    paintPack();
+  }
+  function closePack() { const el = $('pack'); if (el) el.classList.add('hidden'); }
+
+  function paintPack() {
+    const s = G.DB.save;
+    if (!s) return;
+    const seeds = $('pack-seeds');
+    const berries = $('pack-berries');
+    const seedIds = G.Berries.IDS.filter(id => s.seeds[id] > 0);
+    const berryIds = G.Berries.IDS.filter(id => s.berries[id] > 0);
+    seeds.innerHTML = seedIds.length ? seedIds.map(id => {
+      const b = G.Berries.BY[id];
+      return '<div class="bag-item bag-view"><canvas width="48" height="48" data-seed="' + id + '"></canvas>' +
+        '<span><b>Semilla de ' + b.name + '</b><small>Tienes ' + s.seeds[id] + ' · crece en ' + G.Berries.clock(b.grow / 60000) + '</small></span></div>';
+    }).join('') : '<p class="sub">No tienes semillas.</p>';
+    berries.innerHTML = berryIds.length ? berryIds.map(id => {
+      const b = G.Berries.BY[id];
+      return '<div class="bag-item bag-view"><canvas width="48" height="48" data-berry="' + id + '"></canvas>' +
+        '<span><b>' + b.name + '</b><small>Tienes ' + s.berries[id] + '</small>' + berryText(b) + '</span></div>';
+    }).join('') : '<p class="sub">No tienes bayas.</p>';
+    seeds.querySelectorAll('canvas').forEach(cv => drawSeed(cv.getContext('2d'), cv.dataset.seed));
+    berries.querySelectorAll('canvas').forEach(cv => drawBerry(cv.getContext('2d'), cv.dataset.berry, 4, 4, 40, 40, false));
+  }
+
+  function closePopups() {
+    closeShop();
+    closeSeeds();
+    closeBag(true);
+    closePack();
+  }
+
+  return { init, open, openBag, label, closePopups };
 })();

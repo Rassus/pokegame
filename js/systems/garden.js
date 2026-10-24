@@ -3,6 +3,8 @@
  * al cambiarla, la anterior vuelve, salvo que se haya gastado en la partida.
  * Plantar, cosechar y la tienda salen de la hora, así que recargar no cambia
  * la tirada. La expedición guarda el ritmo al enviar.
+ * Al recoger, el hueco queda vacío: gone recuerda esa siembra para que,
+ * al fusionar con otra copia, no vuelva a salir ya crecida.
  */
 G.Garden = (() => {
   const SHOP_MS = () => G.Berries.SHOP_MS;
@@ -19,7 +21,19 @@ G.Garden = (() => {
   }
 
   function blank() {
-    return { open: 1, plants: {}, shopAt: 0, shop: [], sold: [0, 0, 0, 0] };
+    return { open: 1, plants: {}, shopAt: 0, shop: [], sold: [0, 0, 0, 0], gone: {} };
+  }
+
+  /** Hueco -> hora en que se recogió. Una siembra anterior a eso ya no existe. */
+  function cleanGone(raw) {
+    const gone = {};
+    const src = raw && typeof raw === 'object' ? raw : {};
+    for (const key of Object.keys(src)) {
+      if (!/^(\d+)-([01])$/.test(key)) continue;
+      const t = Math.floor(+src[key]);
+      if (t > 0) gone[key] = t;
+    }
+    return gone;
   }
 
   function countBag(bag) {
@@ -81,6 +95,7 @@ G.Garden = (() => {
 
     const g = save.garden && typeof save.garden === 'object' ? save.garden : blank();
     g.open = Math.max(1, Math.min(12, Math.floor(+g.open) || 1));
+    g.gone = cleanGone(g.gone);
     const plants = {};
     const raw = g.plants && typeof g.plants === 'object' ? g.plants : {};
     for (const key of Object.keys(raw)) {
@@ -91,7 +106,7 @@ G.Garden = (() => {
       const p = raw[key];
       if (!p || !G.Berries.BY[p.id]) continue;
       const at = Math.floor(+p.at);
-      if (!(at > 0)) continue;
+      if (!(at > (g.gone[key] || 0))) continue;
       plants[key] = { id: p.id, at: Math.min(Date.now() + 60000, at) };
     }
     g.plants = plants;
@@ -100,7 +115,7 @@ G.Garden = (() => {
     save.garden = g;
   }
 
-  /** La mochila no se duplica: manda la cantidad mayor. Las plantas se unen. */
+  /** La mochila no se duplica: manda la cantidad mayor. Una siembra recogida no vuelve. */
   function merge(newer, older) {
     if (!newer || !older) return;
     clean(newer);
@@ -119,10 +134,28 @@ G.Garden = (() => {
     }
     const a = newer.garden, b = older.garden;
     a.open = Math.max(a.open, b.open);
-    for (const key in b.plants) {
-      const mine = a.plants[key];
-      if (!mine || b.plants[key].at < mine.at) a.plants[key] = b.plants[key];
+    const gone = {};
+    for (const src of [a.gone, b.gone]) {
+      for (const key in src || {}) {
+        const t = Math.floor(+src[key]) || 0;
+        if (t > (gone[key] || 0)) gone[key] = t;
+      }
     }
+    const plants = {};
+    const take = src => {
+      for (const key in src || {}) {
+        const p = src[key];
+        if (!p || !G.Berries.BY[p.id]) continue;
+        const at = Math.floor(+p.at) || 0;
+        if (!(at > (gone[key] || 0))) continue;
+        const cur = plants[key];
+        if (!cur || at < cur.at) plants[key] = { id: p.id, at };
+      }
+    };
+    take(a.plants);
+    take(b.plants);
+    a.plants = plants;
+    a.gone = gone;
     if ((b.shopAt || 0) > (a.shopAt || 0)) {
       a.shopAt = b.shopAt;
       a.shop = b.shop.slice();
@@ -184,7 +217,9 @@ G.Garden = (() => {
     if (save.garden.plants[key]) return false;
     save.seeds[id]--;
     if (save.seeds[id] <= 0) delete save.seeds[id];
-    save.garden.plants[key] = { id, at: Date.now() };
+    const at = Date.now();
+    const cut = save.garden.gone[key] || 0;
+    save.garden.plants[key] = { id, at: at > cut ? at : cut + 1 };
     return true;
   }
 
@@ -196,6 +231,7 @@ G.Garden = (() => {
     const got = yieldOf(spot);
     save.berries[spot.id] = (save.berries[spot.id] || 0) + got.n;
     if (got.seed) save.seeds[spot.id] = (save.seeds[spot.id] || 0) + 1;
+    save.garden.gone[key] = Math.max(save.garden.gone[key] || 0, Date.now(), spot.at);
     delete save.garden.plants[key];
     return { id: spot.id, n: got.n, seed: got.seed };
   }
@@ -268,11 +304,14 @@ G.Garden = (() => {
     const id = worn(G.DB.save, pl.dex);
     if (!id) return;
     pl.berryId = id;
+    pl.berryWhere = tower ? 'tower' : 'run';
     if (id === 'caramel') {
       if (tower) {
-        pl.heal(100);
+        // Solo el máximo. No cura la vida que ya faltaba: entras lleno, así que
+        // esos 100 quedan en la barra porque la vida actual sube con el tope.
+        pl.addMaxHp(100);
         consume(pl.dex);
-        if (G.Spawner) G.Spawner.say('Caramelo se ha gastado', 2.4, true);
+        if (G.Spawner) G.Spawner.say('Vida máxima +100', 2.4, true);
       } else pl.candyLeft = 350;
     } else if (id === 'bruva') {
       pl.poisonMul = tower ? 1.06 : 1.10;

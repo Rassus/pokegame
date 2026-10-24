@@ -42,6 +42,12 @@ G.ExpeditionUI = (() => {
   }
   function photo(b) { return 'assets/biome/' + encodeURI(b.file); }
 
+  function berryBit(id) {
+    const b = id && G.Berries && G.Berries.BY[id];
+    if (!b) return '';
+    return ' · Baya ' + b.name + ': ' + b.exp;
+  }
+
   function init() {
     $('exp-prev').dataset.sfx = 'select';
     $('exp-next').dataset.sfx = 'select';
@@ -129,7 +135,8 @@ G.ExpeditionUI = (() => {
       const cap = capLabel(spot.maxMs);
       const tail = p.done ? 'Completo' : 'siguiente en ' + clock(p.next);
       el.textContent = (mon ? mon.name : '') + ' en ' + (b ? b.name : '') + ' · ' + cond + ' · ' +
-        everyLabel(spot.every) + ' · ' + gain + (extra ? ' · ' + extra : '') + (cap ? ' · ' + cap : '') + ' · ' + tail;
+        everyLabel(spot.every) + ' · ' + gain + (extra ? ' · ' + extra : '') + (cap ? ' · ' + cap : '') + ' · ' + tail +
+        berryBit(spot.berry);
       return;
     }
     if (draft && draft.slot === selected) {
@@ -139,8 +146,9 @@ G.ExpeditionUI = (() => {
         const gain = plan.gain === 1 ? '1 fragmento por ronda' : plan.gain + ' fragmentos por ronda';
         const extra = bonusLabel(plan);
         const cap = capLabel(plan.maxMs);
+        const held = G.Garden && G.Garden.worn(s, draft.dex);
         el.textContent = mon.name + ' · ' + plan.name + ' · ' + everyLabel(plan.every) + ' · ' + gain +
-          (extra ? ' · ' + extra : '') + (cap ? ' · ' + cap : '');
+          (extra ? ' · ' + extra : '') + (cap ? ' · ' + cap : '') + berryBit(held);
         return;
       }
     }
@@ -210,7 +218,10 @@ G.ExpeditionUI = (() => {
       }
       const p = G.Expedition.progress(spot);
       const word = p.frags === 1 ? '1 fragmento' : p.frags + ' fragmentos';
-      node.textContent = p.done ? word : word + ' · quedan ' + clock(p.left);
+      const buff = spot.berry && G.Berries && G.Berries.BY[spot.berry]
+        ? ' · ' + G.Berries.BY[spot.berry].name + ' · ' + G.Berries.hudLine(spot.berry, 'exp')
+        : '';
+      node.textContent = (p.done ? word : word + ' · quedan ' + clock(p.left)) + buff;
     });
     if (s.expd[selected]) paintRate();
   }
@@ -328,9 +339,30 @@ G.ExpeditionUI = (() => {
       G.DB.commit(true);
       const mon = G.DEX_BY[back.dex];
       const name = mon ? mon.name : '';
-      G.UI.toast(back.frags
+      const backLine = back.frags
         ? name + ' vuelve con ' + back.frags + (back.frags === 1 ? ' fragmento' : ' fragmentos')
-        : name + ' vuelve sin fragmentos');
+        : name + ' vuelve sin fragmentos';
+      G.UI.toast(backLine);
+      const box = $('exp-result');
+      box.classList.remove('hidden');
+      box.innerHTML = '';
+      const line = document.createElement('span');
+      line.textContent = backLine;
+      box.appendChild(line);
+      const berry = back.berry && G.Berries && G.Berries.BY[back.berry];
+      if (berry) {
+        const fx = document.createElement('span');
+        fx.style.display = 'block';
+        const lab = document.createElement('b');
+        lab.textContent = berry.name;
+        const sent = document.createElement('span');
+        sent.textContent = berry.exp;
+        fx.appendChild(document.createTextNode('Baya '));
+        fx.appendChild(lab);
+        fx.appendChild(document.createTextNode(': '));
+        fx.appendChild(sent);
+        box.appendChild(fx);
+      }
       G.Audio.sfx(back.frags ? 'buy' : 'click');
       paintSlots();
       paintRate();
@@ -340,6 +372,8 @@ G.ExpeditionUI = (() => {
     const sent = G.Expedition.send(s, selected, draft.dex, cur().id);
     if (!sent) { G.UI.toast('No se pudo enviar'); return; }
     draft = null;
+    const old = $('exp-result');
+    if (old) { old.classList.add('hidden'); old.innerHTML = ''; }
     G.DB.commit(true);
     const mon = G.DEX_BY[sent.dex];
     G.UI.toast((mon ? mon.name : '') + ' sale hacia ' + cur().name);

@@ -15,11 +15,20 @@ G.CHANGELOG = [
      'In Upgrades, the Expedition tab: Winning mindset (one more fragment per round; 15,000, 60,000, 185,000 and 325,000) and Expeditions (one more slot per level; 150,000, 600,000 and 1,500,000). You start with one slot.'],
     ['Huerto, en el menú. Doce parcelas: la primera está abierta y las otras se compran (1.500, 35.000, 125.000, 450.000, 865.000, 1.234.000 y 2.500.000 el resto). Cada parcela tiene dos huecos. La tienda saca 4 semillas al azar cada 8 horas, a 2.500. Crecen por fases y, al recoger, dan de 1 a 3 bayas y a veces una semilla. Cada Pokémon lleva una baya: se elige en su ficha o al enviarlo.',
      'Garden, on the menu. Twelve plots: the first is open and the others are bought (1,500, 35,000, 125,000, 450,000, 865,000, 1,234,000 and 2,500,000 for the rest). Each plot has two slots. The shop offers 4 random seeds every 8 hours, for 2,500. They grow in stages and, when you pick them, give 1 to 3 berries and sometimes a seed. Each Pokémon holds one berry: you choose it on its page or when you send it.'],
-    ['Las ocho bayas cambian la partida, la torre o la expedición. Caramelo cura. Bruva refuerza el veneno. Toto da Síntesis. Drildo da Coraza. Pera\'h alarga Prisa y, en la torre, ignora el clima. Picor sube el daño y quita Coraza y Fortaleza. Polca pega al rozar mientras dura Rayo y, en la torre, se queda Carrera si sale. Aranja anula el suelo. En la expedición cambian el ritmo, el tope de horas o las tiradas del bioma. El ritmo se guarda al enviar.',
-     'The eight berries change the run, the tower or the expedition. Caramel heals. Bruva strengthens poison. Toto grants Synthesis. Drildo grants Armor. Perah lengthens Haste and, in the tower, ignores the weather. Picor raises damage and removes Armor and Harden. Polca hits on touch while Bolt lasts and, in the tower, keeps Agility if it shows up. Aranja cancels the floor. On an expedition they change the pace, the hour cap or the biome rolls. The pace is saved when you send.']
+    ['Las ocho bayas cambian la partida, la torre o la expedición. Caramelo cura en la partida y, en la torre, sube 100 la vida máxima. Bruva refuerza el veneno. Toto da Síntesis. Drildo da Coraza. Pera\'h alarga Prisa y, en la torre, ignora el clima. Picor sube el daño y quita Coraza y Fortaleza. Polca pega al rozar mientras dura Rayo y, en la torre, se queda Carrera si sale. Aranja anula el suelo. En la expedición cambian el ritmo, el tope de horas o las tiradas del bioma. El ritmo se guarda al enviar.',
+     'The eight berries change the run, the tower or the expedition. Caramel heals in a run and, in the tower, raises max HP by 100. Bruva strengthens poison. Toto grants Synthesis. Drildo grants Armor. Perah lengthens Haste and, in the tower, ignores the weather. Picor raises damage and removes Armor and Harden. Polca hits on touch while Bolt lasts and, in the tower, keeps Agility if it shows up. Aranja cancels the floor. On an expedition they change the pace, the hour cap or the biome rolls. The pace is saved when you send.'],
+    ['Mochila, a la izquierda del oro. Ahí están las semillas y las bayas. La descripción de cada baya (el sabor, y qué hace en la run, en la torre y en la expedición) solo sale ahí.',
+     'Backpack, to the left of the coins. Seeds and berries are there. Each berry\'s description (the taste, and what it does in a run, in the tower and on an expedition) only shows there.'],
+    ['La tienda de semillas enseña la semilla. En la partida, en la torre y en la expedición se ve el efecto de la baya. Al terminar, el resultado dice qué hizo.',
+     'The seed shop shows the seed. In a run, in the tower and on an expedition you see the berry\'s effect. At the end, the result says what it did.']
   ], chg: [
     ['El agua, la lava y el destello al golpear gastan menos. Con muchos efectos la pelea va más suave.',
-     'Water, lava and the flash when you land a hit cost less. With lots of effects the fight runs smoother.']
+     'Water, lava and the flash when you land a hit cost less. With lots of effects the fight runs smoother.'],
+    ['En la torre, Caramelo aumenta 100 la vida máxima. No cura.',
+     'In the tower, Caramel raises max HP by 100. It does not heal.']
+  ], fix: [
+    ['Al recoger en el huerto, el hueco se queda vacío. Antes la planta volvía a salir ya crecida.',
+     'When you pick in the garden, the slot stays empty. Before, the plant came back fully grown.']
   ] },
   { d: '2026-10-23', title: ['Probabilidades del gacha', 'Gacha odds'], chg: [
     ['Fortaleza baja a +2,2% de defensa por carga.',

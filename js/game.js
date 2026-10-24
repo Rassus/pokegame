@@ -117,6 +117,7 @@ G.Game = (() => {
 
     G.UI.hideAll();
     G.UI.chrome(false);
+    if (G.GardenUI && G.GardenUI.closePopups) G.GardenUI.closePopups();
     G.FX.clear();
     G.Projectiles.clear();
     G.Combat.clearFields();
@@ -659,6 +660,7 @@ G.Game = (() => {
         dealt: pl.dmgBy[m.id] || 0, added: pl.buffAdd[m.id] || 0
       })),
       team: teamBoard,
+      berry: pl.berryId ? { id: pl.berryId, where: pl.berryWhere === 'tower' ? 'tower' : 'run' } : null,
       pay,
       breakdown: Object.entries(parts).filter(([, v]) => v).map(([k, v]) => `${k} ${G.U.num(v)}`).join(' · ') +
                  (caughtName ? ' · ' + caughtName + ' atrapado' : '') + towerExtra

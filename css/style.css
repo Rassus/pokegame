@@ -1260,7 +1260,12 @@ button.cell { width: 100%; appearance: none; font: inherit; color: inherit; }
 .bag-item.sold { opacity: .55; cursor: default; }
 .bag-item canvas { flex: 0 0 48px; }
 .bag-item small { display: block; color: var(--muted); }
-.bag-text { margin-top: 4px; }
+.bag-view { cursor: default; }
+.bag-flavor, .bag-line { display: block; margin-top: 4px; }
+.bag-line b { color: #e7eefc; }
+.pack-h { margin: 14px 0 0; font-weight: 800; }
+.exp-result { margin-top: 12px; }
+.exp-result b { color: #ff9eb8; }
 @media (max-width: 640px) {
   .exp-stage { height: 160px; }
   .exp-cap { font-size: 26px; }

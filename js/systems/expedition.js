@@ -296,6 +296,7 @@ G.Expedition = (() => {
       const chance = fresh ? extra.chance
         : (e.chance == null ? (bonus > 0 ? 0.65 : bonus < 0 ? 0.5 : 0) : Math.max(0, Math.min(1, +e.chance || 0)));
       const spot = { dex, biome: biome.id, at: Math.min(Date.now() + 60000, at), every, gain, cond, bonusEvery, bonus, chance };
+      if (typeof e.berry === 'string' && G.Berries && G.Berries.BY[e.berry]) spot.berry = e.berry;
       if (!fresh) {
         const extraP = Math.max(0, Math.min(1, +e.extraP || 0));
         const tripleP = Math.max(0, Math.min(1, +e.tripleP || 0));
@@ -410,6 +411,8 @@ G.Expedition = (() => {
       bonusEvery: plan.bonusEvery, bonus: plan.bonus, chance: plan.chance,
       extraP: plan.extraP || 0, tripleP: plan.tripleP || 0, maxMs: plan.maxMs || MAX_MS
     };
+    const berry = G.Garden && G.Garden.worn(save, dex);
+    if (berry) spot.berry = berry;
     save.expd[index] = spot;
     return spot;
   }
@@ -427,7 +430,7 @@ G.Expedition = (() => {
     save.expdDone = save.expdDone || {};
     save.expdDone[String(e.dex)] = { t: Date.now(), n: info.frags, k: key };
     save.expd[index] = null;
-    return { dex: e.dex, frags: info.frags, biome: e.biome };
+    return { dex: e.dex, frags: info.frags, biome: e.biome, berry: e.berry || null };
   }
 
   return {

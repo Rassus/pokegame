@@ -205,6 +205,7 @@
 </section>
 
 <div id="topbar" class="topbar hidden">
+  <button type="button" id="btn-bag" class="btn small ghost" title="Mochila" aria-label="Mochila"></button>
   <div class="pill"><span class="coin"></span><span id="coins">0</span></div>
   <div class="pill" id="tickets-pill" title="Tickets del gacha"></div>
   <div class="pill" id="user-pill"></div>
@@ -540,6 +541,7 @@
     <div class="row" style="justify-content:center;margin-top:14px">
       <button type="button" class="btn gold" id="exp-go" data-sfx="none">Enviar</button>
     </div>
+    <p id="exp-result" class="note exp-result hidden"></p>
   </div>
   <div id="exp-pick" class="exp-pick hidden">
     <div class="box wide">
@@ -592,6 +594,16 @@
     <div class="row between"><h2 id="berry-bag-title">Baya</h2><button type="button" class="btn small ghost" id="berry-bag-x">Cerrar</button></div>
     <p class="sub" id="berry-bag-note"></p>
     <div id="berry-list"></div>
+  </div>
+</div>
+<div id="pack" class="exp-pick hidden">
+  <div class="box">
+    <div class="row between"><h2>Mochila</h2><button type="button" class="btn small ghost" id="pack-x">Cerrar</button></div>
+    <p class="sub">Las semillas y las bayas que guardas. La que lleva un Pokémon no está aquí.</p>
+    <p class="pack-h">Semillas</p>
+    <div id="pack-seeds"></div>
+    <p class="pack-h">Bayas</p>
+    <div id="pack-berries"></div>
   </div>
 </div>
 

@@ -181,11 +181,16 @@ G.RunUI = (() => {
     const teamBox = $('over-team');
     if (teamBox) teamBox.classList.add('hidden');
     const tw = r.tower;
+    const berry = r.berry && G.Berries && G.Berries.BY[r.berry.id];
+    const berryHtml = berry
+      ? `<div style="grid-column:1/-1"><span>Baya</span><b>${berry.name}</b><div style="font-size:12px;color:var(--muted)">${G.Berries.benefit(r.berry.id, r.berry.where)}</div></div>`
+      : '';
     const waveLine = tw ? (tw.cleared
       ? 'Oleada ' + tw.wave + ' / ' + tw.waves + ' · superada'
       : 'Oleada ' + tw.wave + ' / ' + tw.waves) : '';
     $('over-stats').innerHTML = `
       ${tw ? `<div style="grid-column:1/-1"><span><b translate="no">${tw.name}</b> · <span>${tw.mode}</span></span><b>${waveLine}</b></div>` : ''}
+      ${berryHtml}
       ${tw && tw.best ? '<div style="grid-column:1/-1;text-align:center" class="gold">¡Nueva mejor oleada!</div>' : ''}
       <div><span>Tiempo</span><b>${G.U.mmss(r.time)}</b></div>
       <div><span>Nivel</span><b>${r.level}</b></div>
