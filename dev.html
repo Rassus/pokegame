@@ -193,7 +193,7 @@
         <button class="menu-item" data-go="friends">Amigos<small id="menu-friends-sub">Juega en grupo, hasta 8</small></button>
         <button class="menu-item" data-go="rank">Ranking<small>Quién aguanta más</small></button>
         <button class="menu-item" data-go="settings">Ajustes<small>Sonido, gráficos, controles y cuenta</small></button>
-        <button class="menu-item hidden" id="menu-qa" data-go="qa">Modo prueba<small>Oro, colección, torres y jefes</small></button>
+        <button class="menu-item hidden" id="menu-qa" data-go="qa">Modo prueba<small>Oro, colección y herramientas de la run</small></button>
       </div>
     </div>
     <div class="box" style="padding:14px 18px">
@@ -228,6 +228,24 @@
   <div class="box settings">
     <div class="row between"><h2>Modo prueba</h2><button class="btn small ghost" id="qa-close" type="button">Cerrar</button></div>
     <div id="qa-body" class="set-body"></div>
+  </div>
+</section>
+
+<div id="qa-run" class="qa-run hidden">
+  <button type="button" id="qa-run-toggle" class="btn small gold">Prueba</button>
+  <div id="qa-run-bar" class="qa-run-bar">
+    <button type="button" class="btn small" data-qa="lvl">Nivel</button>
+    <button type="button" class="btn small" data-qa="moves">Habilidades</button>
+    <button type="button" class="btn small" data-qa="rift">Grieta</button>
+    <button type="button" class="btn small" data-qa="boss">Jefe</button>
+    <button type="button" class="btn small" data-qa="god">Indestructible</button>
+    <button type="button" class="btn small" data-qa="pow">Daño ×1000</button>
+  </div>
+</div>
+<section id="scr-qa-run" class="scr dim hidden">
+  <div class="box qa-run-box">
+    <div class="row between"><h2 id="qa-run-title">Prueba</h2><button class="btn small ghost" id="qa-run-x" type="button">Cerrar</button></div>
+    <div id="qa-run-body"></div>
   </div>
 </section>
 

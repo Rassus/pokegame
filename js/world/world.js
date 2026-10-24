@@ -44,6 +44,12 @@ G.World = (() => {
   const MAX_IMAGES = 48, MAX_DATA = 400;
   const broken = new Set();                // props destruidos: "tx,ty"
   let nextPropId = 1;
+  // Chispas de líquido: un lienzo pequeño por chunk (no en el canvas grande).
+  // Cada uno se repinta a ~30 Hz y en fotogramas alternos, así un lago no
+  // hace cientos de fillRect por fotograma. El dibujo es el mismo.
+  const LIQ_PAD = 4, MAX_LIQ = 24;
+  const liqImages = new Map();             // "cx,cy" -> { cv, c, at, biome, foam, lava, stamp }
+  let liqStamp = 0;
 
   // ---------------- ruido ----------------
 
@@ -119,10 +125,10 @@ G.World = (() => {
   function forgetArena(zone) {
     if (!zone) return;
     const R = (zone.r || 11) + 9;
-    for (const k of [...data.keys(), ...images.keys()]) {
+    for (const k of [...data.keys(), ...images.keys(), ...liqImages.keys()]) {
       const [cx, cy] = k.split(',').map(Number);
       if (Math.abs(cx * N + N / 2 - zone.tx) < R + N && Math.abs(cy * N + N / 2 - zone.ty) < R + N) {
-        data.delete(k); images.delete(k);
+        data.delete(k); images.delete(k); liqImages.delete(k);
       }
     }
   }
@@ -474,28 +480,72 @@ G.World = (() => {
     }
   }
 
+  /**
+   * Pinta las chispas de un chunk en su lienzo (píxeles de arte).
+   * Misma fórmula que antes: seno, alpha y el saltito de 0, 1 o 2 píxeles.
+   */
+  function paintLiquidChunk(s, cx, cy, t, lava, foam) {
+    const c = s.c, P = G.Sprites.PX;
+    const ox = cx * CW, oy = cy * CW;
+    c.clearRect(0, 0, s.cv.width, s.cv.height);
+    c.fillStyle = foam;
+    const liquids = chunkData(cx, cy).liquids;
+    for (let i = 0; i < liquids.length; i += 2) {
+      const tx = liquids[i], ty = liquids[i + 1];
+      const x = tx * TS, y = ty * TS;
+      const ph = H(tx, ty, 77) * 6.28;
+      const k = (Math.sin(t * (lava ? 2.2 : 1.6) + ph) + 1) / 2;
+      c.globalAlpha = lava ? 0.35 + k * 0.5 : k * 0.7;
+      const sx = x + Math.floor(H(tx, ty, 78) * 12 + 2) * P;
+      const sy = y + Math.floor(H(tx, ty, 79) * 12 + 2) * P;
+      c.fillRect((sx + Math.round(k * 2) * P - ox) / P, (sy - oy) / P, lava ? 2 : 3, 1);
+      if (lava && k > 0.8) c.fillRect((sx - ox) / P, (sy - P * 2 - oy) / P, 1, 1);
+    }
+    c.globalAlpha = 1;
+  }
+
+  /** Lienzo del chunk. Se rehace a ~30 Hz, la mitad de los chunks cada fotograma. */
+  function liquidImage(cx, cy, t, lava, foam) {
+    const key = cx + ',' + cy;
+    if (!chunkData(cx, cy).liquids.length) { liqImages.delete(key); return null; }
+    let s = liqImages.get(key);
+    if (!s) {
+      const cv = document.createElement('canvas');
+      cv.width = N * T + LIQ_PAD; cv.height = N * T + LIQ_PAD;
+      const c = cv.getContext('2d');
+      c.imageSmoothingEnabled = false;
+      s = { cv, c, at: -1, biome: -1, foam: '', lava: null, stamp: 0 };
+      liqImages.set(key, s);
+    }
+    const stale = s.at < 0 || s.biome !== biome || s.foam !== foam || s.lava !== lava;
+    const mine = ((cx + cy) & 1) === (((t * 60) | 0) & 1);
+    if (stale || (mine && t - s.at >= 1 / 35) || t - s.at >= 1 / 20) {
+      paintLiquidChunk(s, cx, cy, t, lava, foam);
+      s.at = t; s.biome = biome; s.foam = foam; s.lava = lava;
+    }
+    return s;
+  }
+
   /** Brillos animados sobre el agua / burbujas de la lava (y del veneno y la electricidad). */
   function drawLiquid(ctx, cam, t) {
     const B = G.Tiles.BIOMES[biome];
     const lava = B.liquid === 'lava' || B.liquid === 'poison' || B.liquid === 'spark';
-    ctx.fillStyle = B.foam;
-    const P = G.Sprites.PX;
+    ctx.imageSmoothingEnabled = false;
+    const stamp = ++liqStamp;
+    const dest = (N * T + LIQ_PAD) * G.Sprites.PX;
     for (const [cx, cy] of visibleChunks(cam)) {
-      const c = chunkData(cx, cy);
-      for (let i = 0; i < c.liquids.length; i += 2) {
-        const tx = c.liquids[i], ty = c.liquids[i + 1];
-        const x = tx * TS, y = ty * TS;
-        if (!cam.sees(x + TS / 2, y + TS / 2, TS)) continue;
-        const ph = H(tx, ty, 77) * 6.28;
-        const k = (Math.sin(t * (lava ? 2.2 : 1.6) + ph) + 1) / 2;
-        ctx.globalAlpha = lava ? 0.35 + k * 0.5 : k * 0.7;
-        const sx = x + Math.floor(H(tx, ty, 78) * 12 + 2) * P;
-        const sy = y + Math.floor(H(tx, ty, 79) * 12 + 2) * P;
-        ctx.fillRect(sx + Math.round(k * 2) * P, sy, P * (lava ? 2 : 3), P);
-        if (lava && k > 0.8) ctx.fillRect(sx, sy - P * 2, P, P);
+      const s = liquidImage(cx, cy, t, lava, B.foam);
+      if (!s) continue;
+      s.stamp = stamp;
+      ctx.drawImage(s.cv, cx * CW, cy * CW, dest, dest);
+    }
+    if (liqImages.size > MAX_LIQ) {
+      for (const [key, s] of liqImages) {
+        if (s.stamp === stamp) continue;
+        liqImages.delete(key);
+        if (liqImages.size <= MAX_LIQ) break;
       }
     }
-    ctx.globalAlpha = 1;
   }
 
   /** Props visibles, para mezclarlos en el orden por Y con las entidades. */
@@ -574,7 +624,7 @@ G.World = (() => {
 
   function reset(s) {
     seed = (s | 0) || 1;
-    data.clear(); images.clear(); broken.clear();
+    data.clear(); images.clear(); liqImages.clear(); broken.clear();
     fade = null; arena = null;
   }
 
@@ -597,12 +647,18 @@ G.World = (() => {
 
   function biomeName() { return G.Tiles.BIOMES[biome].name; }
 
+  // El gradiente no cambia hasta que cambia el tamaño de la ventana.
+  let vignette = null;
+
   /** Viñeta en coordenadas de pantalla. */
   function drawVignette(ctx, w, h) {
-    const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.34, w / 2, h / 2, Math.max(w, h) * 0.78);
-    g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(0,0,0,.5)');
-    ctx.fillStyle = g;
+    if (!vignette || vignette.ctx !== ctx || vignette.w !== w || vignette.h !== h) {
+      const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.34, w / 2, h / 2, Math.max(w, h) * 0.78);
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(1, 'rgba(0,0,0,.5)');
+      vignette = { ctx, w, h, g };
+    }
+    ctx.fillStyle = vignette.g;
     ctx.fillRect(0, 0, w, h);
   }
 

@@ -788,9 +788,16 @@
     let corpses = [];         // cayendo / desvaneciéndose
     const CELL = 52;
     const grid = new Map();
+    const buckets = [];          // cubos de la rejilla, se vacían y se vuelven a usar
+    const qPool = [];            // un array por consulta de este fotograma
+    let qUsed = 0;
 
     const byId = new Map();
-    function clear() { list = []; corpses = []; grid.clear(); byId.clear(); }
+    function clear() {
+      for (const b of grid.values()) { b.length = 0; buckets.push(b); }
+      list = []; corpses = []; grid.clear(); byId.clear();
+      qUsed = 0;
+    }
     function all() { return list; }
     function add(e) {
       list.push(e);
@@ -893,19 +900,26 @@
     function key(cx, cy) { return cx * 73856093 ^ cy * 19349663; }
 
     function rebuildGrid() {
+      for (const b of grid.values()) { b.length = 0; buckets.push(b); }
       grid.clear();
       for (const e of list) {
         if (e.dead) continue;
         const k = key(Math.floor(e.x / CELL), Math.floor(e.y / CELL));
         let b = grid.get(k);
-        if (!b) grid.set(k, b = []);
+        if (!b) grid.set(k, b = buckets.pop() || []);
         b.push(e);
       }
     }
 
-    /** Enemigos vivos cuyo círculo toca este círculo. */
+    /**
+     * Enemigos vivos cuyo círculo toca este círculo.
+     * El array vale hasta el próximo EnemyMgr.update: cada consulta de este
+     * fotograma tiene el suyo, así una llamada dentro de otra no lo pisa.
+     */
     function queryCircle(x, y, r) {
-      const out = [];
+      const out = qPool[qUsed] || (qPool[qUsed] = []);
+      qUsed++;
+      out.length = 0;
       const c0x = Math.floor((x - r) / CELL) - 1, c1x = Math.floor((x + r) / CELL) + 1;
       const c0y = Math.floor((y - r) / CELL) - 1, c1y = Math.floor((y + r) / CELL) + 1;
       for (let cy = c0y; cy <= c1y; cy++) {
@@ -971,6 +985,7 @@
     const LAG_T = 2.5;
 
     function update(dt, players) {
+      qUsed = 0;
       if (!Array.isArray(players)) players = [players];
       const pl = players[0];
       // Velocidad suavizada de cada jugador (vale también para los compañeros).

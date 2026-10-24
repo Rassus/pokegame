@@ -17,10 +17,11 @@
 G.Game = (() => {
   let cv, ctx, dpr = 1, w = 0, h = 0;
   let state = 'ui';
-  let time = 0, last = 0, pendingLevels = 0;
+  let time = 0, last = 0, pendingLevels = 0, qaDirty = false;
   let pl = null;
   let caught = [];          // shinies conseguidos en esta run
   let biome = -1;
+  let fogGrad = null;          // niebla: el mismo degradado, el alpha lo pone globalAlpha
 
   const st = { get time() { return time; } };
 
@@ -74,6 +75,7 @@ G.Game = (() => {
   const laterItems = [];             // objetos recogidos con las cartas de nivel abiertas
 
   function togglePause() {
+    if (G.QA && G.QA.blocking()) { G.QA.closePanel(); return; }
     // En grupo la pausa no para el juego (los demás siguen jugando).
     // También durante las cartas: así se puede sacar a quien no elige.
     if (G.Coop.active) {
@@ -129,7 +131,7 @@ G.Game = (() => {
     G.World.reset(coop ? coop.seed : Math.floor(Math.random() * 1e6));
     G.World.setBiome(0, true);
     biome = 0;
-    time = 0; pendingLevels = 0;
+    time = 0; pendingLevels = 0; qaDirty = false;
 
     pl = new G.Player(mon, perks, !!save.partnerShiny && G.DB.ownsShiny(mon.dex), G.Gacha.grown(mon, save));
     banked = { t1: 0, t10: 0, tb: 0, tg: 0 };
@@ -620,17 +622,19 @@ G.Game = (() => {
         towerExtra += rw.ticket === 1 ? ' · 1 ticket dorado' : ' · ' + rw.ticket + ' tickets dorados';
       }
     }
-    const record = !tower && time > save.stats.bestTime;
+    const record = !qaDirty && !tower && time > save.stats.bestTime;
 
     save.coins += coins;
     bankTickets(false);
     save.stats.runs++;
     save.stats.totalKills += pl.kills;
-    if (!tower) save.stats.bestTime = Math.max(save.stats.bestTime, Math.floor(time));
-    if (coop && !tower) save.stats.bestGroupTime = Math.max(save.stats.bestGroupTime || 0, Math.floor(time));
-    save.stats.bestLevel = Math.max(save.stats.bestLevel, pl.level);
-    save.stats.bestKills = Math.max(save.stats.bestKills || 0, pl.kills || 0);
-    save.stats.bestBosses = Math.max(save.stats.bestBosses || 0, pl.bosses || 0);
+    if (!qaDirty) {
+      if (!tower) save.stats.bestTime = Math.max(save.stats.bestTime, Math.floor(time));
+      if (coop && !tower) save.stats.bestGroupTime = Math.max(save.stats.bestGroupTime || 0, Math.floor(time));
+      save.stats.bestLevel = Math.max(save.stats.bestLevel, pl.level);
+      save.stats.bestKills = Math.max(save.stats.bestKills || 0, pl.kills || 0);
+      save.stats.bestBosses = Math.max(save.stats.bestBosses || 0, pl.bosses || 0);
+    }
     save.stats.coinsEarned += coins;
     G.Progress.event('runEnd', { time, level: pl.level, coins: pl.coins, types: pl.mon.types, group: coop, dex: pl.dex, kills: pl.kills || 0, bosses: pl.bosses || 0, tower: !!tower, gain: coins });
     G.Progress.checkAch();
@@ -642,8 +646,8 @@ G.Game = (() => {
     // Ranking: en solitario cada uno lo suyo; en grupo lo sube el anfitrión.
     // La torre ya se apuntó arriba: cada jugador en solo y, si ibais juntos, el equipo.
     const mark = { t: Math.floor(time), lv: pl.level, kills: pl.kills, st: G.Upgrades.sheet((save.pupg || {})[pl.dex]) };
-    if (!tower && !coop) G.Ranking.submitSolo(Object.assign(mark, { dex: pl.dex, shiny: pl.shiny }));
-    else if (!tower && wasHost) G.Ranking.submitGroup(Object.assign(mark, { members: team }));
+    if (!qaDirty && !tower && !coop) G.Ranking.submitSolo(Object.assign(mark, { dex: pl.dex, shiny: pl.shiny }));
+    else if (!qaDirty && !tower && wasHost) G.Ranking.submitGroup(Object.assign(mark, { members: team }));
 
     const title = caughtName ? '¡' + caughtName + ' atrapado!' : (tower && tower.cleared ? '¡Torre superada!' : '');
     G.RunUI.showOver({
@@ -894,6 +898,10 @@ G.Game = (() => {
 
   function handleKeys() {
     if (G.SettingsUI.isOpen) { if (G.Input.tap('escape')) G.SettingsUI.close(); return; }
+    if (G.QA && G.QA.blocking()) {
+      if (G.Input.tap('escape')) G.QA.closePanel();
+      return;
+    }
     if (state === 'levelup') {
       if (G.Coop.active && (G.Input.tap('escape') || G.Input.tap('keyp'))) { togglePause(); return; }
       for (let i = 0; i < 3; i++) {
@@ -972,6 +980,7 @@ G.Game = (() => {
     frameDt = state === 'playing' ? dt : 0;
 
     handleKeys();
+    if (G.QA && G.QA.tick) G.QA.tick();
     G.RunUI.tick(Math.min(0.05, real));
 
     if (state === 'playing') update(dt);
@@ -1042,6 +1051,7 @@ G.Game = (() => {
     } else if (!coop || G.Coop.isHost) G.Spawner.update(dt, all, time);
     else G.Spawner.tickBanner(dt);
     G.EnemyMgr.update(dt, all);
+    // Segunda rejilla: el combate tiene que ver dónde están ahora, no antes de moverse.
     G.EnemyMgr.rebuildGrid();
     G.Combat.tick(dt, pl, time);
     G.Projectiles.update(dt, pl, G.EnemyMgr.all());
@@ -1138,11 +1148,17 @@ G.Game = (() => {
     // Niebla: la viñeta se cierra un poco (sin tapar el centro).
     const fog = G.Weather.vignette;
     if (fog > 0) {
-      const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.32, w / 2, h / 2, Math.max(w, h) * 0.62);
-      g.addColorStop(0, 'rgba(200,205,220,0)');
-      g.addColorStop(1, `rgba(200,205,220,${0.45 * fog})`);
-      ctx.fillStyle = g;
+      if (!fogGrad || fogGrad.ctx !== ctx || fogGrad.w !== w || fogGrad.h !== h) {
+        const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.32, w / 2, h / 2, Math.max(w, h) * 0.62);
+        g.addColorStop(0, 'rgba(200,205,220,0)');
+        g.addColorStop(1, 'rgba(200,205,220,0.45)');
+        fogGrad = { ctx, w, h, g };
+      }
+      const prevA = ctx.globalAlpha;
+      ctx.globalAlpha = prevA * fog;
+      ctx.fillStyle = fogGrad.g;
       ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = prevA;
     }
     G.HUD.draw(ctx, w, h, pl, st);
     G.Touch.draw(ctx);
@@ -1270,6 +1286,66 @@ G.Game = (() => {
     debugLevelUp() { pl.level++; pendingLevels++; },
     /** Suma monedas de esta run. Sirve para probar el bloqueo de la consola. */
     debugCoins(n = 100000) { if (pl) pl.coins += Math.floor(n) || 0; },
+    /** Pausa la run para una ventana del modo prueba. True si esta llamada la paró. */
+    qaPause() {
+      if (state !== 'playing') return false;
+      state = 'paused';
+      return true;
+    },
+    qaResume() {
+      if (state === 'paused' && !G.UI.isOpen('scr-pause')) state = 'playing';
+    },
+    qaTouch() { qaDirty = true; },
+    qaSetLevel(n) {
+      if (!pl) return;
+      n = Math.max(1, Math.min(9999, n | 0));
+      pl.level = n;
+      pl.xp = 0;
+      pl.xpNext = G.Player.xpFor(n);
+      qaDirty = true;
+    },
+    /** groups: [[{ id, lvl, evo }, ...], ...] — cada lista es un hueco (salen a la vez). */
+    qaLoadout(groups) {
+      if (!pl || !Array.isArray(groups)) return false;
+      const moves = [];
+      const slots = [];
+      const seen = new Set();
+      for (const g of groups) {
+        if (slots.length >= pl.maxMoves || !Array.isArray(g)) continue;
+        const slot = [];
+        for (const spec of g) {
+          if (slot.length >= G.Player.BOND_MAX) break;
+          const id = spec && spec.id;
+          const def = id && G.Moves.BY_ID[id];
+          if (!def || seen.has(id)) continue;
+          seen.add(id);
+          const lvl = Math.max(1, Math.min(def.maxLvl, spec.lvl | 0 || 1));
+          const m = G.Moves.instance(id, lvl);
+          if (spec.evo) G.Moves.evolve(m);
+          moves.push(m);
+          slot.push(m);
+        }
+        if (slot.length) slots.push(slot);
+      }
+      if (!slots.length) return false;
+      pl.moves = moves;
+      pl.slots = slots;
+      pl.active = 0;
+      G.Projectiles.clearOrbs(pl);
+      qaDirty = true;
+      return true;
+    },
+    qaGod(on) {
+      if (!pl) return;
+      pl.god = !!on;
+      qaDirty = true;
+      if (on && pl.dead) { pl.revive(1); deathT = 0; }
+    },
+    qaPower(on) {
+      if (!pl) return;
+      pl.qaPow = !!on;
+      qaDirty = true;
+    },
     toUI() { state = 'ui'; Backdrop.restore(); },
     get state() { return state; },
     get player() { return pl && G.Guard ? G.Guard.wrap(pl) : pl; },

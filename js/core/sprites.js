@@ -20,24 +20,47 @@ G.Sprites = (() => {
   function hovers(dex) { const m = meta(dex); return !!(m && m.hv); }
 
   /**
-   * Versión blanca de una imagen (para el destello al recibir un golpe).
-   * Se hace una vez por hoja con composición "source-in": mucho más barato
-   * que ctx.filter en cada dibujo, que era lo que más ralentizaba con muchos
-   * enemigos a la vez.
+   * Versión blanca para el destello al recibir un golpe.
+   * Composición "source-in", una vez: mucho más barato que ctx.filter en cada
+   * dibujo, que era lo que más ralentizaba con muchos enemigos a la vez.
+   * Un Pokémon guarda solo el fotograma; un prop, la imagen entera (ya es pequeña).
    */
   const whites = new WeakMap();
+  function whiteOf(img, sx, sy, sw, sh) {
+    if (!(img.naturalWidth > 0) || !(sw > 0) || !(sh > 0)) return null;
+    const c = document.createElement('canvas');
+    c.width = sw; c.height = sh;
+    const x = c.getContext('2d');
+    x.imageSmoothingEnabled = false;
+    x.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    x.globalCompositeOperation = 'source-in';
+    x.fillStyle = '#ffffff';
+    x.fillRect(0, 0, sw, sh);
+    return c;
+  }
+
+  /** Copia blanca de un PNG ya cargado. */
   function white(img) {
     let c = whites.get(img);
     if (c) return c;
-    if (!(img.naturalWidth > 0)) return null;
-    c = document.createElement('canvas');
-    c.width = img.naturalWidth; c.height = img.naturalHeight;
-    const x = c.getContext('2d');
-    x.drawImage(img, 0, 0);
-    x.globalCompositeOperation = 'source-in';
-    x.fillStyle = '#ffffff';
-    x.fillRect(0, 0, c.width, c.height);
-    whites.set(img, c);
+    c = whiteOf(img, 0, 0, img.naturalWidth, img.naturalHeight);
+    if (c) whites.set(img, c);
+    return c;
+  }
+
+  // Destello de un Pokémon: solo el fotograma que se pinta, no la hoja
+  // (una hoja de ataque puede ser de varios MB). Se suelta con la imagen.
+  const frameWhites = new WeakMap();
+  function whiteFrame(img, sx, sy, w, h) {
+    let map = frameWhites.get(img);
+    if (!map) frameWhites.set(img, map = new Map());
+    const k = sx + ',' + sy + ',' + w + ',' + h;
+    let c = map.get(k);
+    if (c) { map.delete(k); map.set(k, c); return c; }
+    c = whiteOf(img, sx, sy, w, h);
+    if (!c) return null;
+    if (map.size >= 48) map.delete(map.keys().next().value);
+    map.set(k, c);
     return c;
   }
 
@@ -260,13 +283,13 @@ G.Sprites = (() => {
       const dx = Math.round(x - m.ax * k), dy = Math.round(y - m.ay * k);
       const prev = ctx.globalAlpha;
       if (alpha < 1) ctx.globalAlpha = prev * alpha;
-      // Destello: blanco entero (enemigos) o medio blanco encima (tu Pokémon).
+      // Destello: el fotograma en blanco (enemigos) o a medias encima (tu Pokémon).
       ctx.drawImage(s.img, sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k);
       if (opts.flash) {
-        const blank = white(s.img);
+        const blank = whiteFrame(s.img, sx, sy, m.w, m.h);
         if (blank && blank.width > 0) {
           if (opts.softFlash) ctx.globalAlpha = prev * alpha * 0.55;
-          ctx.drawImage(blank, sx, sy, m.w, m.h, dx, dy, m.w * k, m.h * k);
+          ctx.drawImage(blank, 0, 0, m.w, m.h, dx, dy, m.w * k, m.h * k);
         }
       }
       ctx.globalAlpha = prev;

@@ -103,7 +103,10 @@ G.Player = class Player {
   cy() { return this.y; }
 
   // ---------------- stats efectivos ----------------
-  get atk() { return this.baseAtk * this.atkMul * (1 + this.buffs.atk.n * this.buffs.atk.amount); }
+  get atk() {
+    const k = this.qaPow ? 1000 : 1;
+    return this.baseAtk * this.atkMul * k * (1 + this.buffs.atk.n * this.buffs.atk.amount);
+  }
   get spd() {
     const s = this.baseSpd * this.spdMul * (1 + this.buffs.spd.n * this.buffs.spd.amount) * (this.slowT > 0 ? 0.5 : 1) * (1 - Math.min(0.6, this.terror || 0));
     const w = G.Weather.speedFor(this.mon.types);
@@ -236,7 +239,7 @@ G.Player = class Player {
    */
   cast(m) {
     // Vidasfera: cada ataque cuesta un poco de vida (nunca te deja KO).
-    if (this.hasItem('lifeorb') && m.kind !== 'orbit' && m.kind !== 'trail' && !this.remote) {
+    if (this.hasItem('lifeorb') && m.kind !== 'orbit' && m.kind !== 'trail' && !this.remote && !this.god) {
       this.hp = Math.max(1, this.hp - Math.max(1, this.maxHp * 0.01));
     }
     const anim = { melee: 'Attack', beam: 'Shoot', projectile: 'Shoot', nova: 'Attack',
@@ -259,7 +262,7 @@ G.Player = class Player {
   // ---------------- daño y curación ----------------
   /** @param type  tipo del ataque (tabla de tipos y clima); sin tipo, daño tal cual */
   hurt(amount, type = null) {
-    if (this.invuln > 0 || this.dead) return;
+    if (this.god || this.invuln > 0 || this.dead) return;
     let eff = null;
     if (type) {
       const k = G.Types.mult(type, this.mon.types);

@@ -14,6 +14,17 @@ G.HUD = (() => {
     ctx.closePath();
   }
 
+  // La barra de XP usa el mismo degradado mientras no cambie el ancho.
+  let xpGrad = null;
+  function xpFill(ctx, w) {
+    if (!xpGrad || xpGrad.ctx !== ctx || xpGrad.w !== w) {
+      const g = ctx.createLinearGradient(0, 0, w, 0);
+      g.addColorStop(0, '#4fd1ff'); g.addColorStop(1, '#a98bff');
+      xpGrad = { ctx, w, g };
+    }
+    return xpGrad.g;
+  }
+
   function bar(ctx, x, y, w, h, frac, col, bg = 'rgba(0,0,0,.55)') {
     roundRect(ctx, x, y, w, h, h / 2); ctx.fillStyle = bg; ctx.fill();
     if (frac > 0) {
@@ -35,9 +46,7 @@ G.HUD = (() => {
     const xpF = pl.xp / pl.xpNext;
     ctx.fillStyle = 'rgba(0,0,0,.5)';
     ctx.fillRect(0, 0, w, 7);
-    const g = ctx.createLinearGradient(0, 0, w, 0);
-    g.addColorStop(0, '#4fd1ff'); g.addColorStop(1, '#a98bff');
-    ctx.fillStyle = g;
+    ctx.fillStyle = xpFill(ctx, w);
     ctx.fillRect(0, 0, w * G.U.clamp(xpF, 0, 1), 7);
 
     // ---------- vida + nivel ----------

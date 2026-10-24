@@ -124,8 +124,8 @@ G.Spawner = (() => {
     return e;
   }
 
-  function spawnBoss(pl, t, b) {
-    const [x, y] = ringPoint(pl, Math.random() * 6.2832);
+  function spawnBoss(pl, t, b, at) {
+    const [x, y] = at || ringPoint(pl, Math.random() * 6.2832);
     const n = Math.max(1, players.length);
     const sc = b.raw ? { hp: n, dmg: 1, spd: 1 } : scaled(G.Enemies.bossScale(t), n);
     const e = new G.Enemy(b, x, y, sc, true);
@@ -260,6 +260,19 @@ G.Spawner = (() => {
   /** Ningún jefe hasta dentro de `secs` (al volver de una grieta). */
   function holdBosses(secs) { if (secs > bossWait) bossWait = secs; }
 
+  /** El siguiente jefe de la run, ahora. En la arena sale delante del jugador. */
+  function debugBoss() {
+    const who = (G.Game.everyone() || []).filter(p => p && !p.dead);
+    if (!who.length) return null;
+    players = who;
+    const pl = G.U.pick(who);
+    const t = G.Game.st.time;
+    const list = G.Enemies.BOSSES;
+    const def = bossIdx < list.length ? list[bossIdx++] : G.Enemies.lateBoss(lateN++);
+    const at = G.Rift.inArena ? [pl.x, pl.y - 120] : null;
+    return spawnBoss(pl, t, def, at);
+  }
+
   return { reset, update, ahead, burst, tickBanner, banner, say, rate, holdBosses, SHINY_RATE, CAP,
-           debugForceShiny(n = 1) { forceShiny = n; } };
+           debugForceShiny(n = 1) { forceShiny = n; }, debugBoss };
 })();
