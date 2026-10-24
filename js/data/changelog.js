@@ -11,7 +11,9 @@ G.CHANGELOG = [
      'In test mode, during a run you can change level, pick moves and combinations, open a rift, call a boss, turn invincible or set damage to ×1000. That run does not count for the leaderboard or your records.']
   ], chg: [
     ['El agua, la lava y el destello al golpear gastan menos. Con muchos efectos la pelea va más suave.',
-     'Water, lava and the flash when you land a hit cost less. With lots of effects the fight runs smoother.']
+     'Water, lava and the flash when you land a hit cost less. With lots of effects the fight runs smoother.'],
+    ['El ticket dorado solo da un shiny que te falte. Si ya tienes todos los shiny, da 1500 fragmentos de un Pokémon del banner.',
+     'The gold ticket only gives a shiny you are missing. If you already have every shiny, it gives 1,500 fragments of a Pokémon from the banner.']
   ] },
   { d: '2026-10-23', title: ['Probabilidades del gacha', 'Gacha odds'], chg: [
     ['Fortaleza baja a +2,2% de defensa por carga.',

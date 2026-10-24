@@ -12,8 +12,9 @@
  * Se tira con tickets que se consiguen jugando:
  *   ×1   1 gris
  *   ×10  10 grises, 1 morado o 1 azul
- *   ×1   1 dorado (shiny). Si ese shiny ya lo tienes, da fragmentos de su
- *        línea y sale otro shiny.
+ *   ×1   1 dorado (shiny). Solo sale un shiny que aún no tengas.
+ *        Si ya tienes el shiny de todos, da 1500 fragmentos de un
+ *        Pokémon del banner.
  */
 G.Gacha = (() => {
   const EMPTY = { t1: 0, t10: 0, tb: 0, tg: 0 };
@@ -34,6 +35,8 @@ G.Gacha = (() => {
   };
   const RATES = TABLES.t1.rows;
   const REFUND = { 1: 15, 2: 30, 3: 60, 4: 120, 5: 300 };
+  /** Fragmentos del banner cuando ya no queda ningún shiny por conseguir. */
+  const FULL_SHINY_FRAGS = 1500;
   const FRAGS = { 1: 3, 2: 5, 3: 10, 4: 15, 5: 20 };
   function fragNeed(rarity) { return FRAGS[rarity] || 3; }
   // Vida, ataque y velocidad se pagan con fragmentos de la línea: 10 al empezar
@@ -173,13 +176,31 @@ G.Gacha = (() => {
     save.frags = save.frags || {};
     const gold = use === 'tg';
 
+    function missingOf(list) {
+      return list.filter(p => G.Sprites.hasShiny(p.dex) && !save.shiny[p.dex]);
+    }
+    /** Un shiny que falte: primero en este banner y, si ya está completo, en el resto. */
     function pickShiny() {
-      const { list } = poolNear(rollRarity('tg'), gen);
-      let withArt = list.filter(p => G.Sprites.hasShiny(p.dex));
-      if (!withArt.length) withArt = G.DEX.filter(p => p.gen === gen && G.Sprites.hasShiny(p.dex));
-      if (!withArt.length) return null;
-      const missing = withArt.filter(p => !save.shiny[p.dex]);
-      return G.U.pick(missing.length ? missing : withArt);
+      const rarity = rollRarity('tg');
+      let missing = missingOf(poolNear(rarity, gen).list);
+      if (!missing.length) missing = missingOf(G.DEX.filter(p => p.gen === gen));
+      if (!missing.length) missing = missingOf(G.DEX.filter(p => p.rarity === rarity));
+      if (!missing.length) missing = missingOf(G.DEX);
+      return missing.length ? G.U.pick(missing) : null;
+    }
+    /** Colección shiny completa: 1500 fragmentos de un Pokémon de este banner. */
+    function payFull() {
+      const mon = G.U.pick(poolNear(rollRarity('tg'), gen).list);
+      if (!mon) return null;
+      const key = lineKey(mon.dex);
+      const fragGain = FULL_SHINY_FRAGS;
+      const frags = (save.frags[key] || 0) + fragGain;
+      save.frags[key] = frags;
+      return {
+        dex: mon.dex, rarity: mon.rarity, shiny: false, isNew: false, full: true,
+        refund: 0, frags, fragGain, need: 0, unlocked: false,
+        led: '1500 FRAGMENTOS', frenzy: '¡¿FRAGMENTOS?!'
+      };
     }
     function takeShiny(mon) {
       const had = !!save.owned[mon.dex];
@@ -204,13 +225,8 @@ G.Gacha = (() => {
     for (let i = 0; i < n; i++) {
       if (gold) {
         const mon = pickShiny();
-        if (!mon) continue;
-        const card = takeShiny(mon);
-        out.push(card);
-        if (!card.isNew) {
-          const again = pickShiny();
-          if (again) out.push(takeShiny(again));
-        }
+        const card = mon ? takeShiny(mon) : payFull();
+        if (card) out.push(card);
         continue;
       }
       const { list } = poolNear(rollRarity(use), gen);
@@ -243,7 +259,7 @@ G.Gacha = (() => {
     if (gold) save.stats.goldPulls = (save.stats.goldPulls || 0) + 1;
     if (G.Pass) {
       G.Pass.ticketsSpent(cost);
-      for (const c of out) if (c && c.dex) G.Pass.gacha(c.dex);
+      for (const c of out) if (c && c.dex && !c.full) G.Pass.gacha(c.dex);
     }
     return out;
   }

@@ -78,10 +78,9 @@ G.GachaUI = (() => {
         `<summary>${G.Icons.html(tb.icon, 14)} ${tb.name}</summary>` +
         `<div class="rates-acc-body">${rows}</div></details>`;
     }).join('') +
-      `<p class="note">· El ticket dorado siempre sale shiny. Los otros no.<br>
+      `<p class="note">· El ticket dorado solo da un shiny que te falte. Si ya los tienes todos, da 1500 fragmentos de un Pokémon del banner.<br>
        · Los fragmentos son de la línea evolutiva. Un básico da ×1, la segunda ×2 y la tercera ×3. Entra en la pokédex al juntar: Común 3, Poco común 5, Rara 10, Épica 15 y Legendaria 20.<br>
        · Si ya lo tienes y aún puede subir, la tirada sigue dando fragmentos. Al tope, da Pokémonedas.<br>
-       · Un shiny repetido da fragmentos de ese Pokémon y vuelve a tirar un shiny.<br>
        · Los tickets se consiguen jugando: al derrotar Pokémon, en cofres y al vencer jefes.</p>`;
     $('gacha-rates').querySelectorAll('.rates-acc').forEach(el => {
       el.addEventListener('toggle', () => {
@@ -144,13 +143,14 @@ G.GachaUI = (() => {
     const key = r.dex + (r.shiny ? ':s' : '');
     let g = bag.get(key);
     if (!g) {
-      g = { dex: r.dex, rarity: r.rarity, shiny: !!r.shiny, frag: 0, refund: 0, unlocked: false, isNew: false };
+      g = { dex: r.dex, rarity: r.rarity, shiny: !!r.shiny, frag: 0, refund: 0, unlocked: false, isNew: false, full: false };
       bag.set(key, g);
     }
     g.frag += r.fragGain || 0;
     g.refund += r.refund || 0;
     if (r.unlocked) g.unlocked = true;
     if (r.isNew) g.isNew = true;
+    if (r.full) g.full = true;
     if (r.rarity > g.rarity) g.rarity = r.rarity;
   }
 
@@ -169,7 +169,8 @@ G.GachaUI = (() => {
       c.appendChild(G.UI.spriteCanvas(r.dex, 132, 120, { lively: r.rarity >= 4 || r.shiny, scale: 2, shiny: r.shiny }));
       const bits = [];
       if (r.frag) bits.push(`${G.Icons.html('frag', 18)} +${r.frag}`);
-      if (r.unlocked) bits.push('<span class="new">¡Capturado!</span>');
+      if (r.full) bits.push('Colección shiny completa');
+      else if (r.unlocked) bits.push('<span class="new">¡Capturado!</span>');
       else if (r.shiny && r.isNew) bits.push('<span class="new">¡Shiny!</span>');
       if (r.refund) bits.push(`<span class="coin"></span> +${G.U.num(r.refund)}`);
       const tag = bits.join(' ') || 'Repetido';
@@ -265,7 +266,8 @@ G.GachaUI = (() => {
       c.appendChild(G.UI.spriteCanvas(r.dex, 132, 120, { lively: r.rarity >= 4 || r.shiny, scale: 2, shiny: r.shiny }));
       const bits = [];
       if (r.fragGain) bits.push(`${G.Icons.html('frag', 18)} +${r.fragGain}`);
-      if (r.unlocked) bits.push('<span class="new">¡Capturado!</span>');
+      if (r.full) bits.push('Colección shiny completa');
+      else if (r.unlocked) bits.push('<span class="new">¡Capturado!</span>');
       else if (r.shiny && r.isNew) bits.push('<span class="new">¡Shiny!</span>');
       else if (r.shiny) bits.push('Repetido');
       const tag = bits.join(' ') || `Repetido · <span class="coin"></span> +${G.U.num(r.refund)}`;
