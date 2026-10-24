@@ -6,6 +6,25 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-23', title: ['Probabilidades del gacha', 'Gacha odds'], chg: [
+    ['Fortaleza baja a +2,2% de defensa por carga.',
+     'Harden goes down to +2.2% defense per stack.'],
+    ['Lo que pase del 82% de reducción de daño se convierte en escudo: ese porcentaje de tu vida, y se llena un 1% por segundo. Con Cascabel Concha se suma a su 25%.',
+     'Anything past 82% damage reduction becomes a shield: that percentage of your HP, and it fills 1% per second. With a Shell Bell it adds to its 25%.'],
+    ['Coraza ya no se corta al 70%. Cada carta suma su 6% (hasta 12) y lo que pase del 82% de reducción agranda el escudo.',
+     'Armor no longer stops at 70%. Each card adds its 6% (up to 12) and anything past 82% damage reduction makes the shield bigger.'],
+    ['En la run y en la torre, la carta de un ataque nuevo solo dice si quema, envenena, frena o empuja. Cuánto quita sigue en la ventana del ataque.',
+     'In a run and in a tower, a new attack\'s card only says if it burns, poisons, slows or knocks back. How much it takes stays in the attack window.'],
+    ['La Piedra Evolución pasa del 1,5% al 3,2% en cofres y jefes.',
+     'The Evolution Stone goes from 1.5% to 3.2% on chests and bosses.'],
+    ['El Caramelo Raro sale la mitad de veces: 0,05%. Willy Wonka suma 0,05%, 0,1% o 0,25%.',
+     'Rare Candy drops half as often: 0.05%. Willy Wonka adds 0.05%, 0.1% or 0.25%.'],
+    ['Si el pase te pide un jefe concreto, ese jefe sale 3 veces más. En la grieta, el legendario que te pide también.',
+     'If the pass asks for a specific boss, that boss shows up 3 times as often. In a rift, the legendary it asks for does too.']
+  ], fix: [
+    ['En el gacha, cada descripción de ticket se abre al pulsar su nombre y enseña solo sus probabilidades.',
+     'In the gacha, each ticket descriptionopens when you tap its name and shows only its odds.']
+  ] },
   { d: '2026-10-22', title: ['Favoritos, cofres y torres', 'Favorites, chests and towers'], new: [
     ['En Pokémon, el botón Favoritos (a la izquierda de Volver) enseña los que marcaste. La estrella del cuadro del sprite los añade o los quita.',
      'In Pokémon, the Favorites button (left of Back) shows the ones you marked. The star on the sprite box adds or removes them.'],

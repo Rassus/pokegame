@@ -116,9 +116,10 @@ G.Rift = (() => {
     let pool = G.DEX.filter(p => p.leg && (p.gen || 1) <= cap && G.SPRITE_META[p.dex]);
     if (!pool.length) pool = G.DEX.filter(p => p.leg && (p.gen || 1) <= 1 && G.SPRITE_META[p.dex]);
     if (forceType && pool.some(p => p.types.includes(forceType))) pool = pool.filter(p => p.types.includes(forceType));
-    // Los legendarios que aún no has vencido salen 4 veces más (menos repetidos).
+    // Los que aún no has vencido salen 4 veces más. El que pide el pase, 3 veces más encima.
     const beaten = (G.DB.save && G.DB.save.legends) || {};
-    const ws = pool.map(p => (beaten[p.dex] ? 1 : 4));
+    const need = new Set((G.Pass && G.Pass.wanted) ? G.Pass.wanted('riftBoss') : []);
+    const ws = pool.map(p => (beaten[p.dex] ? 1 : 4) * (need.has(p.dex) ? 3 : 1));
     let r = Math.random() * ws.reduce((a, b) => a + b, 0), mi = 0;
     while (mi < pool.length - 1 && (r -= ws[mi]) > 0) mi++;
     const mon = pool[mi];

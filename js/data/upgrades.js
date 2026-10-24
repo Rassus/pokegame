@@ -34,7 +34,7 @@ G.Upgrades = (() => {
     { cat: 'run', id: 'chest',  icon: 'clock', name: 'Rapidez para abrir cofres', unit: 'Abres más rápido los cofres', max: 5, costs: [9999, 25000, 100000, 450000, 999999] },
     { cat: 'run', id: 'chests', icon: 'chest', name: 'Cantidad de cofres', unit: 'Aparecen más cofres', max: 3, costs: [100000, 300000, 600000] },
     { cat: 'run', id: 'bfind',  icon: 'star', name: 'Rastro de jefes', unit: 'Una flecha amarilla marca a cada jefe', max: 1, costs: [1000] },
-    { cat: 'run', id: 'candy',  icon: 'candy', name: 'Willy Wonka es mi pastor, nada me faltará, Amén', unit: 'Más posibilidad de Caramelo Raro', max: 3, costs: [5000, 45000, 450000] },
+    { cat: 'run', id: 'candy',  icon: 'candy', name: 'Willy Wonka es mi pastor, nada me faltará, Amén', unit: '+0,05% / +0,1% / +0,25% de Caramelo Raro', max: 3, costs: [5000, 45000, 450000] },
 
     { cat: 'rift', id: 'spring', icon: 'wrain', name: 'Fuente de agua', unit: 'Un manantial en cada grieta', max: 1, costs: [3500] },
 
@@ -107,8 +107,8 @@ G.Upgrades = (() => {
   /** Cada cuántas oleadas abre la tienda (10, y baja hasta 5). */
   function shopEvery() { return Math.max(5, 10 - lvl('twave')); }
 
-  /** Probabilidad extra (en %) de Caramelo Raro: 0, 0,1, 0,2 o 0,5. */
-  function candyAdd() { return [0, 0.1, 0.2, 0.5][lvl('candy')] || 0; }
+  /** Probabilidad extra (en %) de Caramelo Raro: 0, 0,05, 0,1 o 0,25. */
+  function candyAdd() { return [0, 0.05, 0.1, 0.25][lvl('candy')] || 0; }
 
   /** Niveles del Pokémon + los de la cuenta -> modificadores para G.Player. */
   function perks(levels = {}, global) {

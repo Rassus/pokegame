@@ -19,7 +19,7 @@ G.Items = (() => {
       on: p => { p.cdMul *= 0.8; }, off: p => { p.cdMul /= 0.8; } },
     { id: 'focussash', name: 'Banda Focus', desc: 'Un golpe que te dejaría KO te deja con 1 de vida (cada 60 s).',
       on: () => {}, off: () => {} },
-    { id: 'shellbell', name: 'Cascabel Concha', desc: 'Un escudo de hasta el 25% de tu vida. Se recarga un 1% por segundo.',
+    { id: 'shellbell', name: 'Cascabel Concha', desc: 'Un escudo de hasta el 25% de tu vida. Se recarga un 1% por segundo. Lo que pase del 82% de reducción se suma a ese escudo.',
       on: () => {}, off: p => { p.shield = 0; } },
     { id: 'bloodclaw', name: 'Garra Sangrienta', desc: '3 de vida por enemigo en cada ataque, hasta 12 por ataque. En total, no más del 2% de tu vida máxima por segundo.',
       on: () => {}, off: () => {} },
@@ -50,7 +50,7 @@ G.Items = (() => {
     { id: 'saunatowel', name: 'Toalla de Sauna', desc: 'La lava no te hace daño y recuperas 4 de vida por segundo.',
       on: () => {}, off: () => {} }
   ];
-  // Hueco propio (no entra en el sorteo del objeto normal). 1,5% en cofres y jefes.
+  // Hueco propio (no entra en el sorteo del objeto normal). 3,2% en cofres y jefes.
   const STONE = { id: 'evostone', name: 'Piedra Evolución', desc: 'Hueco aparte. Un básico evoluciona desde el nivel 65 y una segunda etapa desde el 135.',
     on: () => {}, off: () => {} };
   const BY = {};
@@ -58,7 +58,7 @@ G.Items = (() => {
   BY[STONE.id] = STONE;
 
   // Probabilidad (en %) de que aparezca un objeto normal, y la de la piedra (aparte).
-  const DROP = { small: 8, big: 50, boss: 100, stone: 1.5 };
+  const DROP = { small: 8, big: 50, boss: 100, stone: 3.2 };
   /** Probabilidad (en %) de un objeto concreto de la lista en esa fuente. */
   function each(source) { return DROP[source] / LIST.length; }
 

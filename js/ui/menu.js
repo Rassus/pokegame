@@ -442,7 +442,7 @@ G.MenuUI = (() => {
     if (m.kind === 'buff') {
       const STAT = { atk: 'Ataque', spd: 'Velocidad', def: 'Defensa', regen: 'Regeneración' };
       if (m.amount != null) rows.push([STAT[m.stat] || 'Efecto',
-        m.stat === 'regen' ? '+' + m.amount.toLocaleString('es', { maximumFractionDigits: 1 }) + '/s' : '+' + Math.round(m.amount * 100) + '%']);
+        m.stat === 'regen' ? '+' + m.amount.toLocaleString('es', { maximumFractionDigits: 1 }) + '/s' : '+' + (m.amount * 100).toLocaleString('es', { maximumFractionDigits: 1 }) + '%']);
       if (m.dur) rows.push(['Duración', sec(m.dur)]);
       if (m.stacks) rows.push(['Acumulaciones', m.stacks]);
     } else {

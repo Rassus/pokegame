@@ -5,7 +5,7 @@ G.GachaUI = (() => {
   const $ = G.UI.$;
   let busy = false;
   let gen = 1;
-  let ratesOpen = true;
+  const ratesOpen = new Set();
 
   function init() {
     $('pull-1').onclick = () => pull(1, 't1');
@@ -70,25 +70,26 @@ G.GachaUI = (() => {
 
     $('gacha-pity').textContent = '';
 
-    const tables = Object.values(G.Gacha.TABLES).map(tb => `
-      <h3>${G.Icons.html(tb.icon, 14)} ${tb.name}</h3>
-      ${tb.rows.slice().reverse().map(([r, w]) => `
-        <div><span style="color:${G.Gacha.RARITY_COLOR[r]}">${G.UI.stars(r, 10)} ${G.Gacha.RARITY_NAME[r]}</span>
-        <span>${w}%</span></div>`).join('')}`).join('');
-    $('gacha-rates').innerHTML =
-      `<button type="button" class="rates-toggle" id="rates-toggle">${ratesOpen ? 'Ocultar probabilidades' : 'Ver probabilidades'}</button>` +
-      `<div class="rates-body${ratesOpen ? '' : ' hidden'}">` + tables +
+    $('gacha-rates').innerHTML = Object.entries(G.Gacha.TABLES).map(([key, tb]) => {
+      const rows = tb.rows.slice().reverse().map(([r, w]) =>
+        `<div class="rates-row"><span style="color:${G.Gacha.RARITY_COLOR[r]}">${G.UI.stars(r, 10)} ${G.Gacha.RARITY_NAME[r]}</span><span>${w}%</span></div>`
+      ).join('');
+      return `<details class="rates-acc" data-rate="${key}"${ratesOpen.has(key) ? ' open' : ''}>` +
+        `<summary>${G.Icons.html(tb.icon, 14)} ${tb.name}</summary>` +
+        `<div class="rates-acc-body">${rows}</div></details>`;
+    }).join('') +
       `<p class="note">· El ticket dorado siempre sale shiny. Los otros no.<br>
        · Los fragmentos son de la línea evolutiva. Un básico da ×1, la segunda ×2 y la tercera ×3. Entra en la pokédex al juntar: Común 3, Poco común 5, Rara 10, Épica 15 y Legendaria 20.<br>
        · Si ya lo tienes y aún puede subir, la tirada sigue dando fragmentos. Al tope, da Pokémonedas.<br>
        · Un shiny repetido da fragmentos de ese Pokémon y vuelve a tirar un shiny.<br>
-       · Los tickets se consiguen jugando: al derrotar Pokémon, en cofres y al vencer jefes.</p></div>`;
-    $('rates-toggle').onclick = () => {
-      ratesOpen = !ratesOpen;
-      const body = document.querySelector('#gacha-rates .rates-body');
-      if (body) body.classList.toggle('hidden', !ratesOpen);
-      $('rates-toggle').textContent = ratesOpen ? 'Ocultar probabilidades' : 'Ver probabilidades';
-    };
+       · Los tickets se consiguen jugando: al derrotar Pokémon, en cofres y al vencer jefes.</p>`;
+    $('gacha-rates').querySelectorAll('.rates-acc').forEach(el => {
+      el.addEventListener('toggle', () => {
+        const key = el.dataset.rate;
+        if (el.open) ratesOpen.add(key);
+        else ratesOpen.delete(key);
+      });
+    });
 
     const t = s.tickets;
     $('cost-1').innerHTML = `${G.Icons.html('ticket', 18)} 1`;

@@ -416,7 +416,20 @@ label { display: block; font-size: 14px; color: var(--muted); margin: 8px 0 4px;
 }
 .banner .feat canvas { flex: 0 0 auto; }
 .rates { font-size: 14px; }
-.rates div { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed rgba(244,248,255,.15); }
+.rates-acc { border-bottom: 1px dashed rgba(244,248,255,.15); }
+.rates-acc summary {
+  cursor: pointer; list-style: none;
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 2px; font: inherit; font-weight: 700;
+}
+.rates-acc summary::-webkit-details-marker { display: none; }
+.rates-acc summary::after {
+  content: '▸'; margin-left: auto; color: var(--muted); font-weight: 400;
+}
+.rates-acc[open] summary::after { content: '▾'; }
+.rates-acc summary:hover { color: var(--gold); }
+.rates-acc-body { padding: 0 2px 8px; }
+.rates-row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
 /* La lista crece con cada objeto. Sin min-height: 0 la caja no se encoge
    y los de abajo quedan fuera de la pantalla, sin barra para bajar. */
 #scr-items .box { min-height: 0; max-height: 100%; display: flex; flex-direction: column; }
@@ -624,11 +637,6 @@ img.pix { image-rendering: pixelated; image-rendering: crisp-edges; vertical-ali
 .move-ladder button.on { border-color: var(--gold); }
 .move-ladder b { color: var(--gold); }
 .move-info p { margin: 4px 0 6px; color: var(--muted); font-size: 13px; }
-.rates-toggle {
-  appearance: none; cursor: pointer; width: 100%; margin-bottom: 8px;
-  background: rgba(0,0,0,.28); border: 2px solid rgba(244,248,255,.22); border-radius: 8px;
-  color: inherit; font: inherit; font-weight: 700; padding: 6px 10px;
-}
 .move-desc { margin: 8px 0 0; }
 .move-fx { margin: 6px 0 0; font-size: 14px; line-height: 1.35; }
 .move-fx.burn { color: #ff9a4d; }

@@ -80,7 +80,7 @@ G.Player = class Player {
     this.item = null;          // objeto equipado (data/items.js), uno por run
     this.evoStone = false;     // Piedra Evolución: hueco aparte, no sustituye al objeto
     this.sashT = -999;         // última vez que salvó la Banda Focus
-    this.shield = 0;           // Cascabel Concha: puntos de escudo (tope 25% de la vida)
+    this.shield = 0;           // puntos de escudo: Cascabel (25%) y lo que pase del 82% de reducción
     this.silence = 0;          // Silencio mortal: no puedes lanzar movimientos
     this.amnesiaT = 0;         // Amnesia: estos huecos no se pueden usar
     this.amnesia = null;
@@ -115,7 +115,16 @@ G.Player = class Player {
     }
     return s * slow * w;
   }
-  get reduction() { return Math.min(0.82, this.dmgReduce + this.buffs.def.n * this.buffs.def.amount); }
+  /** Reducción antes del tope del 82% (mejoras, objetos y Fortaleza). */
+  get rawReduce() { return this.dmgReduce + this.buffs.def.n * this.buffs.def.amount; }
+  get reduction() { return Math.min(0.82, this.rawReduce); }
+  /**
+   * Tope del escudo, en fracción de la vida. El Cascabel da un 25%.
+   * Lo que pase del 82% de reducción se suma como ese mismo % de vida.
+   */
+  shieldCapFrac() {
+    return Math.max(0, this.rawReduce - 0.82) + (this.item === 'shellbell' ? 0.25 : 0);
+  }
   get regen() { return this.regenFlat + this.buffs.regen.n * this.buffs.regen.amount; }
 
   // ---------------- movimientos ----------------
@@ -435,11 +444,13 @@ G.Player = class Player {
     if (this.amnesiaT > 0 && (this.amnesiaT -= dt) <= 0) this.amnesia = null;
     if (G.Towers.inAura(this)) this.terror = Math.min(0.6, (this.terror || 0) + 0.02 * dt);
     else this.terror = Math.max(0, (this.terror || 0) - 0.1 * dt);
-    if (this.item === 'shellbell' && !this.dead) {
-      const cap = this.maxHp * 0.25;
+    const shieldFrac = this.shieldCapFrac();
+    if (shieldFrac > 0) {
+      const cap = this.maxHp * shieldFrac;
+      // Un 1% de la vida por segundo, hasta el tope. Si ya lo pasaba (una baya), se queda en el tope.
       this.shield = this.shield < cap ? Math.min(cap, this.shield + this.maxHp * 0.01 * dt) : cap;
     }
-    // Sin Cascabel, el escudo (p. ej. Baya Milagro) se queda hasta que el daño lo gaste.
+    // Sin tope que recargar, el escudo (p. ej. Baya Milagro) se queda hasta que el daño lo gaste.
     if (this.power && (this.power.t -= dt) <= 0) { this.power.def.off(this); this.power = null; }
     if (this.regen > 0) this.hp = Math.min(this.maxHp, this.hp + this.regen * dt);
 

@@ -141,9 +141,9 @@
 
     { id: 'harden', name: 'Fortaleza', type: 'normal', kind: 'buff',
       desc: 'No hace daño: acumula DEFENSA mientras esté activo.',
-      cd: 0.85, stat: 'def', amount: 0.04, dur: 7, stacks: 5,
-      // 4% por carga y se queda ahí: al llegar a 7 cargas son un 28%.
-      // Las otras de este tipo sí suben la potencia; esta no, o pasaría del 28%.
+      cd: 0.85, stat: 'def', amount: 0.022, dur: 7, stacks: 5,
+      // 2,2% por carga y se queda ahí: al llegar a 7 cargas son un 15,4%.
+      // Las otras de este tipo sí suben la potencia; esta no, o pasaría de ese tope.
       ups: [
         { t: '+1 acumulación máxima', m: { stacks: 1 } },
         { t: '+50% duración',         m: { dur: 1.50 } },
@@ -585,12 +585,20 @@
     return out;
   }
 
-  /** Descripción del ataque y, detrás, el estado. Para la carta de subir de nivel. */
+  /**
+   * Texto corto de la carta de nivel (run y torre). El detalle de cuánto quita
+   * se queda en la ventana del ataque.
+   */
   function blurb(m) {
     if (!m) return '';
+    const d = m.desc || '';
     const bits = [];
-    if (m.desc) bits.push(m.desc);
-    for (const e of effects(m)) bits.push(e.text);
+    if (d) bits.push(d);
+    if (m.burn && !/quem/i.test(d)) bits.push('Quema al enemigo.');
+    if (m.poison && !/envenen|veneno|intoxic/i.test(d)) bits.push('Envenena al enemigo.');
+    if (m.slow && !/ralentiz|frena|congela|paraliza/i.test(d)) bits.push('Ralentiza al enemigo.');
+    if (m.knock && !/empuja/i.test(d)) bits.push('Empuja al enemigo.');
+    if (m.hex && m.hex > 1 && !/estado/i.test(d)) bits.push('Pega más si ya tiene un estado.');
     return bits.join(' ');
   }
 
