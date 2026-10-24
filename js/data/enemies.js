@@ -163,6 +163,18 @@ G.Enemies = (() => {
   let cast = null;      // [{ from, list: [def] }]
   let bosses = null;    // [def de jefe]
 
+  /** Jefes que el pase aún pide. Salen mucho más que el resto. */
+  const MISSION_W = 3;
+  function missionWanted(kind) {
+    return new Set((G.Pass && G.Pass.wanted) ? G.Pass.wanted(kind) : []);
+  }
+  function pickWeighted(pool, weight) {
+    const ws = pool.map(weight);
+    let r = Math.random() * ws.reduce((a, b) => a + b, 0), i = 0;
+    while (i < pool.length - 1 && (r -= ws[i]) > 0) i++;
+    return pool[i];
+  }
+
   /** Sortea el elenco de una run nueva. */
   function rollRun() {
     cast = TIERS.map((tier, ti) => ({
@@ -182,7 +194,8 @@ G.Enemies = (() => {
       let pool = G.DEX.filter(p => ok(p) && fitsPhase(p.dex, phase) && p.bst >= slot.bst[0] && p.bst <= slot.bst[1]);
       if (pool.length < 3) pool = G.DEX.filter(p => ok(p) && fitsPhase(p.dex, phase));
       if (!pool.length) pool = G.DEX.filter(p => ok(p));
-      const p = G.U.pick(pool);
+      const need = missionWanted('bossOne');
+      const p = pickWeighted(pool, mon => need.has(mon.dex) ? MISSION_W : 1);
       used.add(p.dex);
       return {
         at: slot.at, dex: p.dex, name: p.name,
@@ -267,7 +280,8 @@ G.Enemies = (() => {
     let pool = G.DEX.filter(p => ok(p) && p.bst >= 580 && p.bst <= 700);
     if (pool.length < 3) pool = G.DEX.filter(ok);
     if (!pool.length) pool = G.DEX.filter(p => !p.leg && G.SPRITE_META[p.dex]);
-    const p = G.U.pick(pool);
+    const need = missionWanted('bossOne');
+    const p = pickWeighted(pool, mon => need.has(mon.dex) ? MISSION_W : 1);
     const hp = Math.round(150000 * Math.pow(1.15, n));
     const dmg = Math.round(550 * Math.pow(1.10, n));
     return {

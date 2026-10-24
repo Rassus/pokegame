@@ -51,7 +51,8 @@ G.HUD = (() => {
     ctx.fillStyle = '#ffcb3d';
     ctx.fillText('Nv. ' + pl.level, px, py + 26);
 
-    if (pl.item === 'shellbell') bar(ctx, px + 48, py + 11, 168, 5, pl.shield / (pl.maxHp * 0.25), '#9ad7ff');
+    const shieldFrac = pl.shieldCapFrac ? pl.shieldCapFrac() : 0;
+    if (shieldFrac > 0) bar(ctx, px + 48, py + 11, 168, 5, pl.shield / (pl.maxHp * shieldFrac), '#9ad7ff');
     bar(ctx, px + 48, py + 17, 168, 11, pl.hp / pl.maxHp, '#ff5f6d');
     ctx.font = F(700, 10);
     ctx.fillStyle = 'rgba(255,255,255,.95)';

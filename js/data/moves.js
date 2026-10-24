@@ -141,9 +141,9 @@
 
     { id: 'harden', name: 'Fortaleza', type: 'normal', kind: 'buff',
       desc: 'No hace daño: acumula DEFENSA mientras esté activo.',
-      cd: 0.85, stat: 'def', amount: 0.04, dur: 7, stacks: 5,
-      // 4% por carga y se queda ahí: al llegar a 7 cargas son un 28%.
-      // Las otras de este tipo sí suben la potencia; esta no, o pasaría del 28%.
+      cd: 0.85, stat: 'def', amount: 0.022, dur: 7, stacks: 5,
+      // 2,2% por carga y se queda ahí: al llegar a 7 cargas son un 15,4%.
+      // Las otras de este tipo sí suben la potencia; esta no, o pasaría de ese tope.
       ups: [
         { t: '+1 acumulación máxima', m: { stacks: 1 } },
         { t: '+50% duración',         m: { dur: 1.50 } },
@@ -405,7 +405,7 @@
       cd: 0.65, dmg: 6, count: 7, arc: 1.0, speed: 340, life: 0.45, size: 6, slow: 0.3 },
 
     { id: 'hex', name: 'Infortunio', type: 'ghost', kind: 'chain',
-      desc: 'Maldición que salta entre enemigos. Mucho más daño si están quemados, envenenados o frenados.',
+      desc: 'Maldición que salta entre enemigos.',
       cd: 0.9, dmg: 17, count: 4, radius: 150, hex: 1.7 }
   ];
 
@@ -554,6 +554,73 @@
              ready: !!(statsTaken && statsTaken[needs]) };
   }
 
+  /** Un decimal con coma, como el resto de la ficha. */
+  function n1(v) {
+    return v.toLocaleString('es', { maximumFractionDigits: 1 });
+  }
+
+  /**
+   * El estado, aparte de la descripción: color y cuánto quita.
+   * La quemadura no usa el daño del ataque: al nivel 1 es 1,6 × cargas × 1,06
+   * cada medio segundo (el nivel del jugador lo sube un 6% por nivel).
+   * El veneno es un % de la vida del enemigo más 1, cada 0,6 s.
+   */
+  function effects(m) {
+    if (!m) return [];
+    const out = [];
+    if (m.burn) {
+      const tick = 1.6 * m.burn * 1.06;
+      const per = tick * 2;
+      const same = m.dmg != null && Math.abs(per - m.dmg) < 0.15;
+      out.push({ kind: 'burn', text: same
+        ? 'Quema: durante 3 s quita el mismo daño por segundo que el ataque (' + n1(m.dmg) + '). Sube con tu nivel y se acumula hasta 8.'
+        : 'Quema: durante 3 s quita ' + n1(tick) + ' cada medio segundo (' + n1(per) + ' por segundo al nivel 1). Sube con tu nivel y se acumula hasta 8.' });
+    }
+    if (m.poison) {
+      out.push({ kind: 'poison', text: 'Envenena: durante 4 s quita un ' + n1(1.2 * m.poison) + '% de su vida más 1 cada 0,6 s. Se acumula hasta 8.' });
+    }
+    if (m.slow) out.push({ kind: 'slow', text: 'Ralentiza: durante 1,2 s se mueve un ' + Math.round(m.slow * 100) + '% más lento.' });
+    if (m.knock && !/empuja/i.test(m.desc || '')) out.push({ kind: 'knock', text: 'Empuja al golpearlo.' });
+    if (m.hex && m.hex > 1) out.push({ kind: 'hex', text: 'Beneficio: pega ×' + n1(m.hex) + ' si está quemado, envenenado o frenado.' });
+    return out;
+  }
+
+  /**
+   * Texto corto de la carta de nivel (run y torre). El detalle de cuánto quita
+   * se queda en la ventana del ataque.
+   */
+  function blurb(m) {
+    if (!m) return '';
+    const d = m.desc || '';
+    const bits = [];
+    if (d) bits.push(d);
+    if (m.burn && !/quem/i.test(d)) bits.push('Quema al enemigo.');
+    if (m.poison && !/envenen|veneno|intoxic/i.test(d)) bits.push('Envenena al enemigo.');
+    if (m.slow && !/ralentiz|frena|congela|paraliza/i.test(d)) bits.push('Ralentiza al enemigo.');
+    if (m.knock && !/empuja/i.test(d)) bits.push('Empuja al enemigo.');
+    if (m.hex && m.hex > 1 && !/estado/i.test(d)) bits.push('Pega más si ya tiene un estado.');
+    return bits.join(' ');
+  }
+
+  /** Números al nivel `step` (1-5). El 6 es el nivel 5 ya evolucionado. */
+  function preview(id, step) {
+    const def = BY_ID[id];
+    const s = instance(id, step >= 6 ? (def ? def.maxLvl : 5) : step);
+    if (step >= 6) evolve(s);
+    return s;
+  }
+
+  /** Nivel 1, cada subida y la evolución, para la ficha del Pokémon. */
+  function ladder(id) {
+    const def = BY_ID[id];
+    if (!def) return [];
+    const rows = [{ step: 1, label: 'Nivel 1', text: 'Como empieza.' }];
+    (def.ups || []).forEach((u, i) => rows.push({ step: i + 2, label: 'Nivel ' + (i + 2), text: u.t }));
+    const e = EVO[id];
+    if (e && EVO_MODS[def.kind]) rows.push({ step: 6, label: 'Evolución', text: e[0] + '. ' + EVO_MODS[def.kind].t });
+    return rows;
+  }
+
   /** Evoluciona una instancia (cambia nombre y potencia; sigue siendo del mismo tipo). */
   function evolve(m) {
     const e = EVO[m.id];
@@ -566,5 +633,5 @@
   }
 
   G.Moves = { ALL: RAW, BY_ID, POOL, poolFor, instance, levelUp, nextUpText, startFor,
-              EVO, NEED_NAME, evoInfo, evolve };
+              EVO, NEED_NAME, evoInfo, evolve, blurb, effects, preview, ladder };
 })();

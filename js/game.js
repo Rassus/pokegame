@@ -916,8 +916,11 @@ G.Game = (() => {
     }
     if (state === 'ui') {
       // Esc en una subpantalla del menú vuelve al menú.
-      if (G.Input.tap('escape') && !G.UI.isOpen('scr-profile') && ['scr-dex', 'scr-upgrades', 'scr-gacha', 'scr-items', 'scr-towers', 'scr-friends', 'scr-rank', 'scr-goals'].some(G.UI.isOpen)
-          && document.getElementById('pull-fx').classList.contains('hidden')) G.MenuUI.open();
+      if (G.Input.tap('escape')) {
+        if (G.MenuUI.closeMove()) return;
+        if (!G.UI.isOpen('scr-profile') && ['scr-dex', 'scr-upgrades', 'scr-gacha', 'scr-items', 'scr-towers', 'scr-friends', 'scr-rank', 'scr-goals'].some(G.UI.isOpen)
+            && document.getElementById('pull-fx').classList.contains('hidden')) G.MenuUI.open();
+      }
       return;
     }
     if (state === 'wheel' || state === 'kickvote') return;

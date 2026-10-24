@@ -6,13 +6,54 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
-  { d: '2026-10-22', title: ['Favoritos en Pokémon', 'Favorites in Pokémon'], new: [
+  { d: '2026-10-23', title: ['Probabilidades del gacha', 'Gacha odds'], chg: [
+    ['Fortaleza baja a +2,2% de defensa por carga.',
+     'Harden goes down to +2.2% defense per stack.'],
+    ['Lo que pase del 82% de reducción de daño se convierte en escudo: ese porcentaje de tu vida, y se llena un 1% por segundo. Con Cascabel Concha se suma a su 25%.',
+     'Anything past 82% damage reduction becomes a shield: that percentage of your HP, and it fills 1% per second. With a Shell Bell it adds to its 25%.'],
+    ['Coraza ya no se corta al 70%. Cada carta suma su 6% (hasta 12) y lo que pase del 82% de reducción agranda el escudo.',
+     'Armor no longer stops at 70%. Each card adds its 6% (up to 12) and anything past 82% damage reduction makes the shield bigger.'],
+    ['En la run y en la torre, la carta de un ataque nuevo solo dice si quema, envenena, frena o empuja. Cuánto quita sigue en la ventana del ataque.',
+     'In a run and in a tower, a new attack\'s card only says if it burns, poisons, slows or knocks back. How much it takes stays in the attack window.'],
+    ['La Piedra Evolución pasa del 1,5% al 3,2% en cofres y jefes.',
+     'The Evolution Stone goes from 1.5% to 3.2% on chests and bosses.'],
+    ['El Caramelo Raro sale la mitad de veces: 0,05%. Willy Wonka suma 0,05%, 0,1% o 0,25%.',
+     'Rare Candy drops half as often: 0.05%. Willy Wonka adds 0.05%, 0.1% or 0.25%.'],
+    ['Si el pase te pide un jefe concreto, ese jefe sale 3 veces más. En la grieta, el legendario que te pide también.',
+     'If the pass asks for a specific boss, that boss shows up 3 times as often. In a rift, the legendary it asks for does too.']
+  ], fix: [
+    ['En el gacha, cada descripción de ticket se abre al pulsar su nombre y enseña solo sus probabilidades.',
+     'In the gacha, each ticket descriptionopens when you tap its name and shows only its odds.']
+  ] },
+  { d: '2026-10-22', title: ['Favoritos, cofres y torres', 'Favorites, chests and towers'], new: [
     ['En Pokémon, el botón Favoritos (a la izquierda de Volver) enseña los que marcaste. La estrella del cuadro del sprite los añade o los quita.',
      'In Pokémon, the Favorites button (left of Back) shows the ones you marked. The star on the sprite box adds or removes them.'],
     ['En Pokémon, Filtros abre un panel a la izquierda. Ahí se marcan varias rarezas y varios tipos, y se combinan con Todos, Tengo, Me faltan y Shiny.',
      'In Pokémon, Filters opens a panel on the left. You can mark several rarities and several types, and they combine with All, Owned, Missing and Shiny.'],
     ['En la ficha de cada Pokémon caben sus marcas a la vez: corona de compañero, estrella de favorito, estrella roja de shiny, medalla de mejoras al máximo y medalla azul de IVs al máximo.',
-     'A Pokémon\'s card can show all its marks at once: partner crown, favorite star, red shiny star, max-upgrades medal and blue max-IVs medal.']
+     'A Pokémon\'s card can show all its marks at once: partner crown, favorite star, red shiny star, max-upgrades medal and blue max-IVs medal.'],
+    ['El detalle de un movimiento se abre en su propia ventana: qué hace, el efecto y los niveles 2, 3, 4, 5 y la evolución. La ficha del Pokémon queda más corta, con el recuadro más pequeño, y se puede bajar.',
+     'A move\'s details open in their own window: what it does, the effect and levels 2, 3, 4, 5 and the evolution. The Pokémon card stays shorter, with a smaller sprite box, and it can be scrolled.']
+  ], chg: [
+    ['La Piedra Evolución pasa del 0,01% al 1,5% en cofres y jefes.',
+     'The Evolution Stone goes from 0.01% to 1.5% on chests and bosses.'],
+    ['Defensa pasa a +1,2% por nivel. La reducción de daño no pasa del 82%.',
+     'Defense goes to +1.2% per level. Damage reduction does not go past 82%.'],
+    ['Cantidad de cofres, en solitario, es ×1,26, ×1,53 y ×1,84. En grupo cada jugador suma solo la suya: 0,05, 0,10 o 0,14. Ocho con el primer nivel dan ×1,4.',
+     'Chest amount, solo, is ×1.26, ×1.53 and ×1.84. In a group each player adds only their own: 0.05, 0.10 or 0.14. Eight at the first level give ×1.4.'],
+    ['El Caramelo Raro sale al 0,1%. Willy Wonka suma 0,1%, 0,2% o 0,5%.',
+     'Rare Candy drops at 0.1%. Willy Wonka adds 0.1%, 0.2% or 0.5%.'],
+    ['Si un ataque quema, envenena, frena o empuja, la descripción dice qué hace ese efecto. En su ventana el efecto va en otra línea y otro color, y dice cuánto quita.',
+     'If an attack burns, poisons, slows or knocks back, the description says what that effect does. In its window the effect is on another line and another color, and it says how much it takes.'],
+    ['Infortunio llama Beneficio a su daño extra y dice cuánto es: ×1,7 si el enemigo está quemado, envenenado o frenado.',
+     'Hex calls its extra damage Benefit and says how much it is: ×1.7 if the enemy is burned, poisoned or slowed.'],
+    ['En el gacha, las probabilidades de los tickets se pliegan y se despliegan. El ticket dorado también tiene tirada rápida.',
+     'In the gacha, ticket odds fold and unfold. The gold ticket also has a quick pull.'],
+    ['En la sala no se puede elegir torre difícil ni demencial si alguien del grupo aún no ha superado al menos una torre.',
+     'In the room you cannot pick a hard or insane tower if someone in the group has not cleared at least one tower yet.']
+  ], fix: [
+    ['Un cofre abierto en grupo no soltaba nada si quien lo abría no era el anfitrión y este aún no había llegado a esa zona. Con la rapidez alta pasaba más. Ahora sí suelta.',
+     'A chest opened in a group dropped nothing if the opener was not the host and the host had not reached that area yet. Faster opening made it more common. It drops now.']
   ] },
   { d: '2026-10-21', title: ['La página ya no se recarga sola', 'The page no longer reloads on its own'], fix: [
     ['Si había una versión nueva, el juego recargaba la página guardada y a los 30 segundos lo intentaba otra vez. Ahora pide la página nueva una sola vez.',

@@ -10,7 +10,7 @@
  *     inv/{para_de}                { to, from, room, name, at } invitaciones
  *
  *   Realtime Database: SÓLO mientras estás en una sala o partida en grupo
- *     rooms/{id}          { host, open, at, play, bye, m: { uid: { name, dex, shiny, coins, t1 } }, q: ... }
+ *     rooms/{id}          { host, open, at, play, bye, m: { uid: { name, dex, shiny, coins, t1, cx, tw } }, q: ... }
  *                         la sala; play es la partida elegida (run o torre);
  *                         bye/{uid} avisa a quien el anfitrión saca; q/ son los mensajes de net.js
  *
@@ -308,7 +308,23 @@ G.Social = (() => {
     const s = G.DB.save;
     const w = wallet();
     const st = G.Upgrades ? G.Upgrades.sheet(s.pupg && s.pupg[s.partner]) : {};
-    return { name: me.name, dex: s.partner, shiny: !!s.partnerShiny && G.DB.ownsShiny(s.partner), ready: false, at: ts(), coins: w.coins, t1: w.t1, st };
+    return { name: me.name, dex: s.partner, shiny: !!s.partnerShiny && G.DB.ownsShiny(s.partner), ready: false, at: ts(), coins: w.coins, t1: w.t1, st, cx: chestLvl(), tw: towerFlag() };
+  }
+
+  /** Nivel de Cantidad de cofres, para que el mapa de grupo sume el de cada uno. */
+  function chestLvl() { return G.Upgrades ? G.Upgrades.lvl('chests') : 0; }
+
+  /** 1 si ya superó alguna torre. La sala lo usa para cerrar difícil y demencial. */
+  function towerFlag() { return G.Towers && G.Towers.hasClear() ? 1 : 0; }
+
+  /** Miembros tal como entra la partida: el nivel de cofres queda fijado para todos. */
+  function runMembers() {
+    if (!room) return [];
+    return room.members.map(m => ({
+      uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny,
+      st: m.st == null ? null : G.Upgrades.sheet(m.st),
+      cx: m.uid === uid ? chestLvl() : Math.max(0, Math.min(3, Math.floor(+m.cx) || 0))
+    }));
   }
 
   function playKey(p) {
@@ -496,10 +512,12 @@ G.Social = (() => {
     const dex = G.DB.save.partner;
     const shiny = !!G.DB.save.partnerShiny && G.DB.ownsShiny(dex);
     const w = wallet();
+    const cx = chestLvl(), tw = towerFlag();
     const mine = room.members.find(m => m.uid === uid);
-    const patch = { dex, shiny, coins: w.coins, t1: w.t1 };
+    const patch = { dex, shiny, coins: w.coins, t1: w.t1, cx, tw };
     if (mine && (mine.dex !== dex || !!mine.shiny !== shiny)) patch.ready = false;
-    if (mine && mine.dex === dex && !!mine.shiny === shiny && Number(mine.coins) === w.coins && Number(mine.t1) === w.t1 && !('ready' in patch)) return;
+    if (mine && mine.dex === dex && !!mine.shiny === shiny && Number(mine.coins) === w.coins && Number(mine.t1) === w.t1
+        && Number(mine.cx) === cx && Number(mine.tw) === tw && !('ready' in patch)) return;
     fb.rtdb.ref('rooms/' + room.id + '/m/' + uid).update(patch).catch(() => {});
   }
 
@@ -621,7 +639,7 @@ G.Social = (() => {
 
   return {
     start, stop, claimNick, request, accept, remove, publishProfile, getProfile, profileData,
-    createRoom, joinRoom, leaveRoom, kick, setOpen, setPlay, refreshMember, setReady, setPlaying, refreshPresence,
+    createRoom, joinRoom, leaveRoom, kick, setOpen, setPlay, refreshMember, setReady, setPlaying, refreshPresence, runMembers,
     pauseWatch, resumeWatch,
     invite, acceptInvite, declineInvite,
     on(fn) { listeners.add(fn); }, off(fn) { listeners.delete(fn); },

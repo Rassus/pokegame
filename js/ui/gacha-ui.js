@@ -5,6 +5,7 @@ G.GachaUI = (() => {
   const $ = G.UI.$;
   let busy = false;
   let gen = 1;
+  const ratesOpen = new Set();
 
   function init() {
     $('pull-1').onclick = () => pull(1, 't1');
@@ -69,17 +70,26 @@ G.GachaUI = (() => {
 
     $('gacha-pity').textContent = '';
 
-    const tables = Object.values(G.Gacha.TABLES).map(tb => `
-      <h3>${G.Icons.html(tb.icon, 14)} ${tb.name}</h3>
-      ${tb.rows.slice().reverse().map(([r, w]) => `
-        <div><span style="color:${G.Gacha.RARITY_COLOR[r]}">${G.UI.stars(r, 10)} ${G.Gacha.RARITY_NAME[r]}</span>
-        <span>${w}%</span></div>`).join('')}`).join('');
-    $('gacha-rates').innerHTML = tables +
+    $('gacha-rates').innerHTML = Object.entries(G.Gacha.TABLES).map(([key, tb]) => {
+      const rows = tb.rows.slice().reverse().map(([r, w]) =>
+        `<div class="rates-row"><span style="color:${G.Gacha.RARITY_COLOR[r]}">${G.UI.stars(r, 10)} ${G.Gacha.RARITY_NAME[r]}</span><span>${w}%</span></div>`
+      ).join('');
+      return `<details class="rates-acc" data-rate="${key}"${ratesOpen.has(key) ? ' open' : ''}>` +
+        `<summary>${G.Icons.html(tb.icon, 14)} ${tb.name}</summary>` +
+        `<div class="rates-acc-body">${rows}</div></details>`;
+    }).join('') +
       `<p class="note">· El ticket dorado siempre sale shiny. Los otros no.<br>
        · Los fragmentos son de la línea evolutiva. Un básico da ×1, la segunda ×2 y la tercera ×3. Entra en la pokédex al juntar: Común 3, Poco común 5, Rara 10, Épica 15 y Legendaria 20.<br>
        · Si ya lo tienes y aún puede subir, la tirada sigue dando fragmentos. Al tope, da Pokémonedas.<br>
        · Un shiny repetido da fragmentos de ese Pokémon y vuelve a tirar un shiny.<br>
        · Los tickets se consiguen jugando: al derrotar Pokémon, en cofres y al vencer jefes.</p>`;
+    $('gacha-rates').querySelectorAll('.rates-acc').forEach(el => {
+      el.addEventListener('toggle', () => {
+        const key = el.dataset.rate;
+        if (el.open) ratesOpen.add(key);
+        else ratesOpen.delete(key);
+      });
+    });
 
     const t = s.tickets;
     $('cost-1').innerHTML = `${G.Icons.html('ticket', 18)} 1`;
@@ -105,22 +115,26 @@ G.GachaUI = (() => {
   let bulkStop = false;
 
   function againUse() {
-    return lastUse === 't10' || lastUse === 'tb' ? lastUse : 't1';
+    if (lastUse === 't10' || lastUse === 'tb' || lastUse === 'tg') return lastUse;
+    return 't1';
   }
 
+  function againBatch() { return againUse() === 'tg' ? 1 : 10; }
+
   function again() {
-    pull(10, againUse());
+    pull(againBatch(), againUse());
   }
 
   function showAgain() {
     const use = againUse();
-    const icon = use === 't10' ? 'ticket10' : use === 'tb' ? 'ticketb' : 'ticket';
+    const icon = use === 't10' ? 'ticket10' : use === 'tb' ? 'ticketb' : use === 'tg' ? 'ticketg' : 'ticket';
+    const batch = againBatch();
     const cost = use === 't1' ? '10' : '1';
-    const can = !!G.Gacha.costOf(G.DB.save, 10, use);
-    $('pull-again').innerHTML = 'Tirar ×10 · ' + G.Icons.html(icon, 16) + ' ' + cost;
+    const can = !!G.Gacha.costOf(G.DB.save, batch, use);
+    $('pull-again').innerHTML = 'Tirar ×' + batch + ' · ' + G.Icons.html(icon, 16) + ' ' + cost;
     $('pull-again').disabled = !can;
     const all = $('pull-all');
-    all.classList.toggle('hidden', lastUse === 'tg');
+    all.classList.remove('hidden');
     all.disabled = !can;
     all.innerHTML = 'Tirar todo · ' + G.Icons.html(icon, 16);
   }
@@ -168,19 +182,21 @@ G.GachaUI = (() => {
     const t = G.DB.save.tickets || {};
     if (use === 't10') return t.t10 || 0;
     if (use === 'tb') return t.tb || 0;
+    if (use === 'tg') return t.tg || 0;
     return t.t1 || 0;
   }
 
   /** De 10 en 10, sin cartas, hasta Parar o hasta quedarse sin tickets. */
   async function pullAll() {
-    if (busy || lastUse === 'tg') return;
+    if (busy) return;
     const use = againUse();
+    const batch = againBatch();
     if ((G.DB.save.region || 1) < gen) {
       G.Audio.sfx('error');
       G.UI.toast('Esta región está cerrada. Ábrela en Región.');
       return;
     }
-    if (!G.Gacha.costOf(G.DB.save, 10, use)) {
+    if (!G.Gacha.costOf(G.DB.save, batch, use)) {
       G.Audio.sfx('error');
       G.UI.toast('No tienes tickets suficientes: consíguelos jugando');
       return;
@@ -194,9 +210,10 @@ G.GachaUI = (() => {
     $('slot').style.display = 'none';
     $('pull-bulk').classList.remove('hidden');
     $('pull-bulk-n').textContent = 'Tiradas: 0 · Quedan ' + ticketsLeft(use);
+    $('pull-bulk-sub').textContent = batch === 1 ? 'De 1 en 1. Parar cuando quieras.' : 'De 10 en 10. Parar cuando quieras.';
 
-    while (!bulkStop && G.Gacha.costOf(G.DB.save, 10, use)) {
-      const res = G.Gacha.pull(G.DB.save, 10, gen, use);
+    while (!bulkStop && G.Gacha.costOf(G.DB.save, batch, use)) {
+      const res = G.Gacha.pull(G.DB.save, batch, gen, use);
       if (!res) break;
       pulls += res.length;
       for (const r of res) absorb(bag, r);

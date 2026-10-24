@@ -364,8 +364,10 @@ G.World = (() => {
   function breakAt(tx, ty) {
     const k = tx + ',' + ty;
     if (broken.has(k)) return;
-    const c = data.get(Math.floor(tx / N) + ',' + Math.floor(ty / N));
-    const p = c && c.props.find(o => o.tx === tx && o.ty === ty);
+    // Si el anfitrión aún no había generado ese trozo, antes se marcaba roto
+    // sin soltar nada. Se genera primero y entonces sí cae el botín.
+    const c = chunkData(Math.floor(tx / N), Math.floor(ty / N));
+    const p = c.props.find(o => o.tx === tx && o.ty === ty);
     if (p) destroyProp(p, true); else broken.add(k);
   }
 

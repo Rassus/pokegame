@@ -92,7 +92,7 @@ G.TowerUI = (() => {
     if (room && n >= 2) {
       const startCfg = {
         k: 'start', seed: Math.floor(Math.random() * 1e6), host: room.host,
-        members: room.members.map(m => ({ uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny, st: m.st == null ? null : G.Upgrades.sheet(m.st) })),
+        members: G.Social.runMembers(),
         tower: cfg
       };
       G.Social.setOpen(false);

@@ -859,10 +859,27 @@ G.Pass = (() => {
     G.DB.commit();
   }
 
+  /** Dex de las misiones abiertas de ese tipo (jefe concreto o legendario de grieta). */
+  function wanted(kind) {
+    const s = G.DB && G.DB.save;
+    if (!s) return [];
+    ensure(s);
+    const P = s.pass;
+    if (!P) return [];
+    const out = [];
+    for (const m of allM(P)) {
+      if (m.kind !== kind || m.awarded || !m.param) continue;
+      if (valueOf(m, P) >= m.goal) continue;
+      const dex = +m.param;
+      if (dex) out.push(dex);
+    }
+    return out;
+  }
+
   return {
     ensure, onEvent, beginRun, goldSpend, ticketsEarn, ticketsSpent, gacha,
     towerPlayed, floor, chest, rock, altar, spring, goldEarn,
-    claimLevel, claimPost, claimPick, claimBank, ready, boards, completeOpen, toggleFold, daysLeft,
+    claimLevel, claimPost, claimPick, claimBank, ready, boards, completeOpen, toggleFold, daysLeft, wanted,
     value: valueOf, text: m => D().text(m), points: t => D().points(t)
   };
 })();

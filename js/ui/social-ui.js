@@ -186,6 +186,12 @@
       return { text: 'Faltan ' + G.U.num(a.need), cls: 'no' };
     }
 
+    /** Difícil y demencial piden que cada uno de la sala haya superado alguna torre. */
+    function groupCanHard(room) {
+      if (!room || !room.members.length) return false;
+      return room.members.every(m => m.uid === G.Social.uid ? G.Towers.hasClear() : Number(m.tw) > 0);
+    }
+
     function costText(pay) {
       if (!pay) return '';
       if (pay.tickets) return 'Entrada: ' + G.U.num(pay.share) + ' y ' + pay.tickets + ' tickets grises cada uno';
@@ -226,18 +232,27 @@
       if (play.kind === 'tower') {
         const modes = document.createElement('div');
         modes.className = 'gen-tabs';
+        const hardOk = groupCanHard(room);
         for (const m of G.Towers.MODES) {
           const b = document.createElement('button');
+          const locked = (m.id === 'hard' || m.id === 'mad') && !hardOk;
           b.type = 'button';
-          b.className = 'gen-tab' + (m.id === (play.mode || 'normal') ? ' on' : '');
+          b.className = 'gen-tab' + (m.id === (play.mode || 'normal') ? ' on' : '') + (locked ? ' locked' : '');
           b.dataset.mode = m.id;
           const lab = document.createElement('b');
           lab.textContent = m.name;
           const hint = document.createElement('small');
-          hint.textContent = m.hint;
+          hint.textContent = locked ? 'Falta una torre' : m.hint;
           b.appendChild(lab);
           b.appendChild(hint);
-          if (room.isHost) b.onclick = () => G.Social.setPlay({ kind: 'tower', id: play.id || '', mode: m.id });
+          if (room.isHost) b.onclick = () => {
+            if (locked) {
+              G.Audio.sfx('error');
+              G.UI.toast('Difícil y demencial se abren cuando todos hayan superado al menos una torre.');
+              return;
+            }
+            G.Social.setPlay({ kind: 'tower', id: play.id || '', mode: m.id });
+          };
           modes.appendChild(b);
         }
         box.appendChild(modes);
@@ -280,6 +295,7 @@
       if (!room || !room.isHost) return;
       const play = room.play && room.play.kind === 'tower' ? room.play : { kind: 'tower', id: '', mode: lastTower.mode || 'normal' };
       const mode = play.mode || 'normal';
+      const hardOk = mode === 'normal' || groupCanHard(room);
       const cur = play.id && G.Towers.LIST.find(t => t.id === play.id);
       if (cur) pickGen = cur.gen;
       const gens = [];
@@ -320,6 +336,7 @@
         const info = document.createElement('span');
         info.className = 'ds';
         if (!open) info.textContent = 'Vence a ' + name + ' en una grieta';
+        else if (!hardOk) info.textContent = 'Alguien del grupo aún no ha superado una torre';
         else if (!modeOk) info.textContent = mode === 'mad' ? 'Supera el modo difícil' : 'Supera el modo normal';
         else info.textContent = costText(G.Towers.due(t.id, mode));
         el.appendChild(info);
@@ -332,7 +349,7 @@
             el.appendChild(best);
           }
         }
-        if (modeOk) {
+        if (modeOk && hardOk) {
           const go = document.createElement('span');
           go.className = 'tower-go';
           const btn = document.createElement('button');
@@ -527,16 +544,18 @@
       const failed = ms.some(m => m.uid !== room.host && G.Net.mode(m.uid) === 'failed');
       const towerOn = play.kind === 'tower';
       const modeOk = !room.isHost || !towerOn || !play.id || G.Towers.modeOpen(play.id, play.mode);
+      const hardOk = !towerOn || (play.mode || 'normal') === 'normal' || groupCanHard(room);
       const blocked = pay ? ms.map(m => ({ m, a: affordOf(m, pay) })).filter(x => !x.a.ok) : [];
       const broke = blocked.filter(x => x.a.why !== 'wait');
       const waitingPurse = blocked.some(x => x.a.why === 'wait');
       btn.disabled = !room.isHost || !allReady || connecting || failed
-        || (towerOn && !pay) || (towerOn && !modeOk) || broke.length > 0 || waitingPurse;
+        || (towerOn && !pay) || (towerOn && !modeOk) || (towerOn && !hardOk) || broke.length > 0 || waitingPurse;
       btn.textContent = (towerOn ? 'Empezar torre (' : 'Empezar partida (') + nReady + '/' + ms.length + ')';
       $('lobby-note').textContent = ms.length < 2 && room.isHost ? 'Necesitas al menos un amigo en la sala.'
         : failed ? 'No se puede conectar con algún amigo: su red (o la tuya) no deja jugar en grupo. Probad con otra wifi o datos móviles; se reintenta solo.'
         : connecting ? 'Conectando con tus amigos…'
         : towerOn && !play.id ? 'Elige una torre para empezar.'
+        : towerOn && !hardOk ? 'Difícil y demencial se abren cuando todos hayan superado al menos una torre.'
         : towerOn && !modeOk ? (play.mode === 'mad' ? 'Supera el modo difícil' : 'Supera el modo normal')
         : broke.length ? 'No pueden entrar: ' + broke.map(x => x.m.name).join(', ') + '.'
         : waitingPurse ? 'Comprobando el oro de la sala…'
@@ -552,6 +571,7 @@
       let tower = null;
       if (play.kind === 'tower') {
         if (!play.id || !G.Towers.modeOpen(play.id, play.mode)) return;
+        if ((play.mode === 'hard' || play.mode === 'mad') && !groupCanHard(room)) return;
         const pay = G.Towers.due(play.id, play.mode);
         if (!pay || room.members.some(m => !affordOf(m, pay).ok)) return;
         tower = G.Towers.prepare(play.id, play.mode);
@@ -559,7 +579,7 @@
       }
       const cfg = {
         k: 'start', seed: Math.floor(Math.random() * 1e6), host: room.host,
-        members: room.members.map(m => ({ uid: m.uid, name: m.name, dex: m.dex, shiny: !!m.shiny, st: m.st == null ? null : G.Upgrades.sheet(m.st) }))
+        members: G.Social.runMembers()
       };
       if (tower) cfg.tower = tower;
       G.Social.setOpen(false);
