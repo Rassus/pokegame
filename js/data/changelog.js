@@ -6,6 +6,13 @@
  * Cada línea en español y en inglés.
  */
 G.CHANGELOG = [
+  { d: '2026-10-24', title: ['Peleas más fluidas', 'Smoother fights'], new: [
+    ['En el modo prueba, durante la run se puede cambiar el nivel, elegir ataques y combinaciones, abrir una grieta, llamar un jefe, volverse indestructible o poner el daño a ×1000. Esa run no entra en el ranking ni en tus récords.',
+     'In test mode, during a run you can change level, pick moves and combinations, open a rift, call a boss, turn invincible or set damage to ×1000. That run does not count for the leaderboard or your records.']
+  ], chg: [
+    ['El agua, la lava y el destello al golpear gastan menos. Con muchos efectos la pelea va más suave.',
+     'Water, lava and the flash when you land a hit cost less. With lots of effects the fight runs smoother.']
+  ] },
   { d: '2026-10-23', title: ['Probabilidades del gacha', 'Gacha odds'], chg: [
     ['Fortaleza baja a +2,2% de defensa por carga.',
      'Harden goes down to +2.2% defense per stack.'],
