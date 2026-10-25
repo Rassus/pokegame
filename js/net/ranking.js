@@ -39,7 +39,7 @@ G.Ranking = (() => {
   //  Pokémon y escribía; ahora también sólo el top 50.)
   const TOP_ONLY = new Set(['d', 'w', 'm', 'p']);
   // Cuentas de prueba: no entran en ninguna tabla. El apodo no se puede cambiar.
-  const ASIDE = new Set(['asus27','frodo1','frodo','AnuelUA']);
+  const ASIDE = new Set(['asus27','frodo1','frodo','anuelua']);
   const hiddenName = n => ASIDE.has(String(n || '').trim().toLowerCase());
   const aside = () => !!(G.Social && G.Social.me && hiddenName(G.Social.me.name));
   const partyHidden = members => aside() || (members || []).some(m => hiddenName(m && m.name));
