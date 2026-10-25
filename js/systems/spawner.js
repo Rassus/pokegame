@@ -15,12 +15,8 @@ G.Spawner = (() => {
   // se llega al tope, los que siguen saliendo son "élite" (más vida, daño y
   // experiencia), así la dificultad no baja.
   const CAP = 64, ELITE_FROM = 0.85;
-  // Menos Pokémon pero más fuertes (la pantalla no se satura): salen ~24% de
-  // los de antes, cada uno con más vida, daño y experiencia.
-  const DENSITY = 0.24, DMG_K = 2.4, XP_K = 5.6;
-  // La resistencia extra crece con la run: al principio ×3,3 y hasta ×5
-  // hacia el minuto 6, cuando ya tienes ataques para tumbarlos.
-  const hpK = t => 3.3 + Math.min(1.7, t / 210);
+  // Con menos Pokémon en pantalla, cada uno deja más experiencia.
+  const XP_K = 5.6;
   const SHINY_RATE = 1 / 4096;
   let acc = 0, bossIdx = 0, surgeT = 32, announce = null, announceT = 0, preloadT = 0;
   // A partir del minuto 20: un jefe, y el siguiente entre 3 y 12 minutos después.
@@ -39,26 +35,21 @@ G.Spawner = (() => {
     G.Sprites.preload(G.Enemies.upcomingDex(0, 80));
   }
 
-  /** Enemigos por segundo según el minuto de la run. Desde el 15, el tramo. */
+  /** Enemigos por segundo según el minuto de la run (tabla PROGRESS). */
   function rate(t) {
-    const wave = G.Enemies.waveAt(t);
-    if (wave) return wave.rate;
-    return (1.6 + t * 0.028 + Math.pow(t / 60, 1.6) * 0.5) * DENSITY;
+    return G.Enemies.progressAt(t).rate;
   }
 
   /**
-   * Escala de un salvaje. Hasta el minuto 15, la de siempre. Desde ahí, la
-   * vida y el daño del tramo (un Pokémon normal del último tramo da esos
-   * números; el resto queda en proporción).
+   * Escala de un salvaje. PROGRESS es un Pokémon normal del último tramo;
+   * el resto queda en proporción a su plantilla.
    */
   function wildScale(t) {
-    const wave = G.Enemies.waveAt(t);
-    if (!wave) return { sc: scaled(G.Enemies.scale(t), G.Coop.scaleHp(players.length) * hpK(t)), dmgK: DMG_K };
-    const ref = G.Enemies.TIERS[G.Enemies.TIERS.length - 1];
+    const p = G.Enemies.progressAt(t);
     return {
       sc: {
-        hp: (wave.hp / ref.hp) * G.Coop.scaleHp(players.length),
-        dmg: wave.dmg / ref.dmg,
+        hp: (p.hp / G.Enemies.REF_HP) * G.Coop.scaleHp(players.length),
+        dmg: p.dmg / G.Enemies.REF_DMG,
         spd: 1 + Math.min(0.35, t / 1400)
       },
       dmgK: 1

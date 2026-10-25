@@ -164,15 +164,16 @@ G.World = (() => {
       // Interactivos (raros), lejos del claro del principio.
       const hs = H(tx, ty, seed + 909);
       const chestK = (G.Upgrades && G.Upgrades.chestMul) ? G.Upgrades.chestMul() : 1;
-      if (open && Math.hypot(tx, ty) > 12 && hs < 0.0032) {
-        const bigHi = 0.0008 + 0.0003 * chestK;
-        type = hs < 0.0004 ? 'altar' : hs < 0.0008 ? 'spring' : hs < bigHi ? 'bigchest' : 'trap';
+      const band = G.Drops.mapBand(chestK);
+      if (open && Math.hypot(tx, ty) > 12 && hs < band.cap) {
+        type = hs < band.altar ? 'altar' : hs < band.spring ? 'spring' : hs < band.big ? 'bigchest' : 'trap';
         kind = Math.floor(H(tx, ty, seed + 910) * (type === 'altar' ? 4 : 3));
       }
+      const cr = G.Drops.chestRoll(chestK);
       if (type) { /* ya elegido */ }
       else if (open && h < (grove ? 0.07 : 0.006)) type = 'tree';
       else if (open && h > 0.992) type = 'rock';
-      else if (open && h > 0.985 && h <= 0.992 && H(tx, ty, seed + 606) < 0.07 * ((G.Upgrades && G.Upgrades.chestMul) ? G.Upgrades.chestMul() : 1)) type = 'chest';
+      else if (open && h > cr.lo && h <= cr.hi && H(tx, ty, seed + 606) < cr.roll) type = 'chest';
       else if (fbm(tx / 5, ty / 5, seed + 707) > 0.66 && H(tx, ty, seed + 808) < 0.75) type = 'grass';
       if (!type) continue;
 

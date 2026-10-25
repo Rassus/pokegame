@@ -84,17 +84,16 @@ G.Upgrades = (() => {
   }
 
   /**
-   * Cofres de más. En solitario: ×1,26 / ×1,53 / ×1,84.
-   * En grupo cada jugador suma el suyo (0,05 / 0,10 / 0,14), no el de los demás:
-   * ocho con el nivel 1 dan ×1,4; con el 2, ×1,8; con el 3, ×2,12.
+   * Cofres de más. Los números están en G.Drops.UPGRADES.chests.
+   * En solitario se usa `solo`. En grupo cada jugador suma el suyo (`party`),
+   * no el de los demás: ocho con el nivel 1 dan ×1,4; con el 2, ×1,8; con el 3, ×2,12.
    */
   function chestMul() {
-    const SOLO = [1, 1.26, 1.53, 1.84];
-    const ADD = [0, 0.05, 0.1, 0.14];
+    const u = G.Drops.UPGRADES.chests;
     const party = G.Coop && G.Coop.active && G.Coop.members;
-    if (!party || party.length < 2) return SOLO[lvl('chests')] || 1;
+    if (!party || party.length < 2) return u.solo[lvl('chests')] || 1;
     let add = 0;
-    for (const m of party) add += ADD[Math.max(0, Math.min(3, Math.floor(+m.cx) || 0))] || 0;
+    for (const m of party) add += u.party[Math.max(0, Math.min(u.party.length - 1, Math.floor(+m.cx) || 0))] || 0;
     return Math.round((1 + add) * 100) / 100;
   }
 
@@ -107,14 +106,14 @@ G.Upgrades = (() => {
   /** Cada cuántas oleadas abre la tienda (10, y baja hasta 5). */
   function shopEvery() { return Math.max(5, 10 - lvl('twave')); }
 
-  /** Probabilidad extra (en %) de Caramelo Raro: 0, 0,05, 0,1 o 0,25. */
-  function candyAdd() { return [0, 0.05, 0.1, 0.25][lvl('candy')] || 0; }
+  /** % extra de Caramelo Raro (G.Drops.UPGRADES.candy). */
+  function candyAdd() { return G.Drops.candyAdd(lvl('candy')); }
 
   /** Niveles del Pokémon + los de la cuenta -> modificadores para G.Player. */
   function perks(levels = {}, global) {
     const g = global || globalBag();
     const L = id => clamp(levels, id);
-    const G = id => clamp(g, id);
+    const acct = id => clamp(g, id);
     return {
       hp: L('hp') * 8,
       atkMul: 1 + L('atk') * 0.04,
@@ -128,10 +127,10 @@ G.Upgrades = (() => {
       crit: L('crit') * 0.015,
       rerolls: L('reroll'),
       bans: L('ban'),
-      coinMul: 1 + G('coins') * 0.035,
-      ticketAdd: [G('tluck') * 2, G('tluck') * 0.1, G('tluck') * 0.05, G('tluck') * 0.001],
-      chestCut: [0, 0.75, 1.05, 1.3, 1.6, 2][G('chest')] || 0,
-      angel: G('angel') > 0
+      coinMul: 1 + acct('coins') * 0.035,
+      ticketAdd: G.Drops.ticketAdd(acct('tluck')),
+      chestCut: [0, 0.75, 1.05, 1.3, 1.6, 2][acct('chest')] || 0,
+      angel: acct('angel') > 0
     };
   }
 

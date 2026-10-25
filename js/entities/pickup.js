@@ -27,15 +27,6 @@ G.Pickups = (() => {
     evostone: { color: '#c47bff', glow: '#6a3a9a', r: 9 },
     candy:    { color: '#c47bff', glow: '#ff8ad8', r: 8 }      // Caramelo Raro: no lo atrae el imán
   };
-  // Probabilidad (en %) y cantidad de cada ticket: gris, morado, azul, dorado.
-  const TICKET_KINDS = ['ticket', 'ticket10', 'ticketb', 'ticketg'];
-  const DROPS = {
-    small: { p: [10.12, 1.32, 0.05, 0.001], n: [[1, 3], [1, 1], [1, 1], [1, 1]] },
-    big:   { p: [14.12, 6.2, 3.6, 0.008], n: [[2, 6], [1, 2], [1, 1], [1, 1]] },
-    kill:  { p: [0.0118, 0.0012, 0.00036, 0.000000012], n: [[1, 1], [1, 1], [1, 1], [1, 1]] },
-    boss:  { p: [75, 50, 32, 1], n: [[3, 10], [1, 4], [1, 2], [1, 1]] },
-    rift:  { p: [85, 65, 46, 3], n: [[12, 26], [2, 7], [1, 5], [1, 2]] }
-  };
   function partySize() {
     if (!G.Coop || !G.Coop.active || !G.Coop.players) return 1;
     return Math.max(1, G.Coop.players().length);
@@ -63,16 +54,16 @@ G.Pickups = (() => {
   }
 
   function dropTickets(source, x, y) {
-    const d = DROPS[source];
+    const d = G.Drops.TICKETS[source];
     if (!d) return;
     // En grupo sólo el anfitrión crea el botín (si no, cada cliente lo tiraría).
     if (G.Coop.active && !G.Coop.isHost) return;
     // Fortuna de tickets suma en cofres y jefes, no en cada Pokémon derrotado.
     const add = source === 'kill' ? [0, 0, 0, 0] : ((G.Game && G.Game.player && G.Game.player.ticketAdd) || [0, 0, 0, 0]);
-    TICKET_KINDS.forEach((kind, i) => {
-      if (Math.random() * 100 >= Math.min(100, d.p[i] + (add[i] || 0))) return;
-      const [a, b] = d.n[i];
-      const n = G.U.randInt(a, b);
+    G.Drops.TICKET_KINDS.forEach((kind, i) => {
+      const row = d[kind];
+      if (Math.random() * 100 >= Math.min(100, row.p + (add[i] || 0))) return;
+      const n = G.U.randInt(row.min, row.max);
       if ((source === 'boss' || source === 'rift') && partySize() > 1) {
         // El dorado se sortea. El resto se reparte: si no, se lo queda quien esté encima.
         if (kind === 'ticketg') {
@@ -155,12 +146,11 @@ G.Pickups = (() => {
     if (Math.random() * 100 < G.Items.DROP.stone) drop('evostone', x, y, 1);
   }
 
-  /** 0,05% (más la mejora de run): Caramelo Raro. El imán no lo atrae. */
-  const CANDY_P = 0.05;
+  /** Caramelo Raro (G.Drops.CANDY, más la mejora de run). El imán no lo atrae. */
   function maybeRareCandy(x, y) {
     if (G.Coop && G.Coop.active && !G.Coop.isHost) return;
     const add = (G.Upgrades && G.Upgrades.candyAdd) ? G.Upgrades.candyAdd() : 0;
-    if (Math.random() * 100 >= CANDY_P + add) return;
+    if (Math.random() * 100 >= G.Drops.CANDY + add) return;
     drop('candy', x, y, 0, true);
     G.Audio.sfx('shiny');
     if (G.Spawner) G.Spawner.say('¡Ha aparecido un Caramelo Raro!', 3.6);

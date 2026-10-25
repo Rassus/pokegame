@@ -176,17 +176,19 @@ G.Rift = (() => {
     const t = G.Game.st.time;
     const n = G.Game.everyone().length;
     const ts = TS();
-    const lk = G.Enemies.late(t);          // tiempo extra (ver data/enemies.js)
-    // Cada grieta de la run, contando esta, suma 10% de vida y 5% de daño.
+    // RIFT_BOSSES es la primera grieta. Cada una de más, contando esta, sube el porcentaje.
     seen++;
-    const hpK = 1 + 0.10 * seen, dmgK = 1 + 0.05 * seen;
+    const row = G.Enemies.riftAt(t);
+    const stack = G.Enemies.RIFT_STACK;
+    const hpK = (1 + stack.hp * seen) / (1 + stack.hp);
+    const dmgK = (1 + stack.dmg * seen) / (1 + stack.dmg);
     const def = {
       dex: mon.dex, name: mon.name,
-      hp: Math.round((3200 + t * 22) * lk * Math.max(1, n) * hpK),
+      hp: Math.round(row.hp * hpK * Math.max(1, n)),
       spd: Math.round(G.U.clamp(48 + (mon.spd - 78) * 0.6, 48, 105)),
-      dmg: Math.round((36 + t / 8) * Math.pow(lk, 0.7) * dmgK), xp: Math.round(500 + t * 1.2),
+      dmg: Math.round(row.dmg * dmgK), xp: Math.round(500 + t * 1.2),
       behavior: mon.types.some(x => ['psychic', 'electric', 'ghost', 'fairy', 'fire', 'water', 'ice', 'dragon'].includes(x)) ? 'ranged' : 'charger',
-      shotDmg: Math.round((18 + t / 16) * Math.pow(lk, 0.7) * dmgK), shotCd: 0.9, range: 300
+      shotDmg: Math.round(row.shot * dmgK), shotCd: 0.9, range: 300
     };
     const e = new G.Enemy(def, arena.x, arena.y - ts * 3.5, { hp: 1, spd: 1, dmg: 1 }, true);
     const minute = Math.floor(t / 60);

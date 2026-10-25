@@ -40,13 +40,37 @@ G.Enemies = (() => {
     { from: 500, bst: [530, 620], hp: 250, spd: 72, dmg: 28, xp: 38, cast: 7 }
   ];
 
-  // Franjas de jefe: minuto en que salen, PV base y franja de BST.
-  const BOSS_SLOTS = [
-    { at: 180, hp: 1400,  dmg: 34, xp: 220,  bst: [490, 545] },
-    { at: 360, hp: 3200,  dmg: 42, xp: 420,  bst: [520, 580] },
-    { at: 540, hp: 5600,  dmg: 48, xp: 680,  bst: [540, 600] },
-    { at: 720, hp: 9000,  dmg: 56, xp: 1000, bst: [580, 700] },
-    { at: 900, hp: 16000, dmg: 68, xp: 1800, bst: [600, 700] }
+  /**
+   * Jefes de la run, en solitario. Vida, daño y disparo ya son los finales.
+   * En grupo la vida se multiplica por los jugadores. `bst` elige el Pokémon.
+   */
+  const RUN_BOSSES = [
+    { min: 3,  hp: 3436,   dmg: 75,  shot: 35,  xp: 220,  bst: [490, 545] },
+    { min: 6,  hp: 11389,  dmg: 132, shot: 61,  xp: 420,  bst: [520, 580] },
+    { min: 9,  hp: 26116,  dmg: 200, shot: 90,  xp: 680,  bst: [540, 600] },
+    { min: 12, hp: 51914,  dmg: 286, shot: 133, xp: 1000, bst: [580, 700] },
+    { min: 15, hp: 109964, dmg: 418, shot: 188, xp: 1800, bst: [600, 700] }
+  ];
+
+  /**
+   * Desde el minuto 20, un jefe cada 3 a 12 minutos, en este orden.
+   * El que pase del último toma el anterior y le suma LATE_GROW.
+   */
+  const LATE_GROW = { hp: 10, dmg: 1.10 };
+  const LATE_BOSSES = [
+    { hp:   150000, dmg: 550,  shot: 303 },
+    { hp:   472500, dmg: 605,  shot: 333 },
+    { hp:   698375, dmg: 666,  shot: 366 },
+    { hp:   828131, dmg: 732,  shot: 403 },
+    { hp:  1262351, dmg: 805,  shot: 443 },
+    { hp:  2001704, dmg: 886,  shot: 487 },
+    { hp:  3246959, dmg: 974,  shot: 536 },
+    { hp:  4399003, dmg: 1072, shot: 590 },
+    { hp:  6458853, dmg: 1179, shot: 648 },
+    { hp:  8527681, dmg: 1297, shot: 713 },
+    { hp: 10606834, dmg: 1427, shot: 785 },
+    { hp: 16097859, dmg: 1569, shot: 863 },
+    { hp: 18002538, dmg: 1726, shot: 949 }
   ];
 
   // Stats base aproximados a partir de los de juego (inverso de fetch_pokedex).
@@ -188,8 +212,9 @@ G.Enemies = (() => {
     }
     const used = new Set();
     const cap = regionCap();
-    bosses = BOSS_SLOTS.map(slot => {
-      const phase = phaseOf(slot.at);
+    bosses = RUN_BOSSES.map(slot => {
+      const at = slot.min * 60;
+      const phase = phaseOf(at);
       const ok = p => !p.leg && (p.gen || 1) <= cap && G.SPRITE_META[p.dex] && !used.has(p.dex);
       let pool = G.DEX.filter(p => ok(p) && fitsPhase(p.dex, phase) && p.bst >= slot.bst[0] && p.bst <= slot.bst[1]);
       if (pool.length < 3) pool = G.DEX.filter(p => ok(p) && fitsPhase(p.dex, phase));
@@ -198,59 +223,65 @@ G.Enemies = (() => {
       const p = pickWeighted(pool, mon => need.has(mon.dex) ? MISSION_W : 1);
       used.add(p.dex);
       return {
-        at: slot.at, dex: p.dex, name: p.name,
-        // (Desde 2026-10-10 más duros: ×1,35 de vida y ×1,2 de daño.)
-        hp: Math.round(slot.hp * 1.35), spd: Math.round(G.U.clamp(40 + baseSpd(p) * 0.5, 40, 100)),
-        dmg: Math.round(slot.dmg * 1.2), xp: slot.xp,
+        at, raw: true, dex: p.dex, name: p.name,
+        hp: slot.hp, spd: Math.round(G.U.clamp(40 + baseSpd(p) * 0.5, 40, 100)),
+        dmg: slot.dmg, xp: slot.xp,
         behavior: behaviorOf(p) === 'ranged' ? 'ranged' : (baseSpd(p) > 90 ? 'charger' : 'chase'),
-        shotDmg: Math.round(slot.dmg * 0.55), shotCd: 1.1, range: 260
+        shotDmg: slot.shot, shotCd: 1.1, range: 260
       };
     });
     return { cast, bosses };
   }
 
-  function scale(t) {
-    const k = late(t);
-    return { hp: (1 + t / 95) * k, dmg: (1 + t / 420) * Math.pow(k, 0.7), spd: 1 + Math.min(0.35, t / 1400) };
-  }
+  // Plantilla del último tramo: la tabla de abajo está escrita para un
+  // Pokémon normal de este tramo. Los demás quedan en esa proporción.
+  const REF_HP = TIERS[TIERS.length - 1].hp, REF_DMG = TIERS[TIERS.length - 1].dmg;
+  // Pasado el último minuto de la tabla, vida, daño y ritmo suman esto cada 5 min.
+  const AFTER_EVERY = 5, AFTER_GROW = 1.01;
 
   /**
-   * Desde el minuto 15 las oleadas dejan la curva de antes y caminan de tramo
-   * en tramo. Cada fila es un Pokémon normal del último tramo (250 de vida y
-   * 28 de daño de plantilla). Entre dos filas, vida, daño y ritmo suben en
-   * línea recta. A partir del 150, los tres suman un 1% cada 5 minutos.
-   *   minuto   vida        daño     salen/s
-   *   15       13.100      210      16
-   *   30       24.900      355      40
-   *   45       48.600      640      109
-   *   60       122.500     1.250    197
-   *   90       325.000     2.950    320
-   *   105      425.888     4.236    425
-   *   120      1.000.000   15.000   600
-   *   150      2.500.000   30.000   850
+   * Progresión de la run. Cada fila: [minuto, vida, daño, salen/s] de un
+   * Pokémon normal del último tramo. Entre dos filas sube en línea recta.
+   * Un Pokémon de otro tramo usa su plantilla: vida × (su vida / REF_HP).
    */
-  const WAVE_FROM = 15 * 60;
-  const WAVE_MARKS = [
-    [15, 13100, 210, 16],
-    [30, 24900, 355, 40],
-    [45, 48600, 640, 109],
-    [60, 122500, 1250, 197],
-    [90, 325000, 2950, 320],
-    [105, 425888, 4236, 425],
-    [120, 1000000, 15000, 600],
-    [150, 2500000, 30000, 850]
+  const PROGRESS = [
+    [  0,     825,    67,   0.38],
+    [  1,    1463,    77,   0.91],
+    [  2,    2190,    86,   1.55],
+    [  3,    3008,    96,   2.29],
+    [  4,    3917,   106,   3.10],
+    [  5,    4915,   115,   3.98],
+    [  6,    5987,   125,   4.91],
+    [  7,    6776,   134,   5.91],
+    [  8,    7566,   144,   6.95],
+    [  9,    8355,   154,   8.05],
+    [ 10,    9145,   163,   9.19],
+    [ 11,    9934,   173,  10.38],
+    [ 12,   10724,   182,  11.62],
+    [ 13,   11513,   192,  12.89],
+    [ 14,   12303,   202,  14.21],
+    [ 15,   23100,   210,     16],
+    [ 16,   43100,   300,     36],
+    [ 20,   94900,   355,     40],
+    [ 25,  175600,   640,    109],
+    [ 30,  222500,  1250,    197],
+    [ 40,  425000,  1950,    320],
+    [ 60,  725888,  2236,    425],
+    [ 70, 1000000,  2500,    600],
+    [ 85, 2500000,  3000,    850]
   ];
-  function waveAt(t) {
-    if (t < WAVE_FROM) return null;
-    const min = t / 60;
-    const last = WAVE_MARKS[WAVE_MARKS.length - 1];
+
+  /** Vida, daño y ritmo del Pokémon de referencia en el segundo `t`. */
+  function progressAt(t) {
+    const min = Math.max(0, t / 60);
+    const last = PROGRESS[PROGRESS.length - 1];
     if (min >= last[0]) {
-      const k = Math.pow(1.01, Math.floor((min - last[0]) / 5));
+      const k = Math.pow(AFTER_GROW, Math.floor((min - last[0]) / AFTER_EVERY));
       return { hp: last[1] * k, dmg: last[2] * k, rate: last[3] * k };
     }
     let i = 0;
-    while (i < WAVE_MARKS.length - 2 && min >= WAVE_MARKS[i + 1][0]) i++;
-    const a = WAVE_MARKS[i], b = WAVE_MARKS[i + 1];
+    while (i < PROGRESS.length - 2 && min >= PROGRESS[i + 1][0]) i++;
+    const a = PROGRESS[i], b = PROGRESS[i + 1];
     const u = (min - a[0]) / (b[0] - a[0]);
     return {
       hp: a[1] + (b[1] - a[1]) * u,
@@ -260,8 +291,8 @@ G.Enemies = (() => {
   }
 
   /**
-   * Tiempo extra de los legendarios de grieta (las oleadas, desde el minuto 15,
-   * van por waveAt). Hasta el minuto 60 es ×1; desde ahí la vida crece cada
+   * Tiempo extra, pasado el último minuto de RIFT_BOSSES (los salvajes van por
+   * PROGRESS y los jefes de la run por su tabla). Hasta el minuto 60 es ×1; desde ahí la vida crece cada
    * vez más deprisa.
    *   minuto   60    75    90    105   120   150
    *   vida    ×1   ×1,09 ×1,4  ×2,1  ×3,8  ×21
@@ -269,11 +300,7 @@ G.Enemies = (() => {
   const LATE_FROM = 60, LATE_K = 0.000374;
   function late(t) { const m = Math.max(0, t / 60 - LATE_FROM); return Math.exp(Math.min(30, LATE_K * m * m)); }
 
-  /**
-   * Jefe de después del minuto 15. El primero (n = 0) tiene 150.000 de vida y
-   * 550 de daño; cada uno que sigue toma eso como tope y le suma 15% de vida
-   * y 10% de daño. La vida y el daño ya son los finales: no pasan por bossScale.
-   */
+  /** Jefe de después del minuto 20. La fila n de LATE_BOSSES; luego LATE_GROW. */
   function lateBoss(n) {
     const cap = regionCap();
     const ok = p => !p.leg && (p.gen || 1) <= cap && G.SPRITE_META[p.dex] && fitsPhase(p.dex, 3);
@@ -282,22 +309,75 @@ G.Enemies = (() => {
     if (!pool.length) pool = G.DEX.filter(p => !p.leg && G.SPRITE_META[p.dex]);
     const need = missionWanted('bossOne');
     const p = pickWeighted(pool, mon => need.has(mon.dex) ? MISSION_W : 1);
-    const hp = Math.round(150000 * Math.pow(1.15, n));
-    const dmg = Math.round(550 * Math.pow(1.10, n));
+    const row = n < LATE_BOSSES.length ? LATE_BOSSES[n] : null;
+    const extra = row ? 0 : n - (LATE_BOSSES.length - 1);
+    const last = row || LATE_BOSSES[LATE_BOSSES.length - 1];
+    const hp = row ? row.hp : Math.round(last.hp * Math.pow(LATE_GROW.hp, extra));
+    const dmg = row ? row.dmg : Math.round(last.dmg * Math.pow(LATE_GROW.dmg, extra));
+    const shot = row ? row.shot : Math.round(last.shot * Math.pow(LATE_GROW.dmg, extra));
     return {
       raw: true, dex: p.dex, name: p.name,
       hp, spd: Math.round(G.U.clamp(40 + baseSpd(p) * 0.5, 40, 100)),
       dmg, xp: 1800,
       behavior: behaviorOf(p) === 'ranged' ? 'ranged' : (baseSpd(p) > 90 ? 'charger' : 'chase'),
-      shotDmg: Math.round(dmg * 0.55), shotCd: 1.1, range: 260
+      shotDmg: shot, shotCd: 1.1, range: 260
     };
   }
 
   /**
-   * Los jefes ya traen su vida base creciente (1.400 ... 16.000). Encima, el
-   * multiplicador sube con el reloj: al minuto 3 es ×1,8, al 9 ×3,5 y al 15 ×5,1.
-   * (Antes era 1 + segundos/600, más plano.)
+   * Primera grieta de la run, un jugador: [minuto, vida, daño, disparo].
+   * Entre filas sube en línea recta. Cada grieta de más, contando esta, pasa
+   * de ×1,10 de vida y ×1,05 de daño a ×1,20 / ×1,10, ×1,30 / ×1,15, y así.
+   * Pasado el último minuto sigue la misma curva.
    */
+  const RIFT_STACK = { hp: 2.10, dmg: 0.15 };
+  const RIFT_BOSSES = [
+    [  0,     3520,     38,    19],
+    [  5,    25300,    156,    78],
+    [ 10,    47080,    274,   137],
+    [ 11,    68860,    392,   196],
+    [ 12,    90640,    510,   255],
+    [ 13,    98820,    553,   277],
+    [ 14,   109167,    605,   302],
+    [ 15,   122290,    667,   333],
+    [ 20,   238993,    742,   371],
+    [ 25,   460367,    833,   416],
+    [ 30,  1087904,    945,   472],
+    [ 35,  3223669,   1083,   542],
+    [ 40,  4270552,   1255,   627],
+    [ 45,  6332646,   1469,   735],
+    [ 50,  8415807,   1740,   870]
+  ];
+  // Base de la grieta (ya con la primera) para seguir pasado el último minuto.
+  const RIFT_PAST = { hp0: 3520, hpSec: 24.2, dmg0: 37.8, dmgSec: 0.13125, shot0: 18.9, shotSec: 0.065625 };
+  function riftClosed(t) {
+    const lk = late(t), soft = Math.pow(lk, 0.7);
+    return {
+      hp: (RIFT_PAST.hp0 + t * RIFT_PAST.hpSec) * lk,
+      dmg: (RIFT_PAST.dmg0 + t * RIFT_PAST.dmgSec) * soft,
+      shot: (RIFT_PAST.shot0 + t * RIFT_PAST.shotSec) * soft
+    };
+  }
+  /** Vida, daño y disparo del legendario en el segundo `t` (primera grieta, un jugador). */
+  function riftAt(t) {
+    const min = Math.max(0, t / 60);
+    const last = RIFT_BOSSES[RIFT_BOSSES.length - 1];
+    if (min >= last[0]) {
+      const now = riftClosed(t), base = riftClosed(last[0] * 60);
+      return { hp: last[1] * now.hp / base.hp, dmg: last[2] * now.dmg / base.dmg, shot: last[3] * now.shot / base.shot };
+    }
+    let i = 0;
+    while (i < RIFT_BOSSES.length - 2 && min >= RIFT_BOSSES[i + 1][0]) i++;
+    const a = RIFT_BOSSES[i], b = RIFT_BOSSES[i + 1];
+    const u = (min - a[0]) / (b[0] - a[0]);
+    return {
+      hp: a[1] + (b[1] - a[1]) * u,
+      dmg: a[2] + (b[2] - a[2]) * u,
+      shot: a[3] + (b[3] - a[3]) * u
+    };
+  }
+
+  /** Escala de un jefe escrito en run-events.js. Los de RUN_BOSSES no pasan por aquí. */
   function bossScale(t) {
     const k = late(t);
     const m = 1 + t / 220;
@@ -357,7 +437,7 @@ G.Enemies = (() => {
   }
 
   return {
-    TIERS, BOSS_SLOTS, LATE_FROM, rollRun, scale, bossScale, late, waveAt, lateBoss, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, scripted,
+    TIERS, RUN_BOSSES, LATE_BOSSES, LATE_GROW, RIFT_BOSSES, RIFT_STACK, LATE_FROM, PROGRESS, REF_HP, REF_DMG, rollRun, bossScale, late, progressAt, riftAt, lateBoss, bagAt, upcomingDex, candidates, hordeTypes, hordeDefs, scripted,
     get BOSSES() { if (!bosses) rollRun(); return bosses; },
     get cast() { if (!cast) rollRun(); return cast; }
   };
